@@ -5,7 +5,10 @@ description = "Leetcode notes management app"
 requires-python = ">=3.14"
 dependencies = [
     "django>=6.1.2",
+    "django-environ>=0.14.0",
     "pillow>=12.3.0",
+    "requests>=2.34.2",
+    "structlog>=26.1.0",
 ]
 
 
