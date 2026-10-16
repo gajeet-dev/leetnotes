@@ -50,6 +50,7 @@ def discover(client: LeetCodeClient) -> DiscoveryResult:
         Problem.objects.bulk_create(
             [
                 Problem(
+                    leetcode_id=item.leetcode_id,
                     slug=item.slug,
                     title=item.title,
                     url=f"{base_url}/problems/{item.slug}/",

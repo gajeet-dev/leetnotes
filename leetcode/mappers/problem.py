@@ -21,6 +21,7 @@ def map_solved_problem(raw: dict[str, Any]) -> SolvedProblemDTO:
     stat = raw.get("stat") or {}
     return build(
         SolvedProblemDTO,
+        leetcode_id=stat.get("frontend_question_id"),
         slug=stat.get("question__title_slug"),
         title=stat.get("question__title"),
     )

@@ -38,5 +38,6 @@ class SubmissionDetailDTO(BaseModel):
 
 
 class SolvedProblemDTO(BaseModel):
+    leetcode_id: int
     slug: str
     title: str
