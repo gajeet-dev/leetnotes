@@ -25,6 +25,12 @@ LOGGING_CONFIG = None  # stop Django applying its default logging config
 LOGGING = configure_logging(debug=DEBUG, level=env("LOG_LEVEL"))
 logging.config.dictConfig(LOGGING)
 
+LEETCODE_SESSION = env("LEETCODE_SESSION")  # no default: required
+LEETCODE_CSRF_TOKEN = env("LEETCODE_CSRF_TOKEN")  # no default: required
+LEETCODE_USERNAME = env("LEETCODE_USERNAME")  # no default: required
+LEETCODE_BASE_URL = env("LEETCODE_BASE_URL", default="https://leetcode.com")
+LEETCODE_REQUESTS_PER_SECOND = env.float("LEETCODE_REQUESTS_PER_SECOND", default=1.0)
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -35,6 +41,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "problems",
+    "leetcode",
 ]
 
 MIDDLEWARE = [
