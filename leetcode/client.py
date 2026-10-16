@@ -1,8 +1,13 @@
 from collections.abc import Iterator
-from typing import Any
 
-from .dto import ProblemDTO, RecentAcDTO, SubmissionDetailDTO, SubmissionSummaryDTO
-from .mappers.problem import map_problem
+from .dto import (
+    ProblemDTO,
+    RecentAcDTO,
+    SolvedProblemDTO,
+    SubmissionDetailDTO,
+    SubmissionSummaryDTO,
+)
+from .mappers.problem import map_problem, map_solved_problem
 from .mappers.submission import (
     map_recent_ac,
     map_submission_detail,
@@ -26,9 +31,9 @@ class LeetCodeClient:
     def get_problem(self, slug: str) -> ProblemDTO:
         return map_problem(self._problems.get(slug))
 
-    def list_solved_problems(self) -> list[dict[str, Any]]:
-        """Return the raw stat/status pairs for all accepted problems."""
-        return self._problems.list_solved()
+    def list_solved_problems(self) -> list[SolvedProblemDTO]:
+        """Return all problems currently marked as accepted."""
+        return [map_solved_problem(pair) for pair in self._problems.list_solved()]
 
     def get_submissions(
         self, slug: str, *, limit: int = 20, offset: int = 0

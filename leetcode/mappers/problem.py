@@ -1,6 +1,6 @@
 from typing import Any
 
-from ..dto import ProblemDTO
+from ..dto import ProblemDTO, SolvedProblemDTO
 from .base import build
 
 
@@ -14,4 +14,13 @@ def map_problem(raw: dict[str, Any]) -> ProblemDTO:
         category=raw.get("categoryTitle"),
         tags=raw.get("topicTags") or [],
         raw_question_html=raw.get("content") or None,
+    )
+
+
+def map_solved_problem(raw: dict[str, Any]) -> SolvedProblemDTO:
+    stat = raw.get("stat") or {}
+    return build(
+        SolvedProblemDTO,
+        slug=stat.get("question__title_slug"),
+        title=stat.get("question__title"),
     )

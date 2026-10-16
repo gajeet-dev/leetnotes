@@ -35,3 +35,8 @@ class SubmissionDetailDTO(BaseModel):
     lang: str
     code: str
     submission_date: datetime
+
+
+class SolvedProblemDTO(BaseModel):
+    slug: str
+    title: str
