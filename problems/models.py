@@ -8,8 +8,12 @@ class Problem(models.Model):
         HARD = "Hard"
 
     class Category(models.TextChoices):
-        ALGORITHM = "Algorithm"
+        ALGORITHMS = "Algorithms"
         DATABASE = "Database"
+        SHELL = "Shell"
+        CONCURRENCY = "Concurrency"
+        JAVASCRIPT = "JavaScript"
+        PANDAS = "pandas"
 
     slug = models.SlugField(max_length=200, unique=True)
     leetcode_id = models.PositiveIntegerField(null=True, blank=True, db_index=True)
@@ -19,7 +23,7 @@ class Problem(models.Model):
         max_length=10, choices=Difficulty.choices, null=True, blank=True
     )
     category = models.CharField(
-        max_length=100, choices=Category.choices, null=True, blank=True
+        max_length=20, choices=Category.choices, null=True, blank=True, db_index=True
     )
     tags = models.JSONField(null=True, blank=True)  # list[dict]
     raw_question_html = models.TextField(null=True, blank=True)
