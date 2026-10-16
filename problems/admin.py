@@ -1,7 +1,31 @@
 from django.contrib import admin
+from django.db.models import Count, Q
 from django.utils.html import format_html
 
 from .models import Problem, ProblemImage, Submission, SyncTask
+
+
+class SyncStatusFilter(admin.SimpleListFilter):
+    title = "sync status"
+    parameter_name = "sync"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("done", "Fully synced"),
+            ("pending", "Has pending parts"),
+            ("failed", "Has failed parts"),
+        ]
+
+    def queryset(self, request, queryset):
+        # Relies on the annotations added in ProblemAdmin.get_queryset
+        match self.value():
+            case "done":
+                return queryset.filter(pending_count=0, failed_count=0)
+            case "pending":
+                return queryset.filter(pending_count__gt=0)
+            case "failed":
+                return queryset.filter(failed_count__gt=0)
+        return queryset
 
 
 class ProblemImageInline(admin.TabularInline):
@@ -34,10 +58,32 @@ class ProblemAdmin(admin.ModelAdmin):
         "has_images",
         "updated_at",
     )
-    list_filter = ("difficulty", "category", "has_images")
+    list_filter = (SyncStatusFilter, "difficulty", "category", "has_images")
     search_fields = ("title", "slug", "leetcode_id")
     readonly_fields = ("created_at", "updated_at")
     inlines = [ProblemImageInline, SubmissionInline]
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(
+                pending_count=Count(
+                    "sync_tasks", filter=Q(sync_tasks__status=SyncTask.Status.PENDING)
+                ),
+                failed_count=Count(
+                    "sync_tasks", filter=Q(sync_tasks__status=SyncTask.Status.FAILED)
+                ),
+            )
+        )
+
+    @admin.display(description="Sync", ordering="pending_count")
+    def sync_status(self, obj):
+        if obj.failed_count:
+            return f"failed ({obj.failed_count})"
+        if obj.pending_count:
+            return f"pending ({obj.pending_count}/3)"
+        return "done"
 
 
 @admin.register(Submission)
