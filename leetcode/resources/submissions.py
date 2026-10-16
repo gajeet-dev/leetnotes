@@ -4,8 +4,8 @@ from typing import Any
 import structlog
 
 from ..exceptions import NotFoundError
-from ..graphql import GraphQLClient
-from ..queries import (
+from ..transport.graphql import GraphQLClient
+from ..transport.queries import (
     RECENT_AC_SUBMISSIONS_QUERY,
     SUBMISSION_DETAILS_QUERY,
     SUBMISSION_LIST_QUERY,

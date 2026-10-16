@@ -92,3 +92,16 @@ def create_session(config: SessionConfig) -> requests.Session:
         timeout=config.timeout,
     )
     return session
+
+
+def create_image_session(base_url: str) -> requests.Session:
+    session = requests.Session()
+    session.headers.update(
+        {
+            "User-Agent": USER_AGENT,
+            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": base_url,
+        }
+    )
+    return session

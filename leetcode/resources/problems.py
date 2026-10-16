@@ -3,9 +3,9 @@ from typing import Any
 import structlog
 
 from ..exceptions import NotFoundError
-from ..graphql import GraphQLClient
-from ..http import HttpClient
-from ..queries import QUESTION_DETAILS_QUERY
+from ..transport.graphql import GraphQLClient
+from ..transport.http import HttpClient
+from ..transport.queries import QUESTION_DETAILS_QUERY
 
 logger = structlog.get_logger(__name__)
 
