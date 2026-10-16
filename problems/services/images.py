@@ -32,7 +32,12 @@ def process_problem_images(problem: Problem, downloader: ImageDownloader) -> Pro
     local_html, total = rewrite_images(problem.raw_question_html or "", resolve)
 
     problem.has_images = total > 0
-    problem.content_local_html = local_html if total else None
+    if total:
+        problem.content_local_html = local_html
+    else:
+        # Nothing to localize: local is the same as remote. Copy the original
+        # string rather than the re-serialized one, so it's byte-identical.
+        problem.content_local_html = problem.raw_question_html
     problem.save(update_fields=["has_images", "content_local_html", "updated_at"])
 
     log.info("image_processing_completed", total=total)
