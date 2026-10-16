@@ -35,7 +35,6 @@ class Problem(models.Model):
     # True = question has images (imgs_local_paths may still be empty
     #        if every download failed).
     has_images = models.BooleanField(null=True, blank=True)
-    imgs_local_paths = models.JSONField(null=True, blank=True)  # list[str]
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -53,7 +52,7 @@ class Problem(models.Model):
         does and at least one was downloaded. False when images exist but
         every download failed, or the images part hasn't run yet.
         """
-        return self.has_images is False or bool(self.imgs_local_paths)
+        return self.has_images is False or self.images.exclude(file="").exists()  # pyright: ignore[reportAttributeAccessIssue]
 
 
 class Submission(models.Model):
