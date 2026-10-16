@@ -94,3 +94,38 @@ class ProblemImage(models.Model):
                 fields=["problem", "source_url"], name="unique_image_per_problem"
             )
         ]
+
+
+class SyncTask(models.Model):
+    """One unit of fetch work: a single part of a single problem."""
+
+    class Part(models.TextChoices):
+        CONTENT = "content"
+        SUBMISSIONS = "submissions"
+        IMAGES = "images"
+
+    class Status(models.TextChoices):
+        PENDING = "pending"
+        DONE = "done"
+        FAILED = "failed"
+
+    problem = models.ForeignKey(
+        Problem, on_delete=models.CASCADE, related_name="sync_tasks"
+    )
+    part = models.CharField(max_length=20, choices=Part.choices)
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True
+    )
+    attempts = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["problem", "part"], name="unique_task_per_part"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.problem.slug}:{self.part} ({self.status})"
