@@ -51,6 +51,7 @@ def configure_logging(*, debug: bool, level: str = "INFO") -> dict:
         },
         "root": {"handlers": ["console"], "level": level},
         "loggers": {
+            "environ": {"level": "WARNING"},
             "django.db.backends": {"level": "WARNING"},  # silence SQL spam
             "httpx": {"level": "WARNING"},
         },
