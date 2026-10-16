@@ -1,6 +1,6 @@
 from typing import Any
 
-from ..dto import ProblemDTO, SolvedProblemDTO
+from ..dto import ProblemDTO, DiscoveredProblemDTO
 from .base import build
 
 
@@ -17,11 +17,12 @@ def map_problem(raw: dict[str, Any]) -> ProblemDTO:
     )
 
 
-def map_solved_problem(raw: dict[str, Any]) -> SolvedProblemDTO:
+def map_solved_problem(raw: dict[str, Any]) -> DiscoveredProblemDTO:
     stat = raw.get("stat") or {}
     return build(
-        SolvedProblemDTO,
+        DiscoveredProblemDTO,
         leetcode_id=stat.get("frontend_question_id"),
+        solved=stat.get("status") == "ac",
         slug=stat.get("question__title_slug"),
         title=stat.get("question__title"),
     )

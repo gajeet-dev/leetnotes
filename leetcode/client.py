@@ -1,9 +1,9 @@
 from collections.abc import Iterator
 
 from .dto import (
+    DiscoveredProblemDTO,
     ProblemDTO,
     RecentAcDTO,
-    SolvedProblemDTO,
     SubmissionDetailDTO,
     SubmissionSummaryDTO,
 )
@@ -31,9 +31,9 @@ class LeetCodeClient:
     def get_problem(self, slug: str) -> ProblemDTO:
         return map_problem(self._problems.get(slug))
 
-    def list_solved_problems(self) -> list[SolvedProblemDTO]:
+    def list_all_problems(self) -> list[DiscoveredProblemDTO]:
         """Return all problems currently marked as accepted."""
-        return [map_solved_problem(pair) for pair in self._problems.list_solved()]
+        return [map_solved_problem(pair) for pair in self._problems.list_all()]
 
     def get_submissions(
         self, slug: str, *, limit: int = 20, offset: int = 0

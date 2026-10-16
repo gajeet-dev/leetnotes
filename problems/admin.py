@@ -54,11 +54,12 @@ class ProblemAdmin(admin.ModelAdmin):
         "leetcode_id",
         "title",
         "difficulty",
+        "solved",
         "category",
         "has_images",
         "updated_at",
     )
-    list_filter = (SyncStatusFilter, "difficulty", "category", "has_images")
+    list_filter = (SyncStatusFilter, "difficulty", "solved", "category", "has_images")
     search_fields = ("title", "slug", "leetcode_id")
     readonly_fields = ("created_at", "updated_at")
     inlines = [ProblemImageInline, SubmissionInline]

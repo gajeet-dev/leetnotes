@@ -35,7 +35,7 @@ def discover(client: LeetCodeClient) -> DiscoveryResult:
     Idempotent: existing problems and tasks (including their status) are
     left untouched, so this never resets progress.
     """
-    solved = client.list_solved_problems()
+    solved = client.list_all_problems()
     if not solved:
         logger.warning("discovery_found_no_solved_problems")
         return DiscoveryResult(0, 0, 0)
@@ -130,6 +130,7 @@ def _sync_content(task: SyncTask, deps: Deps) -> None:
         problem.difficulty = dto.difficulty
         problem.category = dto.category
         problem.tags = [tag.model_dump() for tag in dto.tags]
+        problem.solved = dto.solved
         problem.raw_question_html = dto.raw_question_html
         # Fresh HTML invalidates any earlier image rewrite.
         problem.content_local_html = None

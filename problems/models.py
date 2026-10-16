@@ -17,7 +17,7 @@ class Problem(models.Model):
 
     slug = models.SlugField(max_length=200, unique=True)
     leetcode_id = models.PositiveIntegerField(null=True, blank=True, db_index=True)
-    title = models.CharField(max_length=300, null=True, blank=True)
+    title = models.CharField(max_length=300, null=True, blank=True, db_index=True)
     url = models.URLField(max_length=500, null=True, blank=True)
     difficulty = models.CharField(
         max_length=10, choices=Difficulty.choices, null=True, blank=True
@@ -26,6 +26,7 @@ class Problem(models.Model):
         max_length=20, choices=Category.choices, null=True, blank=True, db_index=True
     )
     tags = models.JSONField(null=True, blank=True)  # list[dict]
+    solved = models.BooleanField(default=False, db_index=True)
     raw_question_html = models.TextField(null=True, blank=True)
 
     # Question content (was the nested QuestionContent model)
