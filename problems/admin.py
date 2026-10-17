@@ -1,8 +1,9 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.db.models import Count, Q
 from django.utils.html import format_html
 
 from .models import Problem, ProblemImage, Submission, SyncTask
+from .services.runner import start_background_sync
 
 
 class AlwaysFacetedAdmin(admin.ModelAdmin):
@@ -79,6 +80,7 @@ class ProblemAdmin(AlwaysFacetedAdmin):
     search_fields = ("title", "slug", "leetcode_id")
     readonly_fields = ("created_at", "updated_at")
     inlines = [ProblemImageInline, SubmissionInline]
+    actions = ["sync_selected", "sync_selected_retry_failed"]
 
     @admin.display(description="Problem", ordering="leetcode_id")
     def problem(self, obj):
@@ -111,6 +113,30 @@ class ProblemAdmin(AlwaysFacetedAdmin):
         if obj.pending_count:
             return f"pending ({obj.pending_count}/{obj.total_count})"
         return "done"
+
+    def _start_sync(self, request, queryset, *, retry_failed: bool):
+        ids = list(queryset.values_list("pk", flat=True))
+        if start_background_sync(ids, retry_failed=retry_failed):
+            self.message_user(
+                request,
+                f"Started syncing {len(ids)} problem(s) in the background. "
+                "Refresh this page to see progress.",
+                messages.SUCCESS,
+            )
+        else:
+            self.message_user(
+                request,
+                "A sync is already running. Wait for it to finish.",
+                messages.WARNING,
+            )
+
+    @admin.action(description="Sync selected problems (pending parts)")
+    def sync_selected(self, request, queryset):
+        self._start_sync(request, queryset, retry_failed=False)
+
+    @admin.action(description="Sync selected problems (include failed parts)")
+    def sync_selected_retry_failed(self, request, queryset):
+        self._start_sync(request, queryset, retry_failed=True)
 
 
 @admin.register(Submission)

@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 import structlog
@@ -241,6 +241,7 @@ def process_pending(
     downloader: ImageDownloader,
     *,
     slug: str | None = None,
+    problem_ids: Sequence[int] | None = None,
     limit: int | None = None,
     retry_failed: bool = False,
 ) -> ProcessResult:
@@ -260,6 +261,8 @@ def process_pending(
     queryset = SyncTask.objects.filter(status__in=statuses)
     if slug:
         queryset = queryset.filter(problem__slug=slug)
+    if problem_ids is not None:
+        queryset = queryset.filter(problem_id__in=problem_ids)
 
     problem_ids = list(
         queryset.order_by("-problem__solved", "problem_id")

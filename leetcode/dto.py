@@ -15,7 +15,6 @@ class ProblemDTO(BaseModel):
     difficulty: str | None = None
     category: str | None = None
     tags: list[TagDTO] = []
-    solved: bool
     raw_question_html: str | None = None  # None for locked/premium problems
 
 
@@ -39,9 +38,9 @@ class SubmissionDetailDTO(BaseModel):
 
 
 class DiscoveredProblemDTO(BaseModel):
-    leetcode_id: int
-    solved: bool
-    paid_only: bool = False
-    difficulty: str | None = None
     slug: str
     title: str
+    leetcode_id: int | None = None
+    difficulty: str | None = None
+    solved: bool
+    paid_only: bool = False
