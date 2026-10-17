@@ -1,6 +1,6 @@
 import random
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import structlog
