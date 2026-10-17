@@ -1,10 +1,16 @@
 from django.contrib import admin, messages
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q
+from django.shortcuts import redirect
+from django.urls import path
 from django.utils.html import format_html
+
+from leetcode.bootstrap import get_client
+from leetcode.exceptions import LeetCodeError
 
 from .models import Problem, ProblemImage, Submission, SyncTask
 from .services.runner import start_background_sync
-from .services.sync import mark_for_refetch
+from .services.sync import discover, mark_for_refetch
 
 
 class AlwaysFacetedAdmin(admin.ModelAdmin):
@@ -200,6 +206,42 @@ class ProblemAdmin(AlwaysFacetedAdmin):
     @admin.action(description="Mark submissions for refetch")
     def refetch_submissions(self, request, queryset):
         self._refetch(request, queryset, SyncTask.Part.SUBMISSIONS)
+
+    def get_urls(self):
+        custom = [
+            path(
+                "discover/",
+                self.admin_site.admin_view(self.discover_view),
+                name="problems_problem_discover",
+            ),
+        ]
+        return custom + super().get_urls()  # custom first, or the pk route swallows it
+
+    def discover_view(self, request):
+        if request.method != "POST" or not self.has_change_permission(request):
+            raise PermissionDenied
+
+        try:
+            result = discover(get_client())
+        except LeetCodeError as exc:
+            self.message_user(request, f"Discovery failed: {exc}", messages.ERROR)
+        else:
+            if not (result.new_problems or result.newly_solved or result.new_tasks):
+                self.message_user(
+                    request,
+                    f"Nothing new: all {result.total} problems are already known.",
+                    messages.INFO,
+                )
+            else:
+                self.message_user(
+                    request,
+                    f"Discovery complete: {result.new_problems} new problem(s), "
+                    f"{result.newly_solved} newly solved, "
+                    f"{result.new_tasks} new task(s) created. "
+                    "Select problems and run a sync action to fetch them.",
+                    messages.SUCCESS,
+                )
+        return redirect("admin:problems_problem_changelist")
 
 
 @admin.register(Submission)
