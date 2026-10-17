@@ -24,24 +24,26 @@ logger = structlog.get_logger(__name__)
 
 @dataclass(frozen=True)
 class DiscoveryResult:
-    solved_total: int
+    total: int
     new_problems: int
+    newly_solved: int
     new_tasks: int
 
 
 def discover(client: LeetCodeClient) -> DiscoveryResult:
-    """Fetch the solved list once and create any missing problems and tasks.
+    """Sync the full problem catalog and the user's solved status.
 
-    Idempotent: existing problems and tasks (including their status) are
-    left untouched, so this never resets progress.
+    Idempotent. New problems get content and image tasks. A submissions task
+    exists only for solved problems, so a problem that becomes solved gets
+    one on the next discovery. Existing task progress is never reset.
     """
-    solved = client.list_all_problems()
-    if not solved:
-        logger.warning("discovery_found_no_solved_problems")
-        return DiscoveryResult(0, 0, 0)
+    problems = client.list_all_problems()
+    if not problems:
+        logger.warning("discovery_found_no_problems")
+        return DiscoveryResult(0, 0, 0, 0)
 
-    slugs = [item.slug for item in solved]
     base_url = settings.LEETCODE_BASE_URL
+    solved_slugs = [p.slug for p in problems if p.solved]
 
     with transaction.atomic():
         problems_before = Problem.objects.count()
@@ -50,37 +52,46 @@ def discover(client: LeetCodeClient) -> DiscoveryResult:
         Problem.objects.bulk_create(
             [
                 Problem(
-                    leetcode_id=item.leetcode_id,
-                    slug=item.slug,
-                    title=item.title,
-                    url=f"{base_url}/problems/{item.slug}/",
+                    slug=p.slug,
+                    title=p.title,
+                    url=f"{base_url}/problems/{p.slug}/",
+                    leetcode_id=p.leetcode_id,
+                    solved=p.solved,
+                    paid_only=p.paid_only,
+                    difficulty=p.difficulty,
                 )
-                for item in solved
+                for p in problems
             ],
-            ignore_conflicts=True,  # slug is unique: existing rows are skipped
+            ignore_conflicts=True,  # existing slugs are skipped
         )
 
-        SyncTask.objects.bulk_create(
-            [
-                SyncTask(problem=problem, part=part)
-                for problem in Problem.objects.filter(slug__in=slugs)
-                for part in SyncTask.Part.values
-            ],
-            ignore_conflicts=True,  # (problem, part) is unique
-        )
+        # Promote problems that were unsolved in our DB. Brand-new rows were
+        # already inserted with the right flag, so this only touches old ones.
+        newly_solved = Problem.objects.filter(
+            slug__in=solved_slugs, solved=False
+        ).update(solved=True)
+
+        tasks = []
+        for problem in Problem.objects.all():
+            parts = []
+            if not problem.paid_only:
+                parts += [SyncTask.Part.CONTENT, SyncTask.Part.IMAGES]
+
+            if problem.solved:
+                parts.append(SyncTask.Part.SUBMISSIONS)
+
+            tasks += [SyncTask(problem=problem, part=part) for part in parts]
+
+        SyncTask.objects.bulk_create(tasks, ignore_conflicts=True)
 
         result = DiscoveryResult(
-            solved_total=len(solved),
+            total=len(problems),
             new_problems=Problem.objects.count() - problems_before,
+            newly_solved=newly_solved,
             new_tasks=SyncTask.objects.count() - tasks_before,
         )
 
-    logger.info(
-        "discovery_completed",
-        solved_total=result.solved_total,
-        new_problems=result.new_problems,
-        new_tasks=result.new_tasks,
-    )
+    logger.info("discovery_completed", **result.__dict__)
     return result
 
 
@@ -130,7 +141,6 @@ def _sync_content(task: SyncTask, deps: Deps) -> None:
         problem.difficulty = dto.difficulty
         problem.category = dto.category
         problem.tags = [tag.model_dump() for tag in dto.tags]
-        problem.solved = dto.solved
         problem.raw_question_html = dto.raw_question_html
         # Fresh HTML invalidates any earlier image rewrite.
         problem.content_local_html = None
@@ -252,7 +262,9 @@ def process_pending(
         queryset = queryset.filter(problem__slug=slug)
 
     problem_ids = list(
-        queryset.order_by("problem_id").values_list("problem_id", flat=True).distinct()
+        queryset.order_by("-problem__solved", "problem_id")
+        .values_list("problem_id", flat=True)
+        .distinct()
     )
     if limit:
         problem_ids = problem_ids[:limit]
