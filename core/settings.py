@@ -37,6 +37,8 @@ LEETCODE_REQUESTS_PER_MINUTE = env.float("LEETCODE_REQUESTS_PER_MINUTE", default
 # applied on process_pending()
 LEETCODE_PROBLEMS_PER_MINUTE = env.float("LEETCODE_PROBLEMS_PER_MINUTE", default=5.0)
 
+NOTES_OUTPUT_DIR = Path(env("NOTES_OUTPUT_DIR", default=str(BASE_DIR / "notes_output")))
+
 # Application definition
 
 INSTALLED_APPS = [
