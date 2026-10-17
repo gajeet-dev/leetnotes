@@ -34,19 +34,19 @@ class ProblemsResource:
         return question
 
     def list_all(self) -> list[dict[str, Any]]:
-        """Return the raw stat/status pairs for all problems."""
-        logger.info("all_questions_request_started")
+        """Return the raw stat/status pairs for every problem on LeetCode."""
+        logger.info("problem_list_request_started")
         data = self._http.get_json(ALL_PROBLEMS_PATH)
+        pairs = data.get("stat_status_pairs") or []
 
-        solved = [
-            pair
-            for pair in data.get("stat_status_pairs") or []
-        ]
+        if not pairs:
+            logger.warning(
+                "problem_list_empty_result"
+            )  # TODO(auth): recheck when auth returns
 
-        if not solved:
-            # TODO(auth): an empty user-scoped result can mean an expired
-            # session; re-add the forced auth recheck when auth is rebuilt.
-            logger.warning("all_questions_empty_result")
-
-        logger.info("all_questions_request_succeeded", solved_count=len(solved))
-        return solved
+        logger.info(
+            "problem_list_request_succeeded",
+            total=len(pairs),
+            solved_count=sum(1 for pair in pairs if pair.get("status") == "ac"),
+        )
+        return pairs

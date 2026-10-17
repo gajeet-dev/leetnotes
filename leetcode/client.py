@@ -7,7 +7,7 @@ from .dto import (
     SubmissionDetailDTO,
     SubmissionSummaryDTO,
 )
-from .mappers.problem import map_problem, map_solved_problem
+from .mappers.problem import map_problem, map_discovered_problem
 from .mappers.submission import (
     map_recent_ac,
     map_submission_detail,
@@ -32,8 +32,8 @@ class LeetCodeClient:
         return map_problem(self._problems.get(slug))
 
     def list_all_problems(self) -> list[DiscoveredProblemDTO]:
-        """Return all problems currently marked as accepted."""
-        return [map_solved_problem(pair) for pair in self._problems.list_all()]
+        """Return every problem on LeetCode, with the user's solved status."""
+        return [map_discovered_problem(pair) for pair in self._problems.list_all()]
 
     def get_submissions(
         self, slug: str, *, limit: int = 20, offset: int = 0

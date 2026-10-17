@@ -41,5 +41,7 @@ class SubmissionDetailDTO(BaseModel):
 class DiscoveredProblemDTO(BaseModel):
     leetcode_id: int
     solved: bool
+    paid_only: bool = False
+    difficulty: str | None = None
     slug: str
     title: str

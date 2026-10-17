@@ -3,6 +3,15 @@ from typing import Any
 from ..dto import ProblemDTO, DiscoveredProblemDTO
 from .base import build
 
+_DIFFICULTY_BY_LEVEL: dict[int, str] = {1: "Easy", 2: "Medium", 3: "Hard"}
+
+
+def _difficulty(raw: dict[str, Any]) -> str | None:
+    level = (raw.get("difficulty") or {}).get("level")
+    if level is None:
+        return None
+    return _DIFFICULTY_BY_LEVEL.get(level)
+
 
 def map_problem(raw: dict[str, Any]) -> ProblemDTO:
     return build(
@@ -17,12 +26,14 @@ def map_problem(raw: dict[str, Any]) -> ProblemDTO:
     )
 
 
-def map_solved_problem(raw: dict[str, Any]) -> DiscoveredProblemDTO:
+def map_discovered_problem(raw: dict[str, Any]) -> DiscoveredProblemDTO:
     stat = raw.get("stat") or {}
     return build(
         DiscoveredProblemDTO,
         leetcode_id=stat.get("frontend_question_id"),
-        solved=stat.get("status") == "ac",
+        solved=raw.get("status") == "ac",
+        paid_only=bool(raw.get("paid_only")),
         slug=stat.get("question__title_slug"),
         title=stat.get("question__title"),
+        difficulty=_difficulty(raw),
     )
