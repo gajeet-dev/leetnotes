@@ -7,7 +7,7 @@ from .dto import (
     SubmissionDetailDTO,
     SubmissionSummaryDTO,
 )
-from .mappers.problem import map_problem, map_discovered_problem
+from .mappers.problem import map_discovered_problem, map_problem
 from .mappers.submission import (
     map_recent_ac,
     map_submission_detail,
