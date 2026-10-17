@@ -15,7 +15,9 @@ NEW_PREFIX = "assets/"
 
 
 class Command(BaseCommand):
-    help = "Move images from media/problems/ to media/assets/ and rebuild local content."
+    help = (
+        "Move images from media/problems/ to media/assets/ and rebuild local content."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true")
@@ -29,7 +31,7 @@ class Command(BaseCommand):
         images = ProblemImage.objects.filter(file__startswith=OLD_PREFIX)
         for image in images:
             old_name = image.file.name
-            new_name = NEW_PREFIX + old_name[len(OLD_PREFIX):]
+            new_name = NEW_PREFIX + old_name[len(OLD_PREFIX) :]
             old_path, new_path = media / old_name, media / new_name
 
             if new_path.exists():
@@ -58,8 +60,7 @@ class Command(BaseCommand):
         for problem in Problem.objects.exclude(raw_question_html=None).iterator():
             if problem.has_images:
                 paths = {
-                    i.source_url: i.file.name
-                    for i in problem.images.exclude(file="")
+                    i.source_url: i.file.name for i in problem.images.exclude(file="")
                 }
                 local_html, _ = rewrite_images(
                     problem.raw_question_html or "",
@@ -83,4 +84,6 @@ class Command(BaseCommand):
             except OSError:
                 pass
 
-        self.stdout.write(self.style.SUCCESS(f"Rebuilt content for {rebuilt} problem(s)."))
+        self.stdout.write(
+            self.style.SUCCESS(f"Rebuilt content for {rebuilt} problem(s).")
+        )
