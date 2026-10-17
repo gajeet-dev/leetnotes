@@ -26,6 +26,7 @@ class SessionConfig:
     timeout: float = 30.0
     max_retries: int = 3
     jitter_range: tuple[float, float] = (0.1, 0.6)
+    requests_per_minute: float | None = None
 
 
 class JitteredLimiterAdapter(LimiterAdapter):
@@ -62,8 +63,12 @@ def create_session(config: SessionConfig) -> requests.Session:
         raise_on_status=False,
     )
 
+    limits = {"per_second": config.requests_per_second}
+    if config.requests_per_minute:
+        limits["per_minute"] = config.requests_per_minute
+
     adapter = JitteredLimiterAdapter(
-        per_second=config.requests_per_second,
+        **limits,
         max_retries=retries,
         jitter_range=config.jitter_range,
         timeout=config.timeout,

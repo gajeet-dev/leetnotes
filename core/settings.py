@@ -29,7 +29,13 @@ LEETCODE_SESSION = env("LEETCODE_SESSION")  # no default: required
 LEETCODE_CSRF_TOKEN = env("LEETCODE_CSRF_TOKEN")  # no default: required
 LEETCODE_USERNAME = env("LEETCODE_USERNAME")  # no default: required
 LEETCODE_BASE_URL = env("LEETCODE_BASE_URL", default="https://leetcode.com")
+
+# applied on http session
 LEETCODE_REQUESTS_PER_SECOND = env.float("LEETCODE_REQUESTS_PER_SECOND", default=1.0)
+LEETCODE_REQUESTS_PER_MINUTE = env.float("LEETCODE_REQUESTS_PER_MINUTE", default=20.0)
+
+# applied on process_pending()
+LEETCODE_PROBLEMS_PER_MINUTE = env.float("LEETCODE_PROBLEMS_PER_MINUTE", default=5.0)
 
 # Application definition
 

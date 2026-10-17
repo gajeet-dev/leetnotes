@@ -19,6 +19,7 @@ def build_session() -> requests.Session:
             csrf_token=settings.LEETCODE_CSRF_TOKEN,
             base_url=settings.LEETCODE_BASE_URL,
             requests_per_second=settings.LEETCODE_REQUESTS_PER_SECOND,
+            requests_per_minute=settings.LEETCODE_REQUESTS_PER_MINUTE,
         )
     )
 

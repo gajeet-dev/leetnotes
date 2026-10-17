@@ -1,3 +1,5 @@
+import random
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
@@ -20,6 +22,18 @@ from .content import build_problem_content
 from .images import process_problem_images
 
 logger = structlog.get_logger(__name__)
+
+
+def _pace(started_at: float, problems_per_minute: float | None) -> None:
+    """Sleep so one problem takes at least 60/N seconds, plus up to 20% jitter."""
+    if not problems_per_minute:
+        return
+    target = 60.0 / problems_per_minute
+    remaining = target - (time.monotonic() - started_at)
+    if remaining > 0:
+        wait = remaining + random.uniform(0, target * 0.2)
+        logger.info("pacing_sleep", seconds=round(wait, 1))
+        time.sleep(wait)
 
 
 @dataclass(frozen=True)
@@ -237,13 +251,14 @@ PART_ORDER = (
 
 
 def process_pending(
-    client: LeetCodeClient,
-    downloader: ImageDownloader,
+    client,
+    downloader,
     *,
-    slug: str | None = None,
-    problem_ids: Sequence[int] | None = None,
-    limit: int | None = None,
-    retry_failed: bool = False,
+    slug=None,
+    problem_ids=None,
+    limit=None,
+    retry_failed=False,
+    problems_per_minute: float | None = settings.LEETCODE_PROBLEMS_PER_MINUTE,
 ) -> ProcessResult:
     """Run every pending task, one problem at a time.
 
@@ -264,24 +279,24 @@ def process_pending(
     if problem_ids is not None:
         queryset = queryset.filter(problem_id__in=problem_ids)
 
-    problem_ids = list(
+    problem_ids_to_run = list(
         queryset.order_by("-problem__solved", "problem_id")
         .values_list("problem_id", flat=True)
         .distinct()
     )
     if limit:
-        problem_ids = problem_ids[:limit]
+        problem_ids_to_run = problem_ids_to_run[:limit]
 
-    for problem_id in problem_ids:
+    for index, problem_id in enumerate(problem_ids_to_run):
+        started = time.monotonic()
+        did_work = False
         problem = Problem.objects.get(pk=problem_id)
         tasks = sorted(
             queryset.filter(problem_id=problem_id),
             key=lambda t: PART_ORDER.index(t.part),
         )
         for task in tasks:
-            task.problem = (
-                problem  # one shared instance: later tasks see earlier writes
-            )
+            task.problem = problem
             with bound_contextvars(slug=problem.slug, part=task.part):
                 if task.part == SyncTask.Part.IMAGES and not _content_done(task):
                     logger.warning("task_skipped", reason="content_not_done")
@@ -290,6 +305,7 @@ def process_pending(
 
                 task.attempts += 1
                 task.save(update_fields=["attempts"])
+                did_work = True
 
                 try:
                     HANDLERS[task.part](task, deps)
@@ -304,6 +320,10 @@ def process_pending(
                 else:
                     logger.info("task_done")
                     result.done += 1
+
+                is_last = index == len(problem_ids_to_run) - 1
+                if did_work and not is_last:
+                    _pace(started, problems_per_minute)
 
     logger.info(
         "sync_finished",
