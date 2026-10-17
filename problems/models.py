@@ -27,6 +27,7 @@ class Problem(models.Model):
     )
     tags = models.JSONField(null=True, blank=True)  # list[dict]
     solved = models.BooleanField(default=False, db_index=True)
+    paid_only = models.BooleanField(default=False)
     raw_question_html = models.TextField(null=True, blank=True)
 
     # Question content (was the nested QuestionContent model)
@@ -48,7 +49,8 @@ class Problem(models.Model):
         ordering = ["leetcode_id"]
 
     def __str__(self) -> str:
-        return f"{self.leetcode_id}. {self.title or self.slug}"
+        name = self.title or self.slug
+        return f"{self.leetcode_id}. {name}" if self.leetcode_id is not None else name
 
     @property
     def images_populated(self) -> bool:
