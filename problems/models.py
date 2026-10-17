@@ -85,7 +85,7 @@ class Submission(models.Model):
 
 
 def problem_image_path(instance, filename):
-    return f"problems/{instance.problem.slug}/{filename}"
+    return f"assets/{instance.problem.slug}/{filename}"
 
 
 class ProblemImage(models.Model):
