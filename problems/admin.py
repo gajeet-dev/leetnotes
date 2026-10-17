@@ -4,6 +4,7 @@ from django.utils.html import format_html
 
 from .models import Problem, ProblemImage, Submission, SyncTask
 from .services.runner import start_background_sync
+from .services.sync import mark_for_refetch
 
 
 class AlwaysFacetedAdmin(admin.ModelAdmin):
@@ -63,6 +64,7 @@ class ProblemAdmin(AlwaysFacetedAdmin):
         "problem",
         "difficulty",
         "solved",
+        "sync_status",
         "category",
         "paid_only",
         "has_images",
@@ -80,7 +82,13 @@ class ProblemAdmin(AlwaysFacetedAdmin):
     search_fields = ("title", "slug", "leetcode_id")
     readonly_fields = ("created_at", "updated_at")
     inlines = [ProblemImageInline, SubmissionInline]
-    actions = ["sync_selected", "sync_selected_retry_failed"]
+    actions = (
+        "sync_selected",
+        "sync_selected_retry_failed",
+        "refetch_content",
+        "refetch_images",
+        "refetch_submissions",
+    )
 
     @admin.display(description="Problem", ordering="leetcode_id")
     def problem(self, obj):
@@ -116,11 +124,29 @@ class ProblemAdmin(AlwaysFacetedAdmin):
 
     def _start_sync(self, request, queryset, *, retry_failed: bool):
         ids = list(queryset.values_list("pk", flat=True))
-        if start_background_sync(ids, retry_failed=retry_failed):
+        statuses = [SyncTask.Status.PENDING]
+        if retry_failed:
+            statuses.append(SyncTask.Status.FAILED)
+
+        runnable = list(
+            SyncTask.objects.filter(problem_id__in=ids, status__in=statuses)
+            .values_list("problem_id", flat=True)
+            .distinct()
+        )
+        if not runnable:
             self.message_user(
                 request,
-                f"Started syncing {len(ids)} problem(s) in the background. "
-                "Refresh this page to see progress.",
+                f"Nothing to sync: all {len(ids)} selected problem(s) are "
+                "already synced.",
+                messages.INFO,
+            )
+            return
+
+        if start_background_sync(runnable, retry_failed=retry_failed):
+            self.message_user(
+                request,
+                f"Started syncing {len(runnable)} of {len(ids)} selected "
+                "problem(s) in the background. Refresh to see progress.",
                 messages.SUCCESS,
             )
         else:
@@ -130,6 +156,31 @@ class ProblemAdmin(AlwaysFacetedAdmin):
                 messages.WARNING,
             )
 
+    def _refetch(self, request, queryset, part: SyncTask.Part):
+        result = mark_for_refetch(list(queryset.values_list("pk", flat=True)), part)
+
+        notes = [f"{result.tasks_reset} task(s) reset to pending"]
+        if result.pinned_skipped:
+            notes.append(
+                f"{result.pinned_skipped} skipped because the solution is "
+                "pinned (unpin it first)"
+            )
+        if result.missing:
+            notes.append(
+                f"{result.missing} have no {part} task (unsolved or paid-only)"
+            )
+
+        level = (
+            messages.WARNING
+            if result.pinned_skipped or result.missing
+            else messages.SUCCESS
+        )
+        self.message_user(
+            request,
+            ". ".join(notes) + ". Now run a sync action to fetch them.",
+            level,
+        )
+
     @admin.action(description="Sync selected problems (pending parts)")
     def sync_selected(self, request, queryset):
         self._start_sync(request, queryset, retry_failed=False)
@@ -137,6 +188,18 @@ class ProblemAdmin(AlwaysFacetedAdmin):
     @admin.action(description="Sync selected problems (include failed parts)")
     def sync_selected_retry_failed(self, request, queryset):
         self._start_sync(request, queryset, retry_failed=True)
+
+    @admin.action(description="Mark content for refetch (also resets images)")
+    def refetch_content(self, request, queryset):
+        self._refetch(request, queryset, SyncTask.Part.CONTENT)
+
+    @admin.action(description="Mark images for refetch")
+    def refetch_images(self, request, queryset):
+        self._refetch(request, queryset, SyncTask.Part.IMAGES)
+
+    @admin.action(description="Mark submissions for refetch")
+    def refetch_submissions(self, request, queryset):
+        self._refetch(request, queryset, SyncTask.Part.SUBMISSIONS)
 
 
 @admin.register(Submission)

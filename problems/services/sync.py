@@ -23,6 +23,73 @@ from .images import process_problem_images
 
 logger = structlog.get_logger(__name__)
 
+from collections.abc import Iterable
+
+# What must be redone when a part is refetched.
+REFETCH_CASCADE: dict[SyncTask.Part, tuple[SyncTask.Part, ...]] = {
+    # New HTML invalidates the image rewrite and everything derived from it.
+    SyncTask.Part.CONTENT: (SyncTask.Part.CONTENT, SyncTask.Part.IMAGES),
+    SyncTask.Part.IMAGES: (SyncTask.Part.IMAGES,),
+    SyncTask.Part.SUBMISSIONS: (SyncTask.Part.SUBMISSIONS,),
+}
+
+
+@dataclass
+class RefetchResult:
+    tasks_reset: int = 0
+    pinned_skipped: int = 0  # problems whose solution is pinned
+    missing: int = 0  # problems with no task for that part
+
+
+def mark_for_refetch(problem_ids: Iterable[int], part: SyncTask.Part) -> RefetchResult:
+    """Reset a part (and whatever depends on it) back to pending.
+
+    Only flips task status. The next sync run does the actual fetching.
+    Pinned solutions are never reset, and unsolved problems have no
+    submissions task, so those are reported rather than silently ignored.
+    """
+    ids = list(problem_ids)
+    result = RefetchResult()
+
+    if part == SyncTask.Part.SUBMISSIONS:
+        pinned = set(
+            Submission.objects.filter(problem_id__in=ids, pinned=True).values_list(
+                "problem_id", flat=True
+            )
+        )
+        result.pinned_skipped = len(pinned)
+        ids = [i for i in ids if i not in pinned]
+
+    with transaction.atomic():
+        has_task = set(
+            SyncTask.objects.filter(problem_id__in=ids, part=part).values_list(
+                "problem_id", flat=True
+            )
+        )
+        result.missing = len(ids) - len(has_task)
+
+        result.tasks_reset = (
+            SyncTask.objects.filter(
+                problem_id__in=has_task, part__in=REFETCH_CASCADE[part]
+            )
+            .exclude(status=SyncTask.Status.PENDING)
+            .update(
+                status=SyncTask.Status.PENDING,
+                attempts=0,
+                last_error="",
+                completed_at=None,
+            )
+        )
+
+    logger.info(
+        "refetch_marked",
+        part=part,
+        tasks_reset=result.tasks_reset,
+        pinned_skipped=result.pinned_skipped,
+        missing=result.missing,
+    )
+    return result
+
 
 def _pace(started_at: float, problems_per_minute: float | None) -> None:
     """Sleep so one problem takes at least 60/N seconds, plus up to 20% jitter."""
