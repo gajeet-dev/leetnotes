@@ -12,7 +12,7 @@ from leetcode.exceptions import LeetCodeError
 
 from .models import Problem, ProblemImage, Submission, SyncTask
 from .services.runner import start_background_sync
-from .services.sync import discover, mark_for_refetch
+from .services.sync import discover, mark_for_refetch, refresh_recent_submissions
 
 
 class AlwaysFacetedAdmin(admin.ModelAdmin):
@@ -216,20 +216,34 @@ class ProblemAdmin(AlwaysFacetedAdmin):
                 self.admin_site.admin_view(self.discover_view),
                 name="problems_problem_discover",
             ),
+            path(
+                "check-recent/",
+                self.admin_site.admin_view(self.check_recent_view),
+                name="problems_problem_check_recent",
+            ),
         ]
         return custom + super().get_urls()  # custom first, or the pk route swallows it
+
+    def _changelist_url(self, *, pending_solved: bool = False) -> str:
+        url = reverse("admin:problems_problem_changelist")
+        if (
+            pending_solved
+            and Problem.objects.filter(
+                solved=True, sync_tasks__status=SyncTask.Status.PENDING
+            ).exists()
+        ):
+            return f"{url}?{urlencode({'solved__exact': 1, 'sync': 'pending'})}"
+        return url
 
     def discover_view(self, request):
         if request.method != "POST" or not self.has_change_permission(request):
             raise PermissionDenied
 
-        changelist_url = reverse("admin:problems_problem_changelist")
-
         try:
             result = discover(get_client())
         except LeetCodeError as exc:
             self.message_user(request, f"Discovery failed: {exc}", messages.ERROR)
-            return redirect(changelist_url)
+            return redirect(self._changelist_url())
 
         if not (result.new_problems or result.newly_solved or result.new_tasks):
             self.message_user(
@@ -237,7 +251,7 @@ class ProblemAdmin(AlwaysFacetedAdmin):
                 f"Nothing new: all {result.total} problems are already known.",
                 messages.INFO,
             )
-            return redirect(changelist_url)
+            return redirect(self._changelist_url())
 
         self.message_user(
             request,
@@ -247,16 +261,35 @@ class ProblemAdmin(AlwaysFacetedAdmin):
             "Select problems and run a sync action to fetch them.",
             messages.SUCCESS,
         )
+        return redirect(self._changelist_url(pending_solved=True))
 
-        # Jump to the solved problems that still have work to do, but only if
-        # there are any, so you never land on an empty list.
-        has_pending_solved = Problem.objects.filter(
-            solved=True, sync_tasks__status=SyncTask.Status.PENDING
-        ).exists()
-        if has_pending_solved:
-            query = urlencode({"solved__exact": 1, "sync": "pending"})
-            return redirect(f"{changelist_url}?{query}")
-        return redirect(changelist_url)
+    def check_recent_view(self, request):
+        if request.method != "POST" or not self.has_change_permission(request):
+            raise PermissionDenied
+
+        try:
+            result = refresh_recent_submissions(get_client())
+        except ValueError as exc:  # no LEETCODE_USERNAME configured
+            self.message_user(request, str(exc), messages.ERROR)
+            return redirect(self._changelist_url())
+        except LeetCodeError as exc:
+            self.message_user(request, f"Recent check failed: {exc}", messages.ERROR)
+            return redirect(self._changelist_url())
+
+        parts = [f"{result.reset} problem(s) marked for submission refetch"]
+        if result.pinned_skipped:
+            parts.append(f"{result.pinned_skipped} skipped (pinned)")
+        if result.unknown:
+            parts.append(f"{result.unknown} not in the database yet (run Discover)")
+        if result.up_to_date:
+            parts.append(f"{result.up_to_date} already up to date")
+
+        level = messages.SUCCESS if result.reset else messages.INFO
+        if result.reset:
+            parts.append("Select them and run a sync action")
+        self.message_user(request, ". ".join(parts) + ".", level)
+
+        return redirect(self._changelist_url(pending_solved=bool(result.reset)))
 
 
 @admin.register(Submission)

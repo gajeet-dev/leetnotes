@@ -27,6 +27,12 @@
 </style>
 {% endblock %} {% block object-tools-items %}
 <li class="discover-tool">
+  <form method="post" action="{% url 'admin:problems_problem_check_recent' %}">
+    {% csrf_token %}
+    <button type="submit">Check recent submissions</button>
+  </form>
+</li>
+<li class="discover-tool">
   <form method="post" action="{% url 'admin:problems_problem_discover' %}">
     {% csrf_token %}
     <button type="submit">Discover problems</button>

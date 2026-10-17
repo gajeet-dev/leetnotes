@@ -24,6 +24,73 @@ from .images import process_problem_images
 logger = structlog.get_logger(__name__)
 
 from collections.abc import Iterable
+from datetime import datetime
+
+from django.db.models import Max
+
+
+@dataclass
+class RecentCheckResult:
+    checked: int = 0  # entries in LeetCode's recent list
+    reset: int = 0  # submissions tasks set back to pending
+    up_to_date: int = 0  # stored solution is already the newest
+    pinned_skipped: int = 0  # protected by a pin
+    unknown: int = 0  # slug not in our DB: run Discover
+    newly_solved: int = 0  # known problems we had flagged unsolved
+
+
+def refresh_recent_submissions(
+    client: LeetCodeClient, *, limit: int = 20
+) -> RecentCheckResult:
+    """Reset the submissions task for problems solved again since our last fetch."""
+    recent = client.get_recent_accepted(limit=limit)
+    result = RecentCheckResult(checked=len(recent))
+
+    # A problem can appear more than once in the list; keep its newest timestamp.
+    newest: dict[str, datetime] = {}
+    for item in recent:
+        if item.slug not in newest or item.timestamp > newest[item.slug]:
+            newest[item.slug] = item.timestamp
+
+    problems = {p.slug: p for p in Problem.objects.filter(slug__in=newest)}
+
+    with transaction.atomic():
+        for slug, timestamp in newest.items():
+            problem = problems.get(slug)
+            if problem is None:
+                result.unknown += 1
+                continue
+
+            if problem.submissions.filter(pinned=True).exists():
+                result.pinned_skipped += 1
+                continue
+
+            latest_stored = problem.submissions.aggregate(
+                latest=Max("submission_date")
+            )["latest"]
+            if latest_stored is not None and timestamp <= latest_stored:
+                result.up_to_date += 1
+                continue
+
+            if not problem.solved:
+                problem.solved = True
+                problem.save(update_fields=["solved", "updated_at"])
+                result.newly_solved += 1
+
+            task, created = SyncTask.objects.get_or_create(
+                problem=problem, part=SyncTask.Part.SUBMISSIONS
+            )
+            if not created:
+                task.status = SyncTask.Status.PENDING
+                task.attempts = 0
+                task.last_error = ""
+                task.completed_at = None
+                task.save()
+            result.reset += 1
+
+    logger.info("recent_check_completed", **result.__dict__)
+    return result
+
 
 # What must be redone when a part is refetched.
 REFETCH_CASCADE: dict[SyncTask.Part, tuple[SyncTask.Part, ...]] = {
