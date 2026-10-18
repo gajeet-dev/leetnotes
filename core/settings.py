@@ -37,7 +37,11 @@ LEETCODE_REQUESTS_PER_MINUTE = env.float("LEETCODE_REQUESTS_PER_MINUTE", default
 # applied on process_pending()
 LEETCODE_PROBLEMS_PER_MINUTE = env.float("LEETCODE_PROBLEMS_PER_MINUTE", default=5.0)
 
-NOTES_OUTPUT_DIR = Path(env("NOTES_OUTPUT_DIR", default=str(BASE_DIR / "notes_output")))
+NOTES_OUTPUT_DIRS = [
+    Path(p.strip()).expanduser()
+    for p in env.list("NOTES_OUTPUT_DIRS", default=[str(BASE_DIR / "notes_output")])
+    if p.strip()
+]
 
 # Application definition
 
@@ -118,7 +122,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = env("TIME_ZONE", default="UTC")
 
 USE_I18N = True
 
