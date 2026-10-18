@@ -10,6 +10,6 @@ def build_problem_context(problem: Problem) -> dict:
         "difficulty": problem.difficulty,
         "url": problem.url,
         "tags": problem.tags or [],  # list of {"name", "slug"} dicts
-        "content": problem.content_local_markdown,
+        "content": problem.content_local_markdown or "",
         "submission": problem.submissions.order_by("-submission_date").first(),
     }
