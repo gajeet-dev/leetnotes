@@ -9,7 +9,7 @@ tags:
   - {{ tag.slug }}
 {% endfor %}
 {% if submission and submission.submission_date %}
-solved_date: {{ submission.submission_date.strftime('%Y-%m-%d %H:%M:%S') }}
+solved_date: {{ submission.submission_date | localtime('%Y-%m-%d %H:%M:%S') }}
 {% endif %}
 ---
 
@@ -27,7 +27,7 @@ solved_date: {{ submission.submission_date.strftime('%Y-%m-%d %H:%M:%S') }}
 
 {% if submission %}
 > **Language:** `{{ submission.lang }}`  
-> **Submitted:** {{ submission.submission_date.strftime('%B %d, %Y at %I:%M %p') }}
+> **Submitted:** {{ submission.submission_date | localtime('%B %d, %Y at %I:%M %p %Z') }}
 
 ```{{ submission.lang | code_lang }}
 {{ submission.code }}
