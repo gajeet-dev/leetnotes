@@ -1,16 +1,6 @@
 # Custom
 logs/
-LOCAL_RENDER/
-
-# Personal LeetCode solution code — never commit (see
-# modules/leetcode/storage/db.py). Wildcard also covers the -wal/-shm/
-# -journal sidecar files SQLite creates alongside the main .db file.
-LEETCODE_DATA/dsa_problems/submissions.db*
-
-# Local auth-check cache (a hash + timestamp, never the raw session/csrf
-# values) — machine-specific bookkeeping, not problem data. See
-# modules/leetcode/auth_cache.py.
-LEETCODE_DATA/dsa_problems/auth_check_cache.json*
+notes_output/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
