@@ -49,6 +49,7 @@ related:
 {% for a in approaches %}
 ### {{ loop.index }}. {{ a.name }}{% if a.code_ref %} (`{{ a.code_ref }}`){% endif %}
 
+
 {{ approach_body(a) }}
 
 {% endfor %}

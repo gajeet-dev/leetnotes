@@ -9,6 +9,7 @@ from django.conf import settings
 ROOT_FOLDER = "Leetcode"
 PROBLEMS_FOLDER = "problems"  # problem notes, with assets/ inside
 SOLUTIONS_FOLDER = "solutions"  # solution notes
+BACKUP_FOLDER = ".backup"  # dot folder: Obsidian doesn't index or search it
 
 
 @dataclass(frozen=True)
@@ -16,6 +17,7 @@ class NotesLayout:
     root: Path
     problems_dir: Path
     solutions_dir: Path
+    backup_dir: Path
 
 
 def layout_for(output_dir: Path) -> NotesLayout:
@@ -25,6 +27,7 @@ def layout_for(output_dir: Path) -> NotesLayout:
         root=root,
         problems_dir=root / PROBLEMS_FOLDER,
         solutions_dir=root / SOLUTIONS_FOLDER,
+        backup_dir=root / BACKUP_FOLDER,
     )
 
 
