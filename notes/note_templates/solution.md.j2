@@ -34,7 +34,6 @@ related:
 {% endfor %}
 {% endif %}
 ---
-
 # {{ frontend_id }}. {{ title }}
 ### 🔗 **Problem & Solution:** [[{{ problem_note }}|Link]]
 
@@ -64,19 +63,21 @@ related:
 {{ approach_body(approaches[0]) }}
 {% endif %}
 
-**My takeaway:**
+---
+**My takeaways**
 {{ bullets(takeaway) }}
-{% if related %}
 
+{% if related %}
 **Related:**
 {% for r in related %}
 - [[{{ r }}]]
 {% endfor %}
 {% endif %}
-{% if flashcards %}
+
 
 > [!info]- Flashcards
 {% for line in flashcards %}
 > {{ line }}
+{% else %}
+>
 {% endfor %}
-{% endif %}

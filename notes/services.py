@@ -4,11 +4,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import structlog
-from django.conf import settings
 
 from problems.models import Problem, SyncTask
 
 from .context import build_problem_context
+from .files import write_atomic
+from .layout import ensure_layout, resolve_output_dirs
+from .naming import problem_note_filename
 from .rendering import render_template
 
 logger = structlog.get_logger(__name__)
@@ -76,14 +78,6 @@ def _copy_images(problem: Problem, output_dir: Path) -> int:
     return copied
 
 
-def _write_atomic(path: Path, text: str) -> None:
-    # Write to a temp file and swap it in, so a crash or a sync client
-    # (Obsidian Sync, Syncthing) never sees a half-written note.
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)
-
-
 def write_problem_note(
     problem: Problem, output_dirs: Sequence[Path | str] | None = None
 ) -> NoteResult:
@@ -94,8 +88,7 @@ def write_problem_note(
         result.skipped_reason = reason
         return result
 
-    dirs = output_dirs if output_dirs is not None else settings.NOTES_OUTPUT_DIRS
-    dirs = list(dict.fromkeys(Path(d).expanduser() for d in dirs))  # drop duplicates
+    dirs = resolve_output_dirs(output_dirs)
 
     text = render_problem_note(problem)  # render once: a template error writes nothing
 
@@ -103,10 +96,10 @@ def write_problem_note(
         try:
             # No parents=True on purpose: if a drive isn't mounted, this fails
             # instead of quietly creating a folder on the wrong disk.
-            out.mkdir(exist_ok=True)
-            copied = _copy_images(problem, out)
-            path = out / note_filename(problem)
-            _write_atomic(path, text)
+            layout = ensure_layout(out)
+            copied = _copy_images(problem, layout.problems_dir)
+            path = layout.problems_dir / problem_note_filename(problem)
+            write_atomic(path, text)
         except OSError as exc:
             logger.warning(
                 "note_write_failed", slug=problem.slug, dir=str(out), error=str(exc)

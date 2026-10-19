@@ -1,0 +1,57 @@
+{% extends "admin/base_site.html" %} {% block extrastyle %} {{ block.super }}
+<style>
+  .errorlist li {
+    white-space: pre-wrap;
+  }
+  #prompt-text {
+    width: 100%;
+    font-family: monospace;
+  }
+</style>
+{% endblock %} {% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:prefill_airesponse_changelist' %}">AI responses</a>
+  &rsaquo; Paste response
+</div>
+{% endblock %} {% block content %}
+<div id="content-main">
+  {% if active %}
+  <p class="help">
+    This problem already has an active AI note. Saving a new one makes it the
+    active note; the old one is kept in AI responses.
+  </p>
+  {% endif %}
+
+  <h2>1. Copy this prompt into your AI chat</h2>
+  <p>
+    <button type="button" class="button" id="copy-prompt">Copy prompt</button>
+    <span id="copy-status"></span>
+  </p>
+  <textarea id="prompt-text" readonly rows="12">{{ prompt_text }}</textarea>
+
+  <h2>2. Paste the JSON reply</h2>
+  <form method="post">
+    {% csrf_token %} {{ form.non_field_errors }}
+    <div class="form-row">{{ form.label.label_tag }} {{ form.label }}</div>
+    <div class="form-row">{{ form.raw_text.errors }} {{ form.raw_text }}</div>
+    <div class="submit-row">
+      <input type="submit" value="Validate and save" class="default" />
+    </div>
+  </form>
+</div>
+
+<script>
+  document.getElementById("copy-prompt").addEventListener("click", async () => {
+    const box = document.getElementById("prompt-text");
+    const status = document.getElementById("copy-status");
+    try {
+      await navigator.clipboard.writeText(box.value);
+      status.textContent = " Copied.";
+    } catch (e) {
+      box.select();
+      status.textContent = " Selected: press Ctrl+C.";
+    }
+  });
+</script>
+{% endblock %}

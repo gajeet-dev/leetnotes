@@ -43,6 +43,10 @@ NOTES_OUTPUT_DIRS = [
     if p.strip()
 ]
 
+PREFILL_PROVIDERS_FILE = Path(
+    env("PREFILL_PROVIDERS_FILE", default=str(BASE_DIR / "ai_providers.json"))
+)
+
 # Application definition
 
 INSTALLED_APPS = [
