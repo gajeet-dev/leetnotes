@@ -1,6 +1,8 @@
 # Custom
 logs/
 notes_output/
+.django_tailwind_cli/
+assets/css/tailwind.css
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
