@@ -1,0 +1,25 @@
+{% extends "ui/base.html" %} {% block title %} Dashboard · Leetnotes {% endblock %} {% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
+  <p class="opacity-70">Where your solved problems are in the pipeline.</p>
+</div>
+
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+  {% for stage in stages %}
+  <div class="card">
+    <header>
+      <h3>{{ stage.title }}</h3>
+      <p>{{ stage.hint }}</p>
+    </header>
+    <section>
+      <div class="flex items-baseline gap-2">
+        <span class="text-3xl font-semibold">{{ stage.count }}</span>
+        <span class="badge" data-variant="{{ stage.variant }}"
+          >{{ stage.badge }}</span
+        >
+      </div>
+    </section>
+  </div>
+  {% endfor %}
+</div>
+{% include "ui/partials/job_progress.html" %} {% endblock %}

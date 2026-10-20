@@ -1,0 +1,28 @@
+{% load static tailwind_cli %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Leetnotes{% endblock %}</title>
+    {% tailwind_css %}
+    <link rel="stylesheet" href="{% static 'ui/vendor/basecoat.min.css' %}" />
+    <script src="{% static 'ui/vendor/htmx.min.js' %}" defer></script>
+    <script src="{% static 'ui/vendor/basecoat-all.min.js' %}" defer></script>
+    <script src="{% static 'ui/vendor/basecoat-all.min.js' %}" defer></script>
+    <script src="{% static 'ui/sidebar-responsive.js' %}" defer></script>
+  </head>
+  <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    {% include "ui/partials/sidebar.html" %}
+    <main class="p-6">
+      <button
+        type="button"
+        class="btn mb-4 md:hidden"
+        onclick="document.getElementById('sidebar')?.toggle()"
+      >
+        Menu
+      </button>
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>
