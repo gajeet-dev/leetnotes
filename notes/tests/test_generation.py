@@ -67,7 +67,7 @@ class GenerateNotesTests(TestCase):
         self.add_ai_note()
         with tempfile.TemporaryDirectory() as folder:
             result = generate_notes(self.problem, [folder])
-            self.assertEqual(result.problem_note.paths, [self.problem_path(folder)])
+            self.assertEqual(result.problem_note.written, [self.problem_path(folder)])
             self.assertEqual(result.solution_note.written, [self.solution_path(folder)])
             self.assertFalse(has_errors(result))
 
@@ -86,19 +86,45 @@ class GenerateNotesTests(TestCase):
             self.assertEqual(result.problem_note.skipped_reason, "not solved")
             self.assertTrue(self.solution_path(folder).exists())
 
-    def test_overwrite_flag_reaches_the_solution_writer(self):
+    def test_replace_edited_reaches_both_writers(self):
+        self.add_ai_note()
+        with tempfile.TemporaryDirectory() as folder:
+            generate_notes(self.problem, [folder])
+            self.problem_path(folder).write_text("my problem edits")
+            self.solution_path(folder).write_text("my solution edits")
+
+            kept = generate_notes(self.problem, [folder])
+            self.assertEqual(len(kept.problem_note.existing), 1)
+            self.assertEqual(len(kept.solution_note.existing), 1)
+            self.assertEqual(
+                self.solution_path(folder).read_text(), "my solution edits"
+            )
+
+            replaced = generate_notes(self.problem, [folder], replace_edited=True)
+            self.assertEqual(len(replaced.problem_note.backups), 1)
+            self.assertEqual(len(replaced.solution_note.backups), 1)
+            self.assertTrue(self.solution_path(folder).read_text().startswith("---\n"))
+
+    def test_second_run_reports_up_to_date(self):
+        self.add_ai_note()
+        with tempfile.TemporaryDirectory() as folder:
+            generate_notes(self.problem, [folder])
+            second = generate_notes(self.problem, [folder])
+            self.assertEqual(
+                describe_result(second),
+                "two-sum: problem note: up to date 1; solution note: up to date 1",
+            )
+
+    def test_an_edited_note_is_reported_as_kept_edited(self):
         self.add_ai_note()
         with tempfile.TemporaryDirectory() as folder:
             generate_notes(self.problem, [folder])
             self.solution_path(folder).write_text("my edits")
-
-            kept = generate_notes(self.problem, [folder])
-            self.assertEqual(len(kept.solution_note.existing), 1)
-            self.assertEqual(self.solution_path(folder).read_text(), "my edits")
-
-            replaced = generate_notes(self.problem, [folder], overwrite_solution=True)
-            self.assertEqual(len(replaced.solution_note.backups), 1)
-            self.assertTrue(self.solution_path(folder).read_text().startswith("---\n"))
+            result = generate_notes(self.problem, [folder])
+            self.assertEqual(
+                describe_solution_note(result.solution_note),
+                "solution note: kept edited 1",
+            )
 
     def test_a_bad_folder_is_reported(self):
         self.add_ai_note()

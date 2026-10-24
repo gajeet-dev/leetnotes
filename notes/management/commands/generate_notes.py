@@ -12,6 +12,11 @@ from notes.generation import (
 )
 from problems.models import Problem
 
+EDITED_NOTES_HINT = (
+    "Notes you edited were left alone. To replace one (the old version is "
+    "backed up first): generate_notes --slug <slug> --replace-edited"
+)
+
 
 class Command(BaseCommand):
     help = "Write problem notes and solution notes to the output folder(s)."
@@ -27,9 +32,10 @@ class Command(BaseCommand):
             help="Output folder instead of NOTES_OUTPUT_DIRS, for this run only (repeatable)",
         )
         parser.add_argument(
-            "--overwrite-solutions",
+            "--replace-edited",
             action="store_true",
-            help="Replace existing solution notes (the old ones are backed up). Needs --slug.",
+            help="Replace notes you have edited, problem and solution notes alike "
+            "(the old versions are backed up). Needs --slug.",
         )
 
     def handle(self, *args, **opts):
@@ -44,10 +50,10 @@ class Command(BaseCommand):
     # --- before the run ---
 
     def check_options(self, opts):
-        if opts["overwrite_solutions"] and not opts["slug"]:
+        if opts["replace_edited"] and not opts["slug"]:
             raise CommandError(
-                "--overwrite-solutions needs --slug, so you choose exactly "
-                "which solution notes to replace."
+                "--replace-edited needs --slug, so you choose exactly "
+                "which notes to replace."
             )
 
     def select_problems(self, slugs, limit) -> list[Problem]:
@@ -71,7 +77,7 @@ class Command(BaseCommand):
         results = []
         for index, problem in enumerate(problems, start=1):
             result = generate_notes(
-                problem, output_dirs, overwrite_solution=opts["overwrite_solutions"]
+                problem, output_dirs, replace_edited=opts["replace_edited"]
             )
             self.print_result(index, len(problems), result)
             results.append(result)
@@ -94,6 +100,8 @@ class Command(BaseCommand):
     def report(self, results):
         totals = tally(results)
         self.stdout.write(describe_totals(totals))
+        if totals.counts["kept_edited"]:
+            self.stdout.write(EDITED_NOTES_HINT)
         if totals.failed:
             raise CommandError(
                 f"{totals.failed} problem(s) had write errors (see the lines above)."

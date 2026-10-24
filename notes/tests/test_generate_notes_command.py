@@ -87,29 +87,30 @@ class GenerateNotesCommandTests(TestCase):
         with self.assertRaisesMessage(CommandError, "No such problem: nope"):
             self.run_command("--slug", "nope")
 
-    def test_overwrite_needs_a_slug(self):
+    def test_replace_edited_needs_a_slug(self):
         with self.assertRaisesMessage(CommandError, "needs --slug"):
-            self.run_command("--overwrite-solutions")
+            self.run_command("--replace-edited")
 
-    def test_overwrite_with_slug_backs_up_the_old_note(self):
+    def test_replace_edited_with_slug_backs_up_the_old_notes(self):
         with tempfile.TemporaryDirectory() as folder:
             self.run_command("--output", folder)
-            self.solution_note(folder).write_text("my edits")
+            self.problem_note(folder).write_text("my problem edits")
+            self.solution_note(folder).write_text("my solution edits")
             output = self.run_command(
-                "--output", folder, "--slug", "two-sum", "--overwrite-solutions"
+                "--output", folder, "--slug", "two-sum", "--replace-edited"
             )
-            self.assertIn("backed up 1", output)
-            backups = list(
-                (Path(folder) / ROOT_FOLDER / BACKUP_FOLDER / "two-sum").glob("*.md")
-            )
-            self.assertEqual(backups[0].read_text(), "my edits")
+            self.assertIn("problem note: replaced 1; solution note: replaced 1", output)
+            backup_dir = Path(folder) / ROOT_FOLDER / BACKUP_FOLDER / "two-sum"
+            saved = {path.read_text() for path in backup_dir.glob("*.md")}
+            self.assertEqual(saved, {"my problem edits", "my solution edits"})
 
-    def test_existing_solution_note_is_kept_by_default(self):
+    def test_edited_notes_are_kept_and_the_hint_is_printed(self):
         with tempfile.TemporaryDirectory() as folder:
             self.run_command("--output", folder)
             self.solution_note(folder).write_text("my edits")
             output = self.run_command("--output", folder)
-            self.assertIn("kept existing 1", output)
+            self.assertIn("kept edited 1", output)
+            self.assertIn("--replace-edited", output)
             self.assertEqual(self.solution_note(folder).read_text(), "my edits")
 
     def test_write_errors_are_shown_and_fail_the_command(self):

@@ -67,11 +67,11 @@ class WriteProblemNoteLayoutTests(TestCase):
         with tempfile.TemporaryDirectory() as folder:
             result = write_problem_note(self.problem, [folder])
             expected = Path(folder) / ROOT_FOLDER / PROBLEMS_FOLDER / "0001-two-sum.md"
-            self.assertEqual(result.paths, [expected])
+            self.assertEqual(result.written, [expected])
             self.assertTrue(expected.exists())
             self.assertTrue((Path(folder) / ROOT_FOLDER / SOLUTIONS_FOLDER).is_dir())
 
     def test_missing_output_folder_is_reported_not_created(self):
         result = write_problem_note(self.problem, ["/no/such/folder"])
-        self.assertEqual(result.paths, [])
+        self.assertEqual(result.written, [])
         self.assertIn("/no/such/folder", result.errors)

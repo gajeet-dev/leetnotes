@@ -1,6 +1,7 @@
 import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 
 import structlog
@@ -10,18 +11,12 @@ from problems.models import Problem, SyncTask
 from .context import build_problem_context
 from .files import write_atomic
 from .layout import ensure_layout, resolve_output_dirs
+from .models import NoteRecord
 from .naming import problem_note_filename
 from .rendering import render_template
+from .writer import NoteWriteResult, write_to_folders
 
 logger = structlog.get_logger(__name__)
-
-
-@dataclass
-class NoteResult:
-    slug: str
-    paths: list[Path] = field(default_factory=list)
-    errors: dict[str, str] = field(default_factory=dict)  # output dir -> error
-    skipped_reason: str | None = None
 
 
 def render_problem_note(problem: Problem) -> str:
@@ -78,38 +73,37 @@ def _copy_images(problem: Problem, output_dir: Path) -> int:
     return copied
 
 
-def write_problem_note(
-    problem: Problem, output_dirs: Sequence[Path | str] | None = None
-) -> NoteResult:
-    """Render a problem note once and write it, with its images, to every output dir."""
-    result = NoteResult(problem.slug)
-
-    if reason := skip_reason(problem):
-        result.skipped_reason = reason
-        return result
-
-    dirs = resolve_output_dirs(output_dirs)
-
-    text = render_problem_note(problem)  # render once: a template error writes nothing
-
-    for out in dirs:
-        try:
-            # No parents=True on purpose: if a drive isn't mounted, this fails
-            # instead of quietly creating a folder on the wrong disk.
-            layout = ensure_layout(out)
-            copied = _copy_images(problem, layout.problems_dir)
-            path = layout.problems_dir / problem_note_filename(problem)
-            write_atomic(path, text)
-        except OSError as exc:
-            logger.warning(
-                "note_write_failed", slug=problem.slug, dir=str(out), error=str(exc)
-            )
-            result.errors[str(out)] = str(exc)
-            continue
-
-        logger.info(
-            "note_written", slug=problem.slug, path=str(path), images_copied=copied
+def prepare_images(problem: Problem, output_dir: Path) -> str | None:
+    """Copy the problem's images into the folder. Returns an error message, or None."""
+    try:
+        layout = ensure_layout(output_dir)
+        _copy_images(problem, layout.problems_dir)
+    except OSError as exc:
+        logger.warning(
+            "note_images_failed", slug=problem.slug, dir=str(output_dir), error=str(exc)
         )
-        result.paths.append(path)
+        return str(exc)
+    return None
 
-    return result
+
+def write_problem_note(
+    problem: Problem,
+    output_dirs=None,
+    *,
+    replace_edited: bool = False,
+) -> NoteWriteResult:
+    """Render the problem note once and write it, with its images, into every output folder."""
+    if reason := skip_reason(problem):
+        return NoteWriteResult(
+            problem.slug, NoteRecord.Kind.PROBLEM, skipped_reason=reason
+        )
+
+    text = render_problem_note(problem)  # render first: a failure writes nothing
+    return write_to_folders(
+        problem,
+        NoteRecord.Kind.PROBLEM,
+        text,
+        output_dirs,
+        replace_edited=replace_edited,
+        before_write=partial(prepare_images, problem),
+    )

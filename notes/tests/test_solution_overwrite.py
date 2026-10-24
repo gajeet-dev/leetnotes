@@ -59,7 +59,7 @@ class OverwriteSolutionNoteTests(TestCase):
     def test_overwrite_backs_up_the_old_note_then_replaces_it(self):
         with tempfile.TemporaryDirectory() as folder:
             path = self.first_write(folder)
-            result = write_solution_note(self.problem, [folder], overwrite=True)
+            result = write_solution_note(self.problem, [folder], replace_edited=True)
             self.assertEqual(result.written, [path])
             self.assertTrue(path.read_text().startswith("---\n"))
             backups = self.backup_files(folder)
@@ -91,9 +91,9 @@ class OverwriteSolutionNoteTests(TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = self.first_write(folder)
             with mock.patch(
-                "notes.solution_notes.backup_note", side_effect=OSError("disk full")
+                "notes.writer.backup_note", side_effect=OSError("disk full")
             ):
-                result = write_solution_note(self.problem, [folder], overwrite=True)
+                result = write_solution_note(self.problem, [folder], replace_edited=True)
             self.assertEqual(path.read_text(), "my own edits")
             self.assertEqual(result.written, [])
             self.assertIn(folder, result.errors)
