@@ -20,3 +20,7 @@ class NotFoundError(LeetCodeError):
 
 class ResponseShapeError(LeetCodeError):
     """Response wasn't valid JSON or lacked the expected structure."""
+
+
+class NotConfigured(LeetCodeError):
+    """The LeetCode cookies haven't been set up yet."""

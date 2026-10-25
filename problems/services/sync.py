@@ -28,6 +28,19 @@ from datetime import datetime
 
 from django.db.models import Max
 
+from userconfig import effective
+
+PACE_FROM_SETTINGS = object()  # the default: use the saved pace
+
+
+def resolve_pace(requested) -> float | None:
+    """None means no pacing. The default sentinel means use the saved (or .env) pace."""
+    return (
+        effective.problems_per_minute()
+        if requested is PACE_FROM_SETTINGS
+        else requested
+    )
+
 
 @dataclass
 class RecentCheckResult:
@@ -392,7 +405,7 @@ def process_pending(
     problem_ids=None,
     limit=None,
     retry_failed=False,
-    problems_per_minute: float | None = settings.LEETCODE_PROBLEMS_PER_MINUTE,
+    problems_per_minute: float | None | object = PACE_FROM_SETTINGS,
 ) -> ProcessResult:
     """Run every pending task, one problem at a time.
 
@@ -401,6 +414,7 @@ def process_pending(
     LeetCodeError marks just that task FAILED and moves on.
     """
     deps = Deps(client, downloader)
+    pace = resolve_pace(problems_per_minute)
     result = ProcessResult()
 
     statuses = [SyncTask.Status.PENDING]
@@ -457,7 +471,7 @@ def process_pending(
 
                 is_last = index == len(problem_ids_to_run) - 1
                 if did_work and not is_last:
-                    _pace(started, problems_per_minute)
+                    _pace(started, pace)
 
     logger.info(
         "sync_finished",

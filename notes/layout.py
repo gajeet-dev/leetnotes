@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from django.conf import settings
+from userconfig import effective
 
 ROOT_FOLDER = "Leetcode"
 PROBLEMS_FOLDER = "problems"  # problem notes, with assets/ inside
@@ -46,6 +46,6 @@ def ensure_layout(output_dir: Path) -> NotesLayout:
 
 
 def resolve_output_dirs(output_dirs: Sequence[Path | str] | None = None) -> list[Path]:
-    """The folders to write into: the given ones, or NOTES_OUTPUT_DIRS. No duplicates."""
-    chosen = settings.NOTES_OUTPUT_DIRS if output_dirs is None else output_dirs
+    """The folders to write into: the given ones, or the saved/configured ones. No duplicates."""
+    chosen = effective.output_dirs() if output_dirs is None else output_dirs
     return list(dict.fromkeys(Path(d).expanduser() for d in chosen))

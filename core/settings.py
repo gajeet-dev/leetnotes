@@ -1,7 +1,10 @@
 import logging.config
+import sys
 from pathlib import Path
 
 import environ
+
+from userconfig import ConfigError, load_config
 
 from .logging import configure_logging
 
@@ -25,9 +28,9 @@ LOGGING_CONFIG = None  # stop Django applying its default logging config
 LOGGING = configure_logging(debug=DEBUG, level=env("LOG_LEVEL"))
 logging.config.dictConfig(LOGGING)
 
-LEETCODE_SESSION = env("LEETCODE_SESSION")  # no default: required
-LEETCODE_CSRF_TOKEN = env("LEETCODE_CSRF_TOKEN")  # no default: required
-LEETCODE_USERNAME = env("LEETCODE_USERNAME")  # no default: required
+LEETCODE_SESSION = env("LEETCODE_SESSION", default="")
+LEETCODE_CSRF_TOKEN = env("LEETCODE_CSRF_TOKEN", default="")
+LEETCODE_USERNAME = env("LEETCODE_USERNAME", default="")
 LEETCODE_BASE_URL = env("LEETCODE_BASE_URL", default="https://leetcode.com")
 
 # applied on http session
@@ -42,10 +45,6 @@ NOTES_OUTPUT_DIRS = [
     for p in env.list("NOTES_OUTPUT_DIRS", default=[str(BASE_DIR / "notes_output")])
     if p.strip()
 ]
-
-PREFILL_PROVIDERS_FILE = Path(
-    env("PREFILL_PROVIDERS_FILE", default=str(BASE_DIR / "ai_providers.json"))
-)
 
 # Application definition
 
@@ -129,7 +128,17 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = env("TIME_ZONE", default="UTC")
+
+def saved_time_zone() -> str | None:
+    """The time zone saved in data/config.json. A broken file must not stop Django from starting."""
+    try:
+        return load_config().time_zone
+    except ConfigError as exc:
+        print(f"Ignoring data/config.json: {exc}", file=sys.stderr)
+        return None
+
+
+TIME_ZONE = saved_time_zone() or env("TIME_ZONE", default="Asia/Kolkata")
 
 USE_I18N = True
 

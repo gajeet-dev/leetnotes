@@ -57,7 +57,7 @@ class SubmissionsResource:
         if not target:
             raise ValueError(
                 "No LeetCode username available — "
-                "pass one explicitly or set LEETCODE_USERNAME."
+                "pass one explicitly or set your username in Settings."
             )
 
         data = self._gql.execute(

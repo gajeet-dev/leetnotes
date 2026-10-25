@@ -8,7 +8,8 @@ from django.core.management.base import BaseCommand, CommandError
 
 from leetcode.bootstrap import get_client, get_image_downloader
 from problems.models import SyncTask
-from problems.services.sync import process_pending
+from problems.services.sync import PACE_FROM_SETTINGS, process_pending
+
 
 logger = structlog.get_logger(__name__)
 
@@ -35,7 +36,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--problems-per-minute",
             type=float,
-            default=settings.LEETCODE_PROBLEMS_PER_MINUTE,
+            default=None,
+            help="Override the saved pace for this run",
         )
         parser.add_argument(
             "--retry-failed",
@@ -77,7 +79,8 @@ class Command(BaseCommand):
                     client,
                     downloader,
                     limit=opts["batch_size"],
-                    problems_per_minute=opts["problems_per_minute"],
+                    problems_per_minute=opts["problems_per_minute"]
+                    or PACE_FROM_SETTINGS,
                 )
                 self.stdout.write(
                     f"  done={result.done} failed={result.failed} "

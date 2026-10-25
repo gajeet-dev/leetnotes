@@ -1,4 +1,5 @@
 # Custom
+data/
 logs/
 notes_output/
 .django_tailwind_cli/
