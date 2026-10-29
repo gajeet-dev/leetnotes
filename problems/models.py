@@ -36,6 +36,8 @@ class Problem(models.Model):
     content_local_markdown = models.TextField(null=True, blank=True)
     content_text = models.TextField(null=True, blank=True)
 
+    flowchart = models.URLField(max_length=1000, null=True, blank=True)
+
     # None = images part not processed yet.
     # False = processed, question has no <img> tags.
     # True = question has images (imgs_local_paths may still be empty
