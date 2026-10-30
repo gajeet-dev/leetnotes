@@ -3,6 +3,12 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class AccountStatusDTO(BaseModel):
+    signed_in: bool
+    username: str = ""
+    is_premium: bool = False
+
+
 class TagDTO(BaseModel):
     name: str
     slug: str

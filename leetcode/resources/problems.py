@@ -37,6 +37,9 @@ class ProblemsResource:
         """Return the raw stat/status pairs for every problem on LeetCode."""
         logger.info("problem_list_request_started")
         data = self._http.get_json(ALL_PROBLEMS_PATH)
+        with open("data.json", 'w') as file:
+            import json
+            json.dump(data, file)
         pairs = data.get("stat_status_pairs") or []
 
         if not pairs:

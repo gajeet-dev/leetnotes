@@ -1,5 +1,7 @@
 from collections.abc import Iterator
-
+from .dto import AccountStatusDTO
+from .mappers.account import map_account_status
+from .resources.account import AccountResource
 from .dto import (
     DiscoveredProblemDTO,
     ProblemDTO,
@@ -24,9 +26,15 @@ class LeetCodeClient:
         self,
         problems: ProblemsResource,
         submissions: SubmissionsResource,
+        account: AccountResource,
     ):
         self._problems = problems
         self._submissions = submissions
+        self._account = account
+
+    def get_account_status(self) -> AccountStatusDTO:
+        """Who the cookies belong to, and whether LeetCode still accepts them."""
+        return map_account_status(self._account.status())
 
     def get_problem(self, slug: str) -> ProblemDTO:
         return map_problem(self._problems.get(slug))

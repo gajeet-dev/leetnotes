@@ -1,3 +1,13 @@
+USER_STATUS_QUERY = """
+query globalData {
+  userStatus {
+    isSignedIn
+    username
+    isPremium
+  }
+}
+"""
+
 QUESTION_DETAILS_QUERY = """
 query selectQuestion($titleSlug: String!) {
   question(titleSlug: $titleSlug) {

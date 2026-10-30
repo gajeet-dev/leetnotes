@@ -7,6 +7,7 @@ from functools import cache
 import requests
 from django.conf import settings
 
+from leetcode.resources.account import AccountResource
 from userconfig import effective
 
 from .client import LeetCodeClient
@@ -69,6 +70,7 @@ def build_client(config: ClientSettings) -> LeetCodeClient:
     return LeetCodeClient(
         problems=ProblemsResource(gql, http),
         submissions=SubmissionsResource(gql, default_username=config.username),
+        account=AccountResource(gql),
     )
 
 
