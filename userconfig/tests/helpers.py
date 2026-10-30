@@ -3,7 +3,7 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from userconfig.paths import DATA_DIR_ENV, config_path
 
@@ -22,3 +22,7 @@ class DataDirTestCase(SimpleTestCase):
     def write_raw(self, text: str) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         config_path().write_text(text)
+
+
+class DataDirDBTestCase(DataDirTestCase, TestCase):
+    """A temporary data folder, plus database access."""
