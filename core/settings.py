@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "prefill",
     "django_tailwind_cli",
     "ui",
+    "pipeline",
 ]
 
 MIDDLEWARE = [
