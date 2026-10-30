@@ -13,6 +13,7 @@ from leetcode.client import LeetCodeClient
 from leetcode.exceptions import (
     AuthError,
     LeetCodeError,
+    NotConfigured,
     RateLimitError,
 )
 from leetcode.images import ImageDownloader
@@ -392,6 +393,28 @@ PART_ORDER = (
     SyncTask.Part.IMAGES,
     SyncTask.Part.SUBMISSIONS,
 )
+
+
+def run_part(
+    problem: Problem, part: str, client: LeetCodeClient, downloader: ImageDownloader
+) -> None:
+    """Fetch one part of one problem and mark its sync record done.
+
+    Always runs, even if the part was fetched before: the handlers are idempotent.
+    Problems with the cookies or with LeetCode as a whole (auth, rate limit, not
+    configured) are raised without marking this problem failed, because nothing is
+    wrong with it. Any other LeetCode error marks it failed, like sync_all does.
+    """
+    task, _ = SyncTask.objects.get_or_create(problem=problem, part=part)
+    task.attempts += 1
+    task.save(update_fields=["attempts"])
+    try:
+        HANDLERS[part](task, Deps(client, downloader))
+    except AuthError, RateLimitError, NotConfigured:
+        raise
+    except LeetCodeError as exc:
+        _fail(task, exc)
+        raise
 
 
 # --- the runner ---
