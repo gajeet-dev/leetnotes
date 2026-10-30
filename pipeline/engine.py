@@ -1,7 +1,8 @@
 """The engine: runs one stage of one item at a time and records what happened."""
 
-from dataclasses import dataclass
 from collections.abc import Callable
+from dataclasses import dataclass
+
 import structlog
 from structlog.contextvars import bound_contextvars
 
