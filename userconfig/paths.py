@@ -24,3 +24,7 @@ def ensure_data_dir() -> Path:
     folder = data_dir()
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
     return folder
+
+
+def worker_lock_path() -> Path:
+    return data_dir() / "worker.lock"

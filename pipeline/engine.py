@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from django.db.models import QuerySet
 import structlog
 from structlog.contextvars import bound_contextvars
 
@@ -54,11 +55,20 @@ def still_runnable(item: TaskItem) -> bool:
 # --- choosing what to run ---
 
 
-def next_queued_item(task: Task | None = None) -> TaskItem | None:
-    """The next item to work on: oldest active task first, then its first queued item."""
-    items = TaskItem.objects.filter(
+def queued_items() -> QuerySet[TaskItem]:
+    """Items an active task could run right now."""
+    return TaskItem.objects.filter(
         status=TaskItem.Status.QUEUED, task__status=Task.Status.ACTIVE
     )
+
+
+def has_queued_work() -> bool:
+    return queued_items().exists()
+
+
+def next_queued_item(task: Task | None = None) -> TaskItem | None:
+    """The next item to work on: oldest active task first, then its first queued item."""
+    items = queued_items()
     if task is not None:
         items = items.filter(task=task)
     return (
