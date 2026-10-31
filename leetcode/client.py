@@ -1,20 +1,21 @@
 from collections.abc import Iterator
-from .dto import AccountStatusDTO
-from .mappers.account import map_account_status
-from .resources.account import AccountResource
+
 from .dto import (
+    AccountStatusDTO,
     DiscoveredProblemDTO,
     ProblemDTO,
     RecentAcDTO,
     SubmissionDetailDTO,
     SubmissionSummaryDTO,
 )
+from .mappers.account import map_account_status
 from .mappers.problem import map_discovered_problem, map_problem
 from .mappers.submission import (
     map_recent_ac,
     map_submission_detail,
     map_submission_summary,
 )
+from .resources.account import AccountResource
 from .resources.problems import ProblemsResource
 from .resources.submissions import SubmissionsResource
 
