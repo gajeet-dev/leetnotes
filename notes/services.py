@@ -1,6 +1,4 @@
 import shutil
-from collections.abc import Sequence
-from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 
@@ -9,10 +7,8 @@ import structlog
 from problems.models import Problem, SyncTask
 
 from .context import build_problem_context
-from .files import write_atomic
-from .layout import ensure_layout, resolve_output_dirs
+from .layout import ensure_layout
 from .models import NoteRecord
-from .naming import problem_note_filename
 from .rendering import render_template
 from .writer import NoteWriteResult, write_to_folders
 

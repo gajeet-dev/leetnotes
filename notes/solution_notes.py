@@ -1,13 +1,9 @@
 """Solution notes: the AI-drafted study note for a solved problem."""
 
 from collections.abc import Sequence
-from dataclasses import dataclass, field
 from pathlib import Path
 
-"""Solution notes: the AI-drafted study note for a solved problem."""
-
-from collections.abc import Sequence
-from pathlib import Path
+import structlog
 
 from prefill.schema import SolutionNote
 from problems.models import Problem
@@ -16,17 +12,6 @@ from .context import active_solution_note, build_solution_context
 from .models import NoteRecord
 from .rendering import render_template
 from .writer import NoteWriteResult, write_to_folders
-import structlog
-
-from prefill.schema import SolutionNote
-from problems.models import Problem
-
-from .backup import backup_note
-from .context import active_solution_note, build_solution_context
-from .files import has_content, write_atomic
-from .layout import ensure_layout, resolve_output_dirs
-from .naming import solution_note_filename
-from .rendering import render_template
 
 logger = structlog.get_logger(__name__)
 
