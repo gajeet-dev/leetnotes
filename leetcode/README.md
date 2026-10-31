@@ -580,15 +580,15 @@ flowchart TD
 In this application, we face two competing requirements:
 
 1. Why we want a single shared client (Caching):
-   • The LeetCodeClient contains an HTTP connection pool and a rate limiter (JitteredLimiterAdapter).
-   • If every function created a brand-new client, each request would get a brand-new rate limiter with its own fresh token bucket.
-   They wouldn't share the same pacing constraints, and concurrent requests would spam LeetCode and trigger HTTP 429 Too Many Requests.
-   • Therefore, the client needs to be reused as a singleton.
+   - The LeetCodeClient contains an HTTP connection pool and a rate limiter (JitteredLimiterAdapter).
+   - If every function created a brand-new client, each request would get a brand-new rate limiter with its own fresh token bucket.
+     They wouldn't share the same pacing constraints, and concurrent requests would spam LeetCode and trigger HTTP 429 Too Many Requests.
+   - Therefore, the client needs to be reused as a singleton.
 2. Why a permanent singleton fails (Dynamic Configuration):
-   • If a user opens the settings UI and updates expired cookies or changes their rate limits, a static singleton would stay stuck on
-   the old credentials forever until the server restarts.
-   • Therefore, the client must automatically rebuild itself whenever settings change.
-   ──────
+   - If a user opens the settings UI and updates expired cookies or changes their rate limits, a static singleton would stay stuck on
+     the old credentials forever until the server restarts.
+   - Therefore, the client must automatically rebuild itself whenever settings change.
+     ──────
 
 ### 2. How userconfig is Loaded & Evaluated
 
@@ -610,22 +610,22 @@ username=effective.leetcode_username(),
 )
 
 1. Hierarchy Resolution:
-   • effective.leetcode_session() reads directly from data/secrets.json first. If empty, it falls back to .env (settings.
-   LEETCODE_SESSION).
-   • effective.requests_per_second() reads from data/config.json first, falling back to .env.
+   - effective.leetcode_session() reads directly from data/secrets.json first. If empty, it falls back to .env (settings.
+     LEETCODE_SESSION).
+   - effective.requests_per_second() reads from data/config.json first, falling back to .env.
 2. Snapshot Creation:
-   • It captures this current state into a ClientSettings dataclass:
-   @dataclass(frozen=True)
-   class ClientSettings:
-   session: str = field(repr=False)
-   csrf_token: str = field(repr=False)
-   base_url: str
-   requests_per_second: float
-   requests_per_minute: float
-   username: str
-   • Python dataclasses compare by value. If two ClientSettings objects have identical fields, config_A == config_B evaluates to True.
-   If even a single cookie or rate-limit value changes, config_A == config_B evaluates to False.
-   ──────
+   - It captures this current state into a ClientSettings dataclass:
+     @dataclass(frozen=True)
+     class ClientSettings:
+     session: str = field(repr=False)
+     csrf_token: str = field(repr=False)
+     base_url: str
+     requests_per_second: float
+     requests_per_minute: float
+     username: str
+   - Python dataclasses compare by value. If two ClientSettings objects have identical fields, config_A == config_B evaluates to True.
+     If even a single cookie or rate-limit value changes, config_A == config_B evaluates to False.
+     ──────
 
 ### 3. How Changes Are Detected & Applied
 
@@ -665,17 +665,17 @@ Here is the decision logic:
                               ▼
                      Return _cached[1]
 
-• Scenario A (Normal / Repeated Call):
-• Settings have not changed.
-• _cached[0] != config is False.
-• It skips building anything and immediately returns the existing client (_cached[1]) with its shared connection pool and rate
-limiter.
-• Scenario B (User updated settings or cookies):
-• The user pasted new cookies in the UI → saved to data/secrets.json.
-• On the very next call, config contains the new cookie string.
-• _cached[0] != config is True!
-• It calls build_client(config), constructing a fresh requests.Session, HttpClient, and LeetCodeClient using the new cookies, and
-replaces _cached.
+- Scenario A (Normal / Repeated Call):
+- Settings have not changed.
+- _cached[0] != config is False.
+- It skips building anything and immediately returns the existing client (_cached[1]) with its shared connection pool and rate
+  limiter.
+- Scenario B (User updated settings or cookies):
+- The user pasted new cookies in the UI → saved to data/secrets.json.
+- On the very next call, config contains the new cookie string.
+- _cached[0] != config is True!
+- It calls build_client(config), constructing a fresh requests.Session, HttpClient, and LeetCodeClient using the new cookies, and
+  replaces _cached.
 
 ──────
 
@@ -693,13 +693,13 @@ Django processes requests across multiple threads (e.g., dashboard requests, bac
 
 #### How with _lock: fixes it:
 
-• A threading.Lock acts like a single physical key to a room.
-• When Thread 1 executes with _lock:, it takes the key.
-• If Thread 2 arrives while Thread 1 is inside, it must pause and wait.
-• Thread 1 builds the client, assigns _cached = (config, client), and exits the with block (releasing the key).
-• Thread 2 now enters, checks if _cached is None or _cached[0] != config:, sees that _cached is already populated and matches config,
-and immediately returns the client that Thread 1 just created!
-────────────────────────────────────────────────────────────
+- A threading.Lock acts like a single physical key to a room.
+- When Thread 1 executes with _lock:, it takes the key.
+- If Thread 2 arrives while Thread 1 is inside, it must pause and wait.
+- Thread 1 builds the client, assigns _cached = (config, client), and exits the with block (releasing the key).
+- Thread 2 now enters, checks if _cached is None or _cached[0] != config:, sees that _cached is already populated and matches config,
+  and immediately returns the client that Thread 1 just created!
+  ────────────────────────────────────────────────────────────
 
 > okay just a question we only use thread locks on the resource that is shared by the threads right? because in django apis we write lets
 > say for a blog website we dont use thread locks for any of that matter, like its new to me seeing an acutal application of thread locks
@@ -720,23 +720,23 @@ post = Post.objects.get(id=post_id)
 comment = Comment.objects.create(post=post, body=request.POST["body"])
 return JsonResponse({"status": "ok"})
 Notice what happens in memory:
-• Every incoming request gets its own isolated thread.
-• All the variables (post, comment, request) are local variables stored on that specific thread's stack.
-• Once the response is sent, those variables are destroyed.
-• No thread is touching another thread's Python variables. There is zero shared in-memory Python state!
-──────
+
+- Every incoming request gets its own isolated thread.
+- All the variables (post, comment, request) are local variables stored on that specific thread's stack.
+- Once the response is sent, those variables are destroyed.
+- No thread is touching another thread's Python variables. There is zero shared in-memory Python state!
+  ──────
 
 ### 2. Who Handles Concurrency in Normal Django Apps?
 
 In normal Django apps, concurrency is handled outside of Python's memory:
 
-Where the Concurrency Lives │ How Django Handles It
-─────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────
-The Database │ PostgreSQL/MySQL handles concurrency using ACID transactions and row-level locks (select_for_update()).
-The Cache / Celery │ Redis or Memcached manages state and atomic counters (cache.incr()).
-Worker Processes │ Production servers like Gunicorn or uWSGI run separate OS processes. Two processes don't share Python
-│ memory at all (a threading.Lock wouldn't even work across different processes).
-──────
+| Where the Concurrency Lives                                                     | How Django Handles It                                                                                   |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| The Database                                                                    | PostgreSQL/MySQL handles concurrency using ACID transactions and row-level locks (select_for_update()). |
+| The Cache / Celery                                                              | Redis or Memcached manages state and atomic counters (cache.incr()).                                    |
+| Worker Processes                                                                | Production servers like Gunicorn or uWSGI run separate OS processes. Two processes don't share Python memory at all (a threading.Lock wouldn't even work across different processes). |
+
 
 ### 3. Why This leetcode App Is Different
 
@@ -750,14 +750,14 @@ In this app, we have something that cannot live in the database:
 2. A Stateful In-Memory Object:
    Inside _cached[1] is a requests.Session and a JitteredLimiterAdapter. That rate-limiter has an internal stopwatch and a token bucket
    counting "how many requests have we sent in the last 60 seconds?"
-   • This rate-limiter cannot easily live in SQLite—it lives in Python RAM.
-   • If multiple background worker threads in the same process tried to initialize or reset _cached at the same moment, they would
-   stomp on each other's pointers.
+   - This rate-limiter cannot easily live in SQLite—it lives in Python RAM.
+   - If multiple background worker threads in the same process tried to initialize or reset _cached at the same moment, they would
+     stomp on each other's pointers.
 
 ──────
 
 ### Summary: The Golden Rule
 
-• State in Database or Redis? → Use SQL transactions (transaction.atomic()), unique constraints, or Redis locks. Never use threading.
-Lock.
-• State in a global Python variable in RAM shared across threads? → That is the one place where threading.Lock is necessary.
+- State in Database or Redis? → Use SQL transactions (transaction.atomic()), unique constraints, or Redis locks. Never use threading.
+  Lock.
+- State in a global Python variable in RAM shared across threads? → That is the one place where threading.Lock is necessary.
