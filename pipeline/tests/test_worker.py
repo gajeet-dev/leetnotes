@@ -3,15 +3,15 @@ import threading
 from pathlib import Path
 from unittest import mock
 
-from pipeline.creation import create_task
 from pipeline.engine import has_queued_work, next_pending_stage
-from pipeline.locking import FileLock
 from pipeline.models import ItemStage, Task, TaskItem
-from pipeline.pacing import Pacer
+from pipeline.runtime.locking import FileLock
+from pipeline.runtime.pacing import Pacer
+from pipeline.runtime.worker import MAX_CRASHES, Worker, WorkerManager
+from pipeline.tasks.creation import create_task
+from pipeline.tasks.transitions import begin_stage, pause_task
 from pipeline.tests.helpers import make_problem
 from pipeline.tests.test_engine import EngineTestCase
-from pipeline.transitions import begin_stage, pause_task
-from pipeline.worker import MAX_CRASHES, Worker, WorkerManager
 from userconfig import update_config
 from userconfig.tests.helpers import DataDirDBTestCase
 
@@ -108,7 +108,7 @@ class WorkerTests(EngineTestCase):
         self.task_for(problem)
         worker = self.make_worker(idle_timeout=None)
         with mock.patch(
-            "pipeline.worker.step", side_effect=RuntimeError("db gone")
+            "pipeline.runtime.worker.step", side_effect=RuntimeError("db gone")
         ) as fake_step:
             self.assertTrue(worker.run())
         self.assertEqual(fake_step.call_count, MAX_CRASHES)

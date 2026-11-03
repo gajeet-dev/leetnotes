@@ -2,8 +2,8 @@ from types import SimpleNamespace
 
 from django.test import SimpleTestCase, override_settings
 
-from pipeline.pacing import Pacer, seconds_per_problem
-from pipeline.stages import Stage
+from pipeline.runtime.pacing import Pacer, seconds_per_problem
+from pipeline.stages.definitions import Stage
 from userconfig import update_config
 from userconfig.tests.helpers import DataDirTestCase
 

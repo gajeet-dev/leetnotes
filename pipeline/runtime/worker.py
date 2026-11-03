@@ -11,8 +11,8 @@ from django.db import connections
 
 from userconfig.paths import worker_lock_path
 
-from .engine import has_queued_work, step
-from .handlers import StageDeps
+from ..engine import has_queued_work, step
+from ..stages.deps import StageDeps
 from .locking import FileLock
 from .pacing import Pacer
 from .recovery import recover_interrupted

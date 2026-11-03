@@ -8,15 +8,14 @@ from notes.generation import (
     describe_solution_note,
     generate_notes,
 )
+from pipeline.models import TaskItem
+from pipeline.stages.handlers.fetch import StageDeps, current_problem
+from pipeline.stages.outcomes import PauseTask, StageError, StageOutcome, done, waiting
+from pipeline.tasks.settings import MANUAL_PROVIDER, TaskSettings
 from prefill.models import AIResponse
 from prefill.prompt_builder import PromptInputError
 from prefill.providers.base import Provider, ProviderError, ProviderUnavailable
 from prefill.services import generate_for_problem
-
-from .handlers import StageDeps, current_problem
-from .models import TaskItem
-from .outcomes import PauseTask, StageError, StageOutcome, done, waiting
-from .task_settings import MANUAL_PROVIDER, TaskSettings
 
 # --- generate prefill ---
 

@@ -8,11 +8,11 @@ from django.utils import timezone
 
 from notes.models import NoteRecord
 from notes.state import expected_path
-from pipeline.handlers import StageDeps
 from pipeline.models import ItemStage, TaskItem
-from pipeline.note_handlers import generate_prefill, review, save_notes
-from pipeline.outcomes import PauseTask, StageError
-from pipeline.task_settings import MANUAL_PROVIDER, TaskSettings
+from pipeline.stages.deps import StageDeps
+from pipeline.stages.handlers.notes import generate_prefill, review, save_notes
+from pipeline.stages.outcomes import PauseTask, StageError
+from pipeline.tasks.settings import MANUAL_PROVIDER, TaskSettings
 from pipeline.tests.helpers import make_item, make_problem, mark_fetched
 from prefill.models import AIResponse
 from prefill.providers.base import ProviderError, ProviderResult, ProviderUnavailable

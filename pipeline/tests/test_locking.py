@@ -3,7 +3,7 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-from pipeline.locking import FileLock
+from pipeline.runtime.locking import FileLock
 
 
 class FileLockTests(SimpleTestCase):

@@ -8,14 +8,14 @@ from django.utils import timezone
 from leetcode.exceptions import AuthError, NotFoundError, TransportError
 from notes.models import NoteRecord
 from notes.state import expected_path
-from pipeline.creation import create_task
 from pipeline.engine import next_pending_stage, next_queued_item, run_until_idle, step
-from pipeline.handlers import StageDeps
 from pipeline.models import ItemStage, Task, TaskItem
-from pipeline.stages import Stage
+from pipeline.stages.definitions import Stage
+from pipeline.stages.deps import StageDeps
+from pipeline.tasks.creation import create_task
+from pipeline.tasks.transitions import cancel_task, pause_task, resume_task
 from pipeline.tests.helpers import make_problem, mark_fetched
 from pipeline.tests.test_note_handlers import FakeProvider, add_submission
-from pipeline.transitions import cancel_task, pause_task, resume_task
 from prefill.models import AIResponse
 from prefill.providers.base import ProviderResult
 from prefill.services import save_response
@@ -75,7 +75,7 @@ class EngineTestCase(DataDirDBTestCase):
         self.output = Path(folder.name)
         update_config({"output_dirs": [str(self.output)]})
         self.fetcher = FakeFetcher()
-        patcher = mock.patch("pipeline.handlers.run_part", self.fetcher)
+        patcher = mock.patch("pipeline.stages.handlers.fetch.run_part", self.fetcher)
         patcher.start()
         self.addCleanup(patcher.stop)
         self.provider = lambda name: FakeProvider(json.dumps(valid()))

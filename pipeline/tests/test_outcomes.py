@@ -1,7 +1,7 @@
 from django.test import SimpleTestCase
 
 from pipeline.models import ItemStage, TaskItem
-from pipeline.outcomes import DETAIL_LIMIT, done, skipped, waiting
+from pipeline.stages.outcomes import DETAIL_LIMIT, done, skipped, waiting
 
 
 class OutcomeTests(SimpleTestCase):

@@ -2,11 +2,10 @@
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from pipeline.models import Task
 from prefill.providers.config import default_provider_name, provider_names
 from userconfig import effective, load_config
 from userconfig.store import describe_validation_errors
-
-from .models import Task
 
 MANUAL_PROVIDER = "manual"  # no tool: you paste a reply from a web chat
 

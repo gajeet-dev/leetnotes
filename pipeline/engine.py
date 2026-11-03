@@ -3,19 +3,18 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from django.db.models import QuerySet
 import structlog
+from django.db.models import QuerySet
 from structlog.contextvars import bound_contextvars
 
 from leetcode.connection import result_for_error
 from leetcode.exceptions import AuthError, LeetCodeError, NotConfigured, RateLimitError
-
-from .handlers import StageDeps
-from .models import ItemStage, Task, TaskItem
-from .outcomes import PauseTask, StageError, StageOutcome
-from .stage_registry import handler_for
-from .task_settings import task_settings
-from .transitions import (
+from pipeline.models import ItemStage, Task, TaskItem
+from pipeline.stages.deps import StageDeps
+from pipeline.stages.outcomes import PauseTask, StageError, StageOutcome
+from pipeline.stages.registry import handler_for
+from pipeline.tasks.settings import task_settings
+from pipeline.tasks.transitions import (
     apply_outcome,
     begin_stage,
     complete_item,

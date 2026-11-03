@@ -1,7 +1,7 @@
 from pipeline.models import Task, TaskItem
-from pipeline.summary import describe_recent_tasks, describe_task
+from pipeline.tasks.summary import describe_recent_tasks, describe_task
+from pipeline.tasks.transitions import pause_task
 from pipeline.tests.test_engine import EngineTestCase
-from pipeline.transitions import pause_task
 
 
 class SummaryTests(EngineTestCase):

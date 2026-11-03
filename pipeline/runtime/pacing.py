@@ -6,8 +6,8 @@ from collections.abc import Callable
 
 from userconfig import effective
 
-from .models import ItemStage, TaskItem
-from .stages import Stage
+from ..models import ItemStage, TaskItem
+from ..stages.definitions import Stage
 
 PACED_STAGES = {Stage.FETCH_PROBLEM, Stage.FETCH_IMAGES, Stage.FETCH_SUBMISSION}
 JITTER_FRACTION = 0.2  # up to 20% extra, so the rhythm isn't perfectly regular

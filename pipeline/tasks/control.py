@@ -2,12 +2,12 @@
 
 from collections.abc import Callable, Iterable
 
+from pipeline.models import Task
+from pipeline.runtime.worker import ensure_worker_running
 from problems.models import Problem
 
 from .creation import TaskCreation, create_task
-from .models import Task
 from .transitions import cancel_task, pause_task, resume_task
-from .worker import ensure_worker_running
 
 WakeWorker = Callable[[], bool]
 

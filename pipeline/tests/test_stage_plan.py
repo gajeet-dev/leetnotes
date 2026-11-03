@@ -3,7 +3,8 @@ import json
 from django.test import TestCase
 from django.utils import timezone
 
-from pipeline.stage_plan import (
+from pipeline.stages.definitions import STAGE_ORDER, Stage
+from pipeline.stages.plan import (
     AI_NOTE_EXISTS,
     ALREADY_FETCHED,
     EXISTING_AI_NOTE,
@@ -12,8 +13,7 @@ from pipeline.stage_plan import (
     SOLUTION_CHANGED,
     initial_stages,
 )
-from pipeline.stages import STAGE_ORDER, Stage
-from pipeline.task_settings import TaskSettings
+from pipeline.tasks.settings import TaskSettings
 from prefill.models import AIResponse
 from prefill.services import save_response
 from prefill.tests.test_parsing import valid

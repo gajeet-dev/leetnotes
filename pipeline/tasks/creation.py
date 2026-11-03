@@ -6,13 +6,17 @@ from dataclasses import dataclass
 from django.db import transaction
 from django.utils import timezone
 
+from pipeline.models import ItemStage, Task, TaskItem
+from pipeline.stages.definitions import STAGE_ORDER, Stage, stage_order
+from pipeline.stages.plan import StageStart, initial_stages
+from pipeline.tasks.settings import (
+    TaskSettings,
+    TaskSettingsError,
+    settings_with_overrides,
+)
 from problems.models import Problem
 
 from .eligibility import Rejection, split_eligible
-from .models import ItemStage, Task, TaskItem
-from .stage_plan import StageStart, initial_stages
-from .stages import STAGE_ORDER, Stage, stage_order
-from .task_settings import TaskSettings, TaskSettingsError, settings_with_overrides
 
 
 class NothingToDo(Exception):

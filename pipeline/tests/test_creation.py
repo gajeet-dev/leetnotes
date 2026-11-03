@@ -1,10 +1,10 @@
 from django.test import override_settings
 
-from pipeline.creation import NothingToDo, create_task
 from pipeline.models import ItemStage, Task
-from pipeline.stage_plan import ALREADY_FETCHED, REVIEW_OFF
-from pipeline.stages import STAGE_ORDER, Stage
-from pipeline.task_settings import TaskSettingsError
+from pipeline.stages.definitions import STAGE_ORDER, Stage
+from pipeline.stages.plan import ALREADY_FETCHED, REVIEW_OFF
+from pipeline.tasks.creation import NothingToDo, create_task
+from pipeline.tasks.settings import TaskSettingsError
 from pipeline.tests.helpers import make_problem, mark_fetched
 from userconfig import update_config
 from userconfig.tests.helpers import DataDirDBTestCase

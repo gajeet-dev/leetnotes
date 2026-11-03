@@ -2,12 +2,17 @@
 
 from collections.abc import Callable
 
-from .handlers import StageDeps, fetch_images, fetch_problem, fetch_submission
-from .models import TaskItem
-from .note_handlers import generate_prefill, review, save_notes
-from .outcomes import StageOutcome
-from .stages import Stage
-from .task_settings import TaskSettings
+from pipeline.models import TaskItem
+from pipeline.stages.definitions import Stage
+from pipeline.stages.handlers.fetch import (
+    StageDeps,
+    fetch_images,
+    fetch_problem,
+    fetch_submission,
+)
+from pipeline.stages.handlers.notes import generate_prefill, review, save_notes
+from pipeline.stages.outcomes import StageOutcome
+from pipeline.tasks.settings import TaskSettings
 
 StageHandler = Callable[[TaskItem, TaskSettings, StageDeps], StageOutcome]
 

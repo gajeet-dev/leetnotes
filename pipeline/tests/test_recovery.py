@@ -1,10 +1,10 @@
 from pipeline.engine import next_pending_stage
 from pipeline.models import ItemStage, Task, TaskItem
-from pipeline.outcomes import done
-from pipeline.recovery import recover_interrupted
-from pipeline.stages import Stage
+from pipeline.runtime.recovery import recover_interrupted
+from pipeline.stages.definitions import Stage
+from pipeline.stages.outcomes import done
+from pipeline.tasks.transitions import begin_stage, complete_stage
 from pipeline.tests.test_engine import EngineTestCase
-from pipeline.transitions import begin_stage, complete_stage
 
 Row = ItemStage.Status
 Item = TaskItem.Status

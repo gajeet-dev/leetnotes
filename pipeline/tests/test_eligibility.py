@@ -1,7 +1,7 @@
 from django.test import TestCase
 
-from pipeline.eligibility import split_eligible
 from pipeline.models import Task, TaskItem
+from pipeline.tasks.eligibility import split_eligible
 from pipeline.tests.helpers import make_problem
 
 

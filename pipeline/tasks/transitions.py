@@ -2,8 +2,8 @@
 
 from django.utils import timezone
 
-from .models import ItemStage, Task, TaskItem
-from .outcomes import StageOutcome
+from pipeline.models import ItemStage, Task, TaskItem
+from pipeline.stages.outcomes import StageOutcome
 
 FINISHED_ITEM_STATUSES = (TaskItem.Status.COMPLETED, TaskItem.Status.FAILED)
 

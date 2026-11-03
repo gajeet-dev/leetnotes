@@ -2,7 +2,7 @@ from django.db import IntegrityError, transaction
 from django.test import SimpleTestCase, TestCase
 
 from pipeline.models import ItemStage, Task, TaskItem
-from pipeline.stages import STAGE_ORDER, Stage, next_stage, stage_order
+from pipeline.stages.definitions import STAGE_ORDER, Stage, next_stage, stage_order
 from problems.models import Problem
 
 

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from .models import ItemStage
+from pipeline.models import ItemStage
 
 DETAIL_LIMIT = 300  # the size of the ItemStage.detail column
 

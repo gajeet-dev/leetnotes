@@ -1,7 +1,7 @@
-from pipeline.control import cancel, pause, resume, start_task
-from pipeline.creation import NothingToDo
 from pipeline.engine import run_until_idle
 from pipeline.models import Task
+from pipeline.tasks.control import cancel, pause, resume, start_task
+from pipeline.tasks.creation import NothingToDo
 from pipeline.tests.helpers import make_problem
 from pipeline.tests.test_engine import EngineTestCase
 

@@ -1,8 +1,8 @@
 from django.test import SimpleTestCase
 
-from pipeline.note_handlers import review
-from pipeline.stage_registry import HANDLERS, handler_for
-from pipeline.stages import Stage
+from pipeline.stages.definitions import Stage
+from pipeline.stages.handlers.notes import review
+from pipeline.stages.registry import HANDLERS, handler_for
 
 
 class StageRegistryTests(SimpleTestCase):

@@ -3,7 +3,7 @@ from pathlib import Path
 from django.test import override_settings
 
 from pipeline.models import Task
-from pipeline.task_settings import (
+from pipeline.tasks.settings import (
     MANUAL_PROVIDER,
     TaskSettings,
     TaskSettingsError,

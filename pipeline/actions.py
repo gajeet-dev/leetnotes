@@ -4,16 +4,15 @@ from collections.abc import Callable
 
 from django.db import transaction
 
+from pipeline.engine import advance_item
+from pipeline.models import ItemStage, Task, TaskItem
+from pipeline.runtime.worker import ensure_worker_running
+from pipeline.stages.definitions import Stage
+from pipeline.stages.outcomes import done
+from pipeline.tasks.transitions import complete_stage, refresh_task_status, save_fields
 from prefill.parsing import ParseError, parse_solution
 from prefill.prompt_builder import PromptInputError, build_prompt
 from prefill.services import import_manual_response
-
-from .engine import advance_item
-from .models import ItemStage, Task, TaskItem
-from .outcomes import done
-from .stages import Stage
-from .transitions import complete_stage, refresh_task_status, save_fields
-from .worker import ensure_worker_running
 
 WakeWorker = Callable[[], bool]
 OPEN_TASK_STATUSES = (Task.Status.ACTIVE, Task.Status.PAUSED)

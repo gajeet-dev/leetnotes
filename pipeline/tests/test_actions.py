@@ -10,9 +10,9 @@ from pipeline.actions import (
     submit_manual_reply,
 )
 from pipeline.models import ItemStage, Task, TaskItem
-from pipeline.stages import Stage
+from pipeline.stages.definitions import Stage
+from pipeline.tasks.transitions import cancel_task
 from pipeline.tests.test_engine import EngineTestCase
-from pipeline.transitions import cancel_task
 from prefill.models import AIResponse
 from prefill.tests.test_parsing import valid
 from problems.models import SyncTask

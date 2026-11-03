@@ -3,10 +3,11 @@ from unittest import mock
 from django.test import TestCase
 
 from leetcode.exceptions import AuthError
-from pipeline.handlers import StageDeps, fetch_images, fetch_problem, fetch_submission
 from pipeline.models import ItemStage, Task, TaskItem
-from pipeline.outcomes import StageError
-from pipeline.task_settings import TaskSettings
+from pipeline.stages.deps import StageDeps
+from pipeline.stages.handlers.fetch import fetch_images, fetch_problem, fetch_submission
+from pipeline.stages.outcomes import StageError
+from pipeline.tasks.settings import TaskSettings
 from pipeline.tests.helpers import make_problem
 from problems.models import Problem, SyncTask
 
@@ -24,7 +25,7 @@ class FetchHandlerTests(TestCase):
         self.settings = TaskSettings()
 
     def run_handler(self, handler):
-        with mock.patch("pipeline.handlers.run_part") as run_part:
+        with mock.patch("pipeline.stages.handlers.fetch.run_part") as run_part:
             outcome = handler(self.item, self.settings, DEPS)
         return outcome, run_part
 
@@ -54,6 +55,8 @@ class FetchHandlerTests(TestCase):
             self.run_handler(fetch_images)
 
     def test_leetcode_errors_propagate_to_the_engine(self):
-        with mock.patch("pipeline.handlers.run_part", side_effect=AuthError("403")):
+        with mock.patch(
+            "pipeline.stages.handlers.fetch.run_part", side_effect=AuthError("403")
+        ):
             with self.assertRaises(AuthError):
                 fetch_problem(self.item, self.settings, DEPS)

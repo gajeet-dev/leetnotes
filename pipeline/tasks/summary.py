@@ -2,7 +2,7 @@
 
 from collections import Counter
 
-from .models import Task, TaskItem
+from pipeline.models import Task, TaskItem
 
 
 def recent_tasks(limit: int = 5) -> list[Task]:

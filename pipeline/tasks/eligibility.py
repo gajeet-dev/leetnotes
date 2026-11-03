@@ -3,9 +3,8 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from pipeline.models import Task, TaskItem
 from problems.models import Problem
-
-from .models import Task, TaskItem
 
 BUSY_ITEM_STATUSES = (
     TaskItem.Status.QUEUED,

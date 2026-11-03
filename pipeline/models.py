@@ -4,7 +4,7 @@ from django.db import models
 
 from problems.models import Problem
 
-from .stages import Stage
+from .stages.definitions import Stage
 
 if TYPE_CHECKING:
     from django.db.models.manager import RelatedManager

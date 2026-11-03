@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 
 from notes.models import NoteRecord
 from notes.state import NoteState, inspect_note
+from pipeline.stages.definitions import STAGE_ORDER, Stage
 from problems.models import Problem
 
 from .creation import ProblemPlan, plan_problems, unique_problems
 from .eligibility import Rejection, split_eligible
-from .stages import STAGE_ORDER, Stage
-from .task_settings import TaskSettings, settings_with_overrides
+from .settings import TaskSettings, settings_with_overrides
 
 EDITED_STATES = {NoteState.MODIFIED, NoteState.UNTRACKED_FILE}
 FETCH_STAGES = (Stage.FETCH_PROBLEM, Stage.FETCH_IMAGES, Stage.FETCH_SUBMISSION)

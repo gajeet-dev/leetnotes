@@ -3,13 +3,12 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
+from pipeline.models import ItemStage
+from pipeline.stages.definitions import Stage
+from pipeline.tasks.settings import TaskSettings
 from prefill.models import AIResponse
 from prefill.prompt_builder import PromptInputError, build_prompt
 from problems.models import Problem, SyncTask
-
-from .models import ItemStage
-from .stages import Stage
-from .task_settings import TaskSettings
 
 ALREADY_FETCHED = "already fetched"
 PINNED_KEPT = "pinned solution kept"

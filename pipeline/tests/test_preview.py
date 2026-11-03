@@ -5,8 +5,8 @@ from django.test import override_settings
 
 from notes.models import NoteRecord
 from notes.state import expected_path
-from pipeline.preview import describe_preview, preview_plan
-from pipeline.stages import Stage
+from pipeline.stages.definitions import Stage
+from pipeline.tasks.preview import describe_preview, preview_plan
 from pipeline.tests.helpers import make_problem, mark_fetched
 from userconfig import update_config
 from userconfig.tests.helpers import DataDirDBTestCase

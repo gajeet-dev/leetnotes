@@ -1,9 +1,8 @@
-from pipeline.creation import create_task
 from pipeline.models import ItemStage, Task, TaskItem
-from pipeline.outcomes import done, skipped, waiting
-from pipeline.stages import Stage
-from pipeline.tests.helpers import make_problem
-from pipeline.transitions import (
+from pipeline.stages.definitions import Stage
+from pipeline.stages.outcomes import done, skipped, waiting
+from pipeline.tasks.creation import create_task
+from pipeline.tasks.transitions import (
     apply_outcome,
     begin_stage,
     cancel_task,
@@ -18,6 +17,7 @@ from pipeline.transitions import (
     resume_task,
     task_is_done,
 )
+from pipeline.tests.helpers import make_problem
 from userconfig import update_config
 from userconfig.tests.helpers import DataDirDBTestCase
 
