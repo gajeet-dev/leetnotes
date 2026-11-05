@@ -21,6 +21,211 @@
     <script src="{% static 'ui/vendor/htmx.min.js' %}" defer></script>
     <script src="{% static 'ui/vendor/basecoat-all.min.js' %}" defer></script>
     <script src="{% static 'ui/sidebar-responsive.js' %}" defer></script>
+    <style>
+      .note-render-body h1 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        line-height: 1.4;
+        margin-top: 0.5rem;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(161, 161, 170, 0.25);
+        color: inherit;
+      }
+      .note-render-body h2 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        line-height: 1.4;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+        color: inherit;
+      }
+      .note-render-body h3 {
+        font-size: 0.925rem;
+        font-weight: 600;
+        line-height: 1.4;
+        margin-top: 1.25rem;
+        margin-bottom: 0.4rem;
+        color: inherit;
+      }
+      .note-render-body p {
+        font-size: 0.825rem;
+        line-height: 1.6;
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+        color: inherit;
+      }
+      .note-render-body blockquote {
+        border-left: 3px solid #10b981;
+        padding: 0.5rem 0.75rem;
+        margin: 0.75rem 0;
+        background-color: rgba(244, 244, 245, 0.6);
+        border-radius: 0 0.5rem 0.5rem 0;
+        font-size: 0.825rem;
+        font-style: italic;
+      }
+      .dark .note-render-body blockquote {
+        background-color: rgba(24, 24, 27, 0.6);
+      }
+      .note-render-body blockquote p {
+        margin: 0;
+      }
+      .note-render-body pre {
+        background-color: #09090b;
+        color: #f4f4f5;
+        padding: 0.875rem 1rem;
+        border-radius: 0.75rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.775rem;
+        line-height: 1.55;
+        overflow-x: auto;
+        margin: 0.75rem 0;
+        border: 1px solid rgba(63, 63, 70, 0.5);
+      }
+      .note-render-body code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.75rem;
+        background-color: rgba(244, 244, 245, 0.9);
+        color: inherit;
+        padding: 0.15rem 0.35rem;
+        border-radius: 0.25rem;
+      }
+      .dark .note-render-body code {
+        background-color: rgba(39, 39, 42, 0.9);
+      }
+      .note-render-body pre code {
+        background-color: transparent;
+        padding: 0;
+        color: inherit;
+        font-size: inherit;
+      }
+      .note-render-body ul {
+        list-style-type: disc;
+        padding-left: 1.25rem;
+        margin: 0.5rem 0;
+        font-size: 0.825rem;
+        line-height: 1.6;
+      }
+      .note-render-body ol {
+        list-style-type: decimal;
+        padding-left: 1.25rem;
+        margin: 0.5rem 0;
+        font-size: 0.825rem;
+        line-height: 1.6;
+      }
+      .note-render-body li {
+        margin-bottom: 0.25rem;
+      }
+      .note-render-body hr {
+        margin: 1.25rem 0;
+        border-color: rgba(161, 161, 170, 0.25);
+      }
+    </style>
+    <script>
+      function openNoteModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.setAttribute('data-open', 'true');
+          document.body.style.overflow = 'hidden';
+        }
+      }
+
+      function closeNoteModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) {
+          modal.classList.add('hidden');
+          modal.removeAttribute('data-open');
+          document.body.style.overflow = '';
+        }
+      }
+
+      document.addEventListener('keydown', function(evt) {
+        if (evt.key === 'Escape') {
+          const openModals = document.querySelectorAll('[id^="note-modal-"]:not(.hidden)');
+          openModals.forEach(modal => {
+            modal.classList.add('hidden');
+            modal.removeAttribute('data-open');
+          });
+          document.body.style.overflow = '';
+        }
+      });
+
+      document.body.addEventListener('htmx:afterSwap', function() {
+        const openModals = document.querySelectorAll('[id^="note-modal-"]:not(.hidden)');
+        if (openModals.length === 0) {
+          document.body.style.overflow = '';
+        }
+      });
+
+      function getMountedFormItemIds() {
+        const ids = [];
+        document.querySelectorAll('form[data-manual-form="true"], [data-review-card="true"]').forEach(el => {
+          const container = el.closest('[id^="item-stages-"]');
+          if (container) {
+            ids.push(container.id.replace('item-stages-', ''));
+          }
+        });
+        return ids.join(',');
+      }
+
+      // Prevent destructive OOB swaps when user is interacting with forms or viewing modals
+      document.body.addEventListener('htmx:oobBeforeSwap', function(evt) {
+        const target = evt.detail.target;
+        const fragment = evt.detail.fragment;
+        if (!target || !target.id) return;
+
+        // 1. If any tablet review modal is currently open, DO NOT swap that open modal
+        const openModal = document.querySelector('[id^="note-modal-"][data-open="true"]');
+        if (openModal) {
+          const modalId = openModal.id;
+          const itemId = openModal.dataset.modalId || modalId.replace('note-modal-', '');
+          if (target.id === modalId || target.id === 'note-modal-wrapper-' + itemId) {
+            evt.preventDefault();
+            evt.detail.shouldSwap = false;
+            return;
+          }
+        }
+
+        // 2. Protect item-stages- containers (keep forms inside timeline without re-rendering)
+        if (target.id.startsWith('item-stages-')) {
+          // A: If user is currently focused or active in ANY input/textarea inside this stages container, DO NOT swap
+          if (target.contains(document.activeElement) && (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT')) {
+            evt.preventDefault();
+            evt.detail.shouldSwap = false;
+            return;
+          }
+
+          // B: If the user has typed anything into reply_text textarea, DO NOT swap (preserve their work)
+          const replyTextarea = target.querySelector('textarea[name="reply_text"]');
+          if (replyTextarea && replyTextarea.value && replyTextarea.value.trim().length > 0) {
+            evt.preventDefault();
+            evt.detail.shouldSwap = false;
+            return;
+          }
+
+          // C: If the container already has the manual form mounted, and incoming fragment also has the form,
+          // no state transition occurred; do not re-render the form.
+          const currentForm = target.querySelector('form[data-manual-form="true"]');
+          const incomingForm = fragment && fragment.querySelector ? fragment.querySelector('form[data-manual-form="true"]') : null;
+          if (currentForm && incomingForm) {
+            evt.preventDefault();
+            evt.detail.shouldSwap = false;
+            return;
+          }
+
+          // D: If the container already has the review card mounted, and incoming fragment also has the review card,
+          // do not re-render the review card.
+          const currentReview = target.querySelector('[data-review-card="true"]');
+          const incomingReview = fragment && fragment.querySelector ? fragment.querySelector('[data-review-card="true"]') : null;
+          if (currentReview && incomingReview) {
+            evt.preventDefault();
+            evt.detail.shouldSwap = false;
+            return;
+          }
+        }
+      });
+    </script>
   </head>
   <body class="bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     {% include "ui/partials/sidebar.html" %}

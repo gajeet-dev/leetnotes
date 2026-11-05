@@ -120,7 +120,13 @@
   }
 
   function scrollToFirstWaitingItem() {
-    const waitingItem = document.querySelector('[data-waiting="true"]');
+    let waitingItem = document.querySelector('[data-waiting="true"]');
+    if (!waitingItem || waitingItem.getAttribute('data-waiting') !== 'true') {
+      const activeEl = document.querySelector('[data-manual-container="true"], [data-review-card="true"]');
+      if (activeEl) {
+        waitingItem = activeEl.closest('[id^="task-item-"]');
+      }
+    }
     if (waitingItem) {
       const itemId = waitingItem.id.replace('task-item-', '');
       const content = document.getElementById('item-content-' + itemId);

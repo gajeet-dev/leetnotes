@@ -9,6 +9,7 @@
   hx-get="{% url 'ui:task_live_status' task.id %}"
   hx-trigger="every 2s"
   hx-swap="outerHTML"
+  hx-vals="js:{mounted_forms: getMountedFormItemIds()}"
   {% endif %}
 ></div>
 
@@ -48,3 +49,10 @@
     </div>
   </div>
 </div>
+
+<!-- 7. OOB Swap: Note Review Modal Wrapper -->
+{% if item.note_rendered_html %}
+<div id="note-modal-wrapper-{{ item.id }}" hx-swap-oob="innerHTML">
+  {% include "ui/partials/note_review_modal.html" with item=item %}
+</div>
+{% endif %}

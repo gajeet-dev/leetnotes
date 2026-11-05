@@ -437,6 +437,22 @@ def _enrich_task_item(item: TaskItem):
     item.latest_submission = item.problem.submissions.order_by("-submission_date").first()
     item.ai_draft = AIResponse.objects.filter(problem=item.problem, is_active=True).first()
 
+    item.note_markdown_preview = None
+    item.note_rendered_html = None
+    item.note_frontmatter = {}
+    if item.ai_draft and item.ai_draft.status == AIResponse.Status.VALID:
+        try:
+            from notes.solution_notes import render_solution_note
+            item.note_markdown_preview = render_solution_note(item.problem)
+            from ui.markdown_preview import render_markdown_note
+            item.note_frontmatter, item.note_rendered_html = render_markdown_note(
+                item.note_markdown_preview
+            )
+        except Exception:
+            item.note_markdown_preview = None
+            item.note_rendered_html = None
+            item.note_frontmatter = {}
+
     stages_map = {s.stage: s for s in item.stages.all()}
     item.stage_fetch_problem = stages_map.get(Stage.FETCH_PROBLEM)
     item.stage_fetch_images = stages_map.get(Stage.FETCH_IMAGES)
@@ -449,15 +465,23 @@ def _enrich_task_item(item: TaskItem):
     s1_done = bool(item.stage_fetch_problem and item.stage_fetch_problem.status in (ItemStage.Status.DONE, ItemStage.Status.SKIPPED))
     s2_done = bool(item.stage_fetch_images and item.stage_fetch_images.status in (ItemStage.Status.DONE, ItemStage.Status.SKIPPED))
     s3_done = bool(item.stage_fetch_submission and item.stage_fetch_submission.status in (ItemStage.Status.DONE, ItemStage.Status.SKIPPED))
-    s4_done = bool(item.stage_generate_prefill and item.stage_generate_prefill.status == ItemStage.Status.DONE)
-    s5_done = bool(s4_done or (item.ai_draft and item.ai_draft.status == AIResponse.Status.VALID))
-    s6_done = bool(item.stage_save_notes and item.stage_save_notes.status == ItemStage.Status.DONE)
+
+    # Stage 4: AI solution & prefill
+    s4_skipped = bool(item.stage_generate_prefill and item.stage_generate_prefill.status == ItemStage.Status.SKIPPED)
+    s4_done = bool(s4_skipped or (item.stage_generate_prefill and item.stage_generate_prefill.status == ItemStage.Status.DONE))
+
+    # Stage 5: Note review
+    s5_skipped = bool(item.stage_review and item.stage_review.status == ItemStage.Status.SKIPPED)
+    s5_done = bool(s5_skipped or (item.stage_review and item.stage_review.status == ItemStage.Status.DONE))
+
+    # Stage 6: Save notes to disk
+    s6_done = bool(item.stage_save_notes and item.stage_save_notes.status in (ItemStage.Status.DONE, ItemStage.Status.SKIPPED))
 
     completed_count = sum([s1_done, s2_done, s3_done, s4_done, s5_done, s6_done])
     item.completed_stages_count = completed_count
 
     is_s4_waiting = item.status == TaskItem.Status.NEEDS_INPUT and item.input_kind == TaskItem.InputKind.MANUAL_PREFILL
-    is_s6_waiting = item.status == TaskItem.Status.NEEDS_INPUT and item.input_kind == TaskItem.InputKind.REVIEW
+    is_s5_waiting = item.status == TaskItem.Status.NEEDS_INPUT and item.input_kind == TaskItem.InputKind.REVIEW
 
     def get_seg_color(is_done, stage_obj, is_waiting=False):
         if is_done:
@@ -476,8 +500,8 @@ def _enrich_task_item(item: TaskItem):
         {"color": get_seg_color(s2_done, item.stage_fetch_images)},
         {"color": get_seg_color(s3_done, item.stage_fetch_submission)},
         {"color": get_seg_color(s4_done, item.stage_generate_prefill, is_waiting=is_s4_waiting)},
-        {"color": get_seg_color(s5_done, None)},
-        {"color": get_seg_color(s6_done, item.stage_save_notes, is_waiting=is_s6_waiting)},
+        {"color": get_seg_color(s5_done, item.stage_review, is_waiting=is_s5_waiting)},
+        {"color": get_seg_color(s6_done, item.stage_save_notes)},
     ]
 
     # Subtitles and badges for stages matching mockup:
@@ -527,12 +551,15 @@ def _enrich_task_item(item: TaskItem):
         item.stage_3_subtitle = "Waiting in pipeline"
         item.stage_3_badge = "Pending"
 
-    # Stage 4:
+    # Stage 4: AI Solution & Prefill
     if is_s4_waiting:
         item.stage_4_subtitle = "Waiting for your response"
         item.stage_4_badge = "Action required"
+    elif s4_skipped:
+        item.stage_4_subtitle = "Existing solution draft reused"
+        item.stage_4_badge = "Skipped"
     elif s4_done:
-        item.stage_4_subtitle = "Draft generated successfully"
+        item.stage_4_subtitle = "Draft generated and verified"
         item.stage_4_badge = "Complete"
     elif item.stage_generate_prefill and item.stage_generate_prefill.status == ItemStage.Status.RUNNING:
         item.stage_4_subtitle = "Generating solution draft..."
@@ -544,29 +571,38 @@ def _enrich_task_item(item: TaskItem):
         item.stage_4_subtitle = "Waiting in pipeline"
         item.stage_4_badge = "Pending"
 
-    # Stage 5:
-    if s5_done:
-        item.stage_5_subtitle = "JSON schema validated successfully"
+    # Stage 5: Note Review
+    if is_s5_waiting:
+        item.stage_5_subtitle = "Note draft ready for inspection"
+        item.stage_5_badge = "Action required"
+    elif s5_skipped:
+        item.stage_5_subtitle = "Review not required"
+        item.stage_5_badge = "Skipped"
+    elif s5_done:
+        item.stage_5_subtitle = "Note draft approved"
         item.stage_5_badge = "Complete"
-    elif item.stage_generate_prefill and item.stage_generate_prefill.status == ItemStage.Status.RUNNING:
-        item.stage_5_subtitle = "Validating against JSON schema..."
+    elif item.stage_review and item.stage_review.status == ItemStage.Status.RUNNING:
+        item.stage_5_subtitle = "Preparing note for review..."
         item.stage_5_badge = "Running"
+    elif item.stage_review and item.stage_review.status == ItemStage.Status.FAILED:
+        item.stage_5_subtitle = "Review preparation failed"
+        item.stage_5_badge = "Failed"
     else:
-        item.stage_5_subtitle = "Waiting for AI response"
+        item.stage_5_subtitle = "Waiting for AI draft"
         item.stage_5_badge = "Pending"
 
-    # Stage 6:
+    # Stage 6: Save Notes to Disk
     if s6_done:
-        item.stage_6_subtitle = "Note written to disk successfully"
+        item.stage_6_subtitle = "Notes written to disk successfully"
         item.stage_6_badge = "Complete"
-    elif is_s6_waiting:
-        item.stage_6_subtitle = "Note draft ready for review"
-        item.stage_6_badge = "Action required"
     elif item.stage_save_notes and item.stage_save_notes.status == ItemStage.Status.RUNNING:
-        item.stage_6_subtitle = "Writing markdown note to disk..."
+        item.stage_6_subtitle = "Writing markdown notes to disk..."
         item.stage_6_badge = "Running"
+    elif item.stage_save_notes and item.stage_save_notes.status == ItemStage.Status.FAILED:
+        item.stage_6_subtitle = "Failed to write notes to disk"
+        item.stage_6_badge = "Failed"
     else:
-        item.stage_6_subtitle = "Waiting for validation"
+        item.stage_6_subtitle = "Waiting for note approval"
         item.stage_6_badge = "Pending"
 
     # Plain English status text & badges
@@ -804,11 +840,24 @@ def task_item_approve_review(request, item_id: int):
 
 @require_POST
 def task_item_reject_review(request, item_id: int):
-    """Rejects an AI draft waiting for review, re-queuing prefill."""
+    """Rejects an AI draft waiting for review, putting prefill into manual input mode."""
     item = get_object_or_404(TaskItem.objects.select_related("task", "problem"), pk=item_id)
     try:
-        reject_review(item_id)
-        ensure_worker_running()
+        reject_review(item_id, wake=lambda: None)
+        # Put into manual input mode waiting for user input
+        item.status = TaskItem.Status.NEEDS_INPUT
+        item.input_kind = TaskItem.InputKind.MANUAL_PREFILL
+        item.stage = Stage.GENERATE_PREFILL
+        item.save(update_fields=["status", "input_kind", "stage"])
+        # Update stage rows
+        item.stages.filter(stage=Stage.GENERATE_PREFILL).update(
+            status=ItemStage.Status.WAITING, detail="Paste a reply from your AI chat."
+        )
+        item.stages.filter(stage=Stage.REVIEW).update(
+            status=ItemStage.Status.PENDING, detail=""
+        )
+        # Deactivate old AIResponse so fresh response is required
+        AIResponse.objects.filter(problem=item.problem, is_active=True).update(is_active=False)
     except Exception:
         pass
     if request.headers.get("HX-Request"):
@@ -838,6 +887,12 @@ def task_approve_all_reviews(request, task_id: int):
 def task_live_status(request, task_id: int):
     """Lightweight polling endpoint that updates only live stats and running items."""
     context = _get_task_detail_context(task_id)
+    mounted_forms_param = request.GET.get("mounted_forms", "").strip()
+    mounted_ids = set()
+    if mounted_forms_param:
+        mounted_ids = {int(x) for x in mounted_forms_param.split(",") if x.strip().isdigit()}
+    for it in context.get("items", []):
+        it.is_form_already_mounted = bool(it.id in mounted_ids)
     return render(request, "ui/partials/task_live_updates.html", context)
 
 

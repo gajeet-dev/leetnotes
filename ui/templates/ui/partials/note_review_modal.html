@@ -1,0 +1,121 @@
+<!-- Vertical Tablet Device Modal for Note Review -->
+<div
+  id="note-modal-{{ item.id }}"
+  hx-preserve="true"
+  data-modal-id="{{ item.id }}"
+  class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-zinc-950/70 backdrop-blur-xs hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-title-{{ item.id }}"
+  onclick="if (event.target === this) closeNoteModal('note-modal-{{ item.id }}')"
+>
+  <!-- Tablet Outer Casing (Bezel) in Portrait Orientation -->
+  <div class="relative w-full max-w-2xl h-[88vh] max-h-[880px] flex flex-col rounded-[32px] sm:rounded-[36px] border-[10px] sm:border-[12px] border-zinc-900 bg-zinc-900 shadow-2xl ring-1 ring-white/10 dark:ring-zinc-800 overflow-hidden">
+    
+    <!-- Tablet Top Sensor / Camera Dot -->
+    <div class="w-2.5 h-2.5 rounded-full bg-zinc-800 border border-zinc-700/60 mx-auto -mt-0.5 mb-1.5 flex items-center justify-center shrink-0 select-none">
+      <div class="w-1 h-1 rounded-full bg-blue-900/60"></div>
+    </div>
+
+    <!-- Tablet Inner Screen -->
+    <div class="w-full h-full flex flex-col rounded-[22px] sm:rounded-[24px] bg-white dark:bg-zinc-950 overflow-hidden shadow-inner text-zinc-900 dark:text-zinc-100">
+      
+      <!-- Top Action Bar (Approve, Reject, Close) -->
+      <div class="px-4 py-3 sm:px-5 sm:py-3.5 bg-zinc-50/95 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 shrink-0 z-10">
+        <!-- Problem Title & Device Chip -->
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="inline-flex items-center justify-center h-6 px-2 rounded-md bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 font-mono text-xs font-semibold shrink-0">
+            #{{ item.problem.frontend_id|default:item.problem.id }}
+          </span>
+          <span id="modal-title-{{ item.id }}" class="font-semibold text-xs sm:text-sm text-zinc-900 dark:text-white truncate">
+            {{ item.problem.title }}
+          </span>
+          <span class="hidden sm:inline-flex items-center rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+            Tablet Preview
+          </span>
+        </div>
+
+        <!-- Top Action Controls: Approve & Reject Directly on Top -->
+        <div class="flex items-center gap-2 shrink-0">
+          {% if item.status == 'needs_input' and item.input_kind == 'review' %}
+          <button
+            type="button"
+            hx-post="{% url 'ui:item_approve_review' item.id %}"
+            hx-target="#item-stages-{{ item.id }}"
+            hx-swap="innerHTML"
+            onclick="closeNoteModal('note-modal-{{ item.id }}')"
+            class="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-500 shadow-xs transition-colors cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="hidden xs:inline">Approve &amp; Write</span>
+            <span class="xs:hidden">Approve</span>
+          </button>
+          <button
+            type="button"
+            hx-post="{% url 'ui:item_reject_review' item.id %}"
+            hx-target="#item-stages-{{ item.id }}"
+            hx-swap="innerHTML"
+            onclick="closeNoteModal('note-modal-{{ item.id }}')"
+            class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-900/60 dark:bg-zinc-900 dark:text-rose-400 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <span>Reject</span>
+          </button>
+          {% elif item.stage_5_badge == 'Complete' %}
+          <span class="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/60 dark:text-emerald-400">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Approved</span>
+          </span>
+          {% endif %}
+          <button
+            type="button"
+            onclick="closeNoteModal('note-modal-{{ item.id }}')"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer ml-1"
+            title="Close modal"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Frontmatter Metadata Strip -->
+      {% if item.note_frontmatter %}
+      <div class="px-5 py-2.5 border-b border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-wrap items-center gap-2 shrink-0 select-none">
+        {% if item.note_frontmatter.difficulty %}
+        <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold {% if item.note_frontmatter.difficulty == 'Easy' %}border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/60 dark:text-emerald-400{% elif item.note_frontmatter.difficulty == 'Medium' %}border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/60 dark:text-amber-400{% else %}border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/60 dark:text-rose-400{% endif %}">
+          {{ item.note_frontmatter.difficulty }}
+        </span>
+        {% endif %}
+        {% for tag in item.note_frontmatter.tags %}
+        <span class="inline-flex items-center rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+          #{{ tag }}
+        </span>
+        {% endfor %}
+        {% if item.note_frontmatter.problem_link %}
+        <a href="{{ item.note_frontmatter.problem_link }}" target="_blank" rel="noopener noreferrer" class="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors">
+          <span>LeetCode</span>
+          <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Rendered Markdown Body -->
+      <div class="flex-1 overflow-y-auto px-5 py-6 sm:px-8 space-y-3.5 select-text note-render-body">
+        {% if item.note_rendered_html %}
+          {{ item.note_rendered_html|safe }}
+        {% else %}
+          <div class="py-12 text-center text-xs text-zinc-400">
+            Note preview is not available yet.
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Tablet Home Indicator -->
+      <div class="py-2 bg-zinc-50/60 dark:bg-zinc-900/40 border-t border-zinc-100 dark:border-zinc-800/40 flex items-center justify-center shrink-0 select-none">
+        <div class="w-28 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
+      </div>
+
+    </div>
+  </div>
+</div>

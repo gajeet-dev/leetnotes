@@ -126,7 +126,7 @@
   </div>
 </div>
 
-<!-- Stage 4: AI Solution & Prefill (Active Container if Waiting) -->
+<!-- Stage 4: AI Solution & Prefill -->
 <div class="flex items-start gap-3">
   {% if item.status == 'needs_input' and item.input_kind == 'manual_prefill' %}
   <div class="h-5 w-5 text-amber-500 shrink-0 mt-0.5">
@@ -135,7 +135,7 @@
       <circle cx="12" cy="12" r="3" fill="currentColor"/>
     </svg>
   </div>
-  {% elif item.stage_4_badge == "Complete" %}
+  {% elif item.stage_4_badge == "Complete" or item.stage_4_badge == "Skipped" %}
   <svg class="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
   {% elif item.stage_4_badge == "Running" %}
   <div class="h-5 w-5 rounded-full bg-blue-50 border border-blue-200 text-blue-600 dark:bg-blue-950/60 dark:border-blue-900/60 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
@@ -154,7 +154,7 @@
   <div class="flex-1 space-y-2">
     <div class="flex items-center justify-between">
       <span class="text-sm font-semibold text-zinc-900 dark:text-white">4. AI solution & prefill</span>
-      <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium {% if item.stage_4_badge == 'Action required' %}border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/60 dark:text-amber-400{% elif item.stage_4_badge == 'Complete' %}border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/60 dark:text-emerald-400{% elif item.stage_4_badge == 'Running' %}border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/60 dark:text-blue-400{% elif item.stage_4_badge == 'Failed' %}border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/60 dark:text-rose-400{% else %}border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400{% endif %}">
+      <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium {% if item.stage_4_badge == 'Action required' %}border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/60 dark:text-amber-400{% elif item.stage_4_badge == 'Complete' or item.stage_4_badge == 'Skipped' %}border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/60 dark:text-emerald-400{% elif item.stage_4_badge == 'Running' %}border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/60 dark:text-blue-400{% elif item.stage_4_badge == 'Failed' %}border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/60 dark:text-rose-400{% else %}border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400{% endif %}">
         {{ item.stage_4_badge }}
       </span>
     </div>
@@ -164,7 +164,7 @@
 
     <!-- Active Manual AI Generation Card -->
     {% if item.status == 'needs_input' and item.input_kind == 'manual_prefill' %}
-    <div class="mt-3 rounded-xl border border-zinc-200 bg-white p-4 space-y-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60">
+    <div id="manual-form-container-{{ item.id }}" data-manual-container="true" class="mt-3 rounded-xl border border-zinc-200 bg-white p-4 space-y-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60">
       <!-- Card Header -->
       <div class="flex items-center justify-between">
         <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Manual AI generation</span>
@@ -196,12 +196,15 @@
           id="prompt-textarea-{{ item.id }}"
           readonly
           rows="6"
+          hx-preserve="true"
           class="w-full rounded-lg border border-zinc-200 bg-zinc-50 p-3 font-mono text-xs text-zinc-800 leading-relaxed focus:outline-none dark:border-zinc-800 dark:bg-black dark:text-zinc-200 select-all"
         >{{ item.manual_prompt }}</textarea>
       </div>
 
       <!-- JSON Response Input Form -->
       <form
+        id="manual-form-{{ item.id }}"
+        data-manual-form="true"
         hx-post="{% url 'ui:item_manual_input' item.id %}"
         hx-target="#item-stages-{{ item.id }}"
         hx-swap="innerHTML"
@@ -213,10 +216,12 @@
             AI response (JSON)
           </label>
           <textarea
+            id="reply-textarea-{{ item.id }}"
             name="reply_text"
             rows="5"
             placeholder="Paste your JSON response here..."
             required
+            hx-preserve="true"
             class="w-full rounded-lg border border-zinc-200 bg-white p-3 font-mono text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-black dark:text-zinc-100 dark:placeholder:text-zinc-600 dark:focus:border-zinc-500"
           ></textarea>
         </div>
@@ -235,55 +240,66 @@
         </button>
       </form>
     </div>
-    {% elif item.ai_draft %}
-    <div class="text-xs text-zinc-500 dark:text-zinc-400">
-      AI draft status: <span class="font-medium text-emerald-600 dark:text-emerald-400 uppercase font-mono">{{ item.ai_draft.status }}</span>
+    {% endif %}
+
+    <!-- AI Prefill Validation Outcome Subpart (Instead of developer status) -->
+    {% if item.ai_draft %}
+    <div class="mt-2.5 rounded-lg border {% if item.ai_draft.status == 'valid' %}border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20{% else %}border-rose-200 bg-rose-50/60 dark:border-rose-900/40 dark:bg-rose-950/20{% endif %} p-3 space-y-1">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          {% if item.ai_draft.status == 'valid' %}
+          <svg class="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+          <span class="text-xs font-semibold text-emerald-900 dark:text-emerald-300">
+            AI Prefill Validation
+          </span>
+          {% else %}
+          <svg class="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          <span class="text-xs font-semibold text-rose-900 dark:text-rose-300">
+            AI Prefill Validation
+          </span>
+          {% endif %}
+        </div>
+        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold {% if item.ai_draft.status == 'valid' %}border-emerald-300 bg-emerald-100/70 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300{% else %}border-rose-300 bg-rose-100/70 text-rose-800 dark:border-rose-800 dark:bg-rose-900/50 dark:text-rose-300{% endif %}">
+          {% if item.ai_draft.status == 'valid' %}Verified{% else %}Check failed{% endif %}
+        </span>
+      </div>
+      <p class="text-xs {% if item.ai_draft.status == 'valid' %}text-emerald-700 dark:text-emerald-400/90{% else %}text-rose-700 dark:text-rose-400/90{% endif %} pl-6">
+        {% if item.ai_draft.status == 'valid' %}
+          Solution structure, approach, and code complexity were checked and verified successfully.
+        {% else %}
+          {{ item.ai_draft.error|default:"The submitted AI reply could not be verified against the expected format." }}
+        {% endif %}
+      </p>
     </div>
     {% endif %}
   </div>
 </div>
 
-<!-- Stage 5: Schema Validation -->
+<!-- Stage 5: Note Review (With Markdown Preview and Approval/Rejection Controls) -->
 <div class="flex items-start gap-3">
-  {% if item.stage_5_badge == "Complete" %}
-  <svg class="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-  {% elif item.stage_5_badge == "Running" %}
-  <div class="h-5 w-5 rounded-full bg-blue-50 border border-blue-200 text-blue-600 dark:bg-blue-950/60 dark:border-blue-900/60 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
-    <span class="h-2 w-2 rounded-full bg-blue-500 dark:bg-blue-400 animate-pulse"></span>
-  </div>
-  {% else %}
-  <div class="h-5 w-5 flex items-center justify-center shrink-0 mt-0.5">
-    <div class="h-3 w-3 rounded-full bg-zinc-400 dark:bg-zinc-600"></div>
-  </div>
-  {% endif %}
-
-  <div class="flex-1 space-y-1">
-    <div class="flex items-center justify-between">
-      <span class="text-sm font-semibold text-zinc-900 dark:text-white">5. Schema validation</span>
-      <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-mono {% if item.stage_5_badge == 'Complete' %}border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/60 dark:text-emerald-400{% elif item.stage_5_badge == 'Running' %}border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/60 dark:text-blue-400{% else %}border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400{% endif %}">
-        {{ item.stage_5_badge }}
-      </span>
-    </div>
-    <p class="text-xs text-zinc-500 dark:text-zinc-400">
-      {{ item.stage_5_subtitle }}
-    </p>
-  </div>
-</div>
-
-<!-- Stage 6: Markdown Note & Review -->
-<div class="flex items-start gap-3">
-  {% if item.stage_6_badge == "Complete" %}
-  <svg class="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-  {% elif item.status == 'needs_input' and item.input_kind == 'review' %}
+  {% if item.status == 'needs_input' and item.input_kind == 'review' %}
   <div class="h-5 w-5 text-amber-500 shrink-0 mt-0.5">
     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/>
       <circle cx="12" cy="12" r="3" fill="currentColor"/>
     </svg>
   </div>
-  {% elif item.stage_6_badge == "Running" %}
+  {% elif item.stage_5_badge == "Complete" or item.stage_5_badge == "Skipped" %}
+  <svg class="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+  {% elif item.stage_5_badge == "Running" %}
   <div class="h-5 w-5 rounded-full bg-blue-50 border border-blue-200 text-blue-600 dark:bg-blue-950/60 dark:border-blue-900/60 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
     <span class="h-2 w-2 rounded-full bg-blue-500 dark:bg-blue-400 animate-pulse"></span>
+  </div>
+  {% elif item.stage_5_badge == "Failed" %}
+  <div class="h-5 w-5 rounded-full bg-rose-50 border border-rose-200 text-rose-600 dark:bg-rose-950/60 dark:border-rose-900/60 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
   </div>
   {% else %}
   <div class="h-5 w-5 flex items-center justify-center shrink-0 mt-0.5">
@@ -293,41 +309,113 @@
 
   <div class="flex-1 space-y-2">
     <div class="flex items-center justify-between">
-      <span class="text-sm font-semibold text-zinc-900 dark:text-white">6. Markdown note & review</span>
-      <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-mono {% if item.stage_6_badge == 'Complete' %}border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/60 dark:text-emerald-400{% elif item.stage_6_badge == 'Action required' %}border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/60 dark:text-amber-400{% elif item.stage_6_badge == 'Running' %}border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/60 dark:text-blue-400{% else %}border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400{% endif %}">
-        {{ item.stage_6_badge }}
+      <span class="text-sm font-semibold text-zinc-900 dark:text-white">5. Note review</span>
+      <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium {% if item.stage_5_badge == 'Action required' %}border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/60 dark:text-amber-400{% elif item.stage_5_badge == 'Complete' or item.stage_5_badge == 'Skipped' %}border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/60 dark:text-emerald-400{% elif item.stage_5_badge == 'Running' %}border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/60 dark:text-blue-400{% elif item.stage_5_badge == 'Failed' %}border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/60 dark:text-rose-400{% else %}border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400{% endif %}">
+        {{ item.stage_5_badge }}
       </span>
     </div>
     <p class="text-xs text-zinc-500 dark:text-zinc-400">
-      {{ item.stage_6_subtitle }}
+      {{ item.stage_5_subtitle }}
     </p>
 
-    <!-- In-place Review Card if awaiting review -->
+    <!-- Active Note Review Card if awaiting review -->
     {% if item.status == 'needs_input' and item.input_kind == 'review' %}
-    <div class="mt-3 rounded-xl border border-amber-300 bg-amber-50/80 p-4 space-y-3 dark:border-amber-900/40 dark:bg-amber-950/30">
-      <span class="text-xs font-semibold text-amber-900 dark:text-amber-400">Note draft ready for review</span>
-      <div class="flex items-center gap-2 pt-1">
+    <div data-review-card="true" class="mt-3 rounded-xl border border-amber-300 bg-amber-50/60 p-4 space-y-3.5 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/30">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Review note draft</span>
+        <span class="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/60 dark:text-amber-400">
+          Awaiting approval
+        </span>
+      </div>
+
+      <p class="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+        Study note has been generated and validated. Open the tablet device preview to inspect the rendered note before writing to disk, or take action directly below.
+      </p>
+
+      <!-- Review Action Buttons including Tablet Preview Modal Trigger -->
+      <div class="flex flex-wrap items-center gap-2.5 pt-1">
+        {% if item.note_rendered_html %}
+        <button
+          type="button"
+          onclick="openNoteModal('note-modal-{{ item.id }}')"
+          class="inline-flex h-9 items-center gap-2 rounded-lg bg-zinc-900 px-3.5 text-xs font-semibold text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 shadow-xs transition-colors cursor-pointer"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="16" height="20" x="4" y="2" rx="2" ry="2"/>
+            <line x1="12" x2="12.01" y1="18" y2="18"/>
+          </svg>
+          <span>Open Tablet Note Preview</span>
+        </button>
+        {% endif %}
         <button
           type="button"
           hx-post="{% url 'ui:item_approve_review' item.id %}"
           hx-target="#item-stages-{{ item.id }}"
           hx-swap="innerHTML"
-          class="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 text-xs font-semibold text-white hover:bg-emerald-700 shadow-sm transition-colors cursor-pointer"
+          class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-4 text-xs font-semibold text-white hover:bg-emerald-700 shadow-sm transition-colors cursor-pointer"
         >
-          ✓ Approve & Write to Disk
+          <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/></svg>
+          <span>Approve &amp; Write to Disk</span>
         </button>
         <button
           type="button"
           hx-post="{% url 'ui:item_reject_review' item.id %}"
           hx-target="#item-stages-{{ item.id }}"
           hx-swap="innerHTML"
-          class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-900/50 transition-colors cursor-pointer"
+          class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-900/60 dark:bg-zinc-900 dark:text-rose-400 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
         >
-          ✕ Reject (Regenerate)
+          <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <span>Reject &amp; Redo AI Prefill</span>
         </button>
       </div>
     </div>
+    {% elif item.note_rendered_html and item.stage_5_badge == 'Complete' %}
+    <!-- Completed Stage 5: View Note in Tablet Modal -->
+    <div class="pt-1 flex items-center gap-3">
+      <button
+        type="button"
+        onclick="openNoteModal('note-modal-{{ item.id }}')"
+        class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+      >
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="16" height="20" x="4" y="2" rx="2" ry="2"/>
+          <line x1="12" x2="12.01" y1="18" y2="18"/>
+        </svg>
+        <span>View Note in Tablet Device</span>
+      </button>
+    </div>
     {% endif %}
+  </div>
+</div>
+
+<!-- Stage 6: Save Notes to Disk -->
+<div class="flex items-start gap-3">
+  {% if item.stage_6_badge == "Complete" %}
+  <svg class="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+  {% elif item.stage_6_badge == "Running" %}
+  <div class="h-5 w-5 rounded-full bg-blue-50 border border-blue-200 text-blue-600 dark:bg-blue-950/60 dark:border-blue-900/60 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+    <span class="h-2 w-2 rounded-full bg-blue-500 dark:bg-blue-400 animate-pulse"></span>
+  </div>
+  {% elif item.stage_6_badge == "Failed" %}
+  <div class="h-5 w-5 rounded-full bg-rose-50 border border-rose-200 text-rose-600 dark:bg-rose-950/60 dark:border-rose-900/60 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </div>
+  {% else %}
+  <div class="h-5 w-5 flex items-center justify-center shrink-0 mt-0.5">
+    <div class="h-3 w-3 rounded-full bg-zinc-400 dark:bg-zinc-600"></div>
+  </div>
+  {% endif %}
+
+  <div class="flex-1 space-y-1">
+    <div class="flex items-center justify-between">
+      <span class="text-sm font-semibold text-zinc-900 dark:text-white">6. Save notes to disk</span>
+      <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-mono {% if item.stage_6_badge == 'Complete' %}border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/60 dark:text-emerald-400{% elif item.stage_6_badge == 'Running' %}border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/60 dark:text-blue-400{% elif item.stage_6_badge == 'Failed' %}border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/60 dark:text-rose-400{% else %}border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400{% endif %}">
+        {{ item.stage_6_badge }}
+      </span>
+    </div>
+    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+      {{ item.stage_6_subtitle }}
+    </p>
   </div>
 </div>
 

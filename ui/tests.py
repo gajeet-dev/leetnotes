@@ -507,3 +507,256 @@ class TaskCreationAndDetailTests(TestCase):
         self.assertFalse(task_data["is_active"])
         self.assertContains(response, "Cancelled")
         self.assertNotContains(response, "Waiting for input")
+
+    def test_pipeline_stages_review_and_markdown_preview(self):
+        from prefill.models import AIResponse
+        from pipeline.tasks.creation import create_task
+
+        parsed_solution = {
+            "problem_summary": "Two Sum summary",
+            "recognition_clue": ["Target sum", "Unique pair"],
+            "approaches": [
+                {
+                    "name": "Hash Map",
+                    "core_idea": ["Store visited numbers"],
+                    "trap": ["Same element twice"],
+                    "complexity_time": "O(N)",
+                    "complexity_space": "O(N)",
+                }
+            ],
+            "takeaway": ["Use hash table for complement lookup"],
+        }
+        AIResponse.objects.create(
+            problem=self.p1,
+            source=AIResponse.Source.MANUAL,
+            prompt_version="v1",
+            input_hash="hash123",
+            raw_text="{}",
+            parsed=parsed_solution,
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+        creation = create_task([self.p1], overrides={"provider": "manual", "review": True})
+        task = creation.task
+        item = task.items.first()
+        item.status = TaskItem.Status.NEEDS_INPUT
+        item.input_kind = TaskItem.InputKind.REVIEW
+        item.stage = Stage.REVIEW
+        item.save(update_fields=["status", "input_kind", "stage"])
+
+        url = reverse("ui:task_detail", kwargs={"task_id": task.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "5. Note review")
+        self.assertContains(response, "6. Save notes to disk")
+        self.assertNotContains(response, "Schema validation")
+        self.assertContains(response, "Review note draft")
+        self.assertContains(response, "Approve &amp; Write to Disk")
+        self.assertContains(response, "Reject &amp; Redo AI Prefill")
+
+    def test_reject_review_switches_to_manual_input_mode(self):
+        from prefill.models import AIResponse
+        from pipeline.tasks.creation import create_task
+
+        AIResponse.objects.create(
+            problem=self.p1,
+            source=AIResponse.Source.MANUAL,
+            prompt_version="v1",
+            input_hash="hash123",
+            raw_text="{}",
+            parsed={"summary": "test intuition"},
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+        creation = create_task([self.p1], overrides={"provider": "manual", "review": True})
+        task = creation.task
+        item = task.items.first()
+        item.status = TaskItem.Status.NEEDS_INPUT
+        item.input_kind = TaskItem.InputKind.REVIEW
+        item.stage = Stage.REVIEW
+        item.save(update_fields=["status", "input_kind", "stage"])
+        item.stages.filter(stage=Stage.REVIEW).update(status=ItemStage.Status.WAITING)
+
+        url = reverse("ui:item_reject_review", kwargs={"item_id": item.id})
+        response = self.client.post(url, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 200)
+        item.refresh_from_db()
+        self.assertEqual(item.status, TaskItem.Status.NEEDS_INPUT)
+        self.assertEqual(item.input_kind, TaskItem.InputKind.MANUAL_PREFILL)
+        self.assertEqual(item.stage, Stage.GENERATE_PREFILL)
+        self.assertContains(response, "Manual AI generation")
+        self.assertContains(response, "Validate and continue")
+
+    def test_reused_prefill_shows_skipped_not_pending(self):
+        from prefill.models import AIResponse
+        from pipeline.tasks.creation import create_task
+
+        AIResponse.objects.create(
+            problem=self.p1,
+            source=AIResponse.Source.MANUAL,
+            prompt_version="v1",
+            input_hash="hash123",
+            raw_text="{}",
+            parsed={"summary": "test intuition"},
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+        creation = create_task([self.p1], overrides={"provider": "manual", "refetch": False})
+        task = creation.task
+        item = task.items.first()
+        # Mark prefill stage as skipped (as happens when AI draft already exists)
+        item.stages.filter(stage=Stage.GENERATE_PREFILL).update(status=ItemStage.Status.SKIPPED)
+        item.status = TaskItem.Status.COMPLETED
+        item.save(update_fields=["status"])
+        item.stages.filter(stage=Stage.SAVE_NOTES).update(status=ItemStage.Status.DONE)
+
+        url = reverse("ui:task_detail", kwargs={"task_id": task.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        enriched_item = next(it for it in response.context["items"] if it.id == item.id)
+        self.assertEqual(enriched_item.stage_4_badge, "Skipped")
+        self.assertEqual(enriched_item.stage_4_subtitle, "Existing solution draft reused")
+
+    def test_markdown_preview_parser_and_renderer(self):
+        from ui.markdown_preview import render_markdown_note
+
+        raw_md = """---
+id: 51
+slug: n-queens
+tags:
+ - array
+ - backtracking
+difficulty: Hard
+platform: LeetCode
+problem_link: "https://leetcode.com/problems/n-queens/"
+---
+# 51. N-Queens
+### 🔗 **Problem & Solution:** [[0051-n-queens|Link]]
+
+**Problem:**
+> Place n queens on a chessboard.
+
+```python
+def solveNQueens(n):
+    return []
+```
+"""
+        frontmatter, html = render_markdown_note(raw_md)
+        self.assertEqual(frontmatter["id"], "51")
+        self.assertEqual(frontmatter["slug"], "n-queens")
+        self.assertEqual(frontmatter["difficulty"], "Hard")
+        self.assertEqual(frontmatter["tags"], ["array", "backtracking"])
+        self.assertEqual(frontmatter["problem_link"], "https://leetcode.com/problems/n-queens/")
+        self.assertIn("<h1>51. N-Queens</h1>", html)
+        self.assertIn("<blockquote>", html)
+        self.assertIn("<pre><code", html)
+        self.assertIn("solveNQueens", html)
+
+    def test_review_stage_displays_tablet_device_modal(self):
+        from prefill.models import AIResponse
+        from pipeline.tasks.creation import create_task
+
+        AIResponse.objects.create(
+            problem=self.p1,
+            source=AIResponse.Source.MANUAL,
+            prompt_version="v1",
+            input_hash="hash123",
+            raw_text="{}",
+            parsed={
+                "problem_summary": "Two pointers scan",
+                "recognition_clue": ["Sorted array"],
+                "approaches": [
+                    {
+                        "name": "Sliding Window",
+                        "core_idea": ["Maintain window invariant"],
+                        "trap": ["Off-by-one boundary"],
+                        "complexity_time": "O(N)",
+                        "complexity_space": "O(1)",
+                    }
+                ],
+                "takeaway": ["Remember invariants"],
+            },
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+        creation = create_task([self.p1], overrides={"provider": "manual", "review": True})
+        task = creation.task
+        item = task.items.first()
+        item.status = TaskItem.Status.NEEDS_INPUT
+        item.input_kind = TaskItem.InputKind.REVIEW
+        item.stage = Stage.REVIEW
+        item.save(update_fields=["status", "input_kind", "stage"])
+        item.stages.filter(stage=Stage.REVIEW).update(status=ItemStage.Status.WAITING)
+
+        url = reverse("ui:task_detail", kwargs={"task_id": task.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        # Check Tablet Device Modal & Action controls
+        self.assertContains(response, f"note-modal-{item.id}")
+        self.assertContains(response, f"note-modal-wrapper-{item.id}")
+        self.assertContains(response, "Tablet Preview")
+        self.assertContains(response, "Approve &amp; Write")
+        self.assertContains(response, "Reject")
+        self.assertContains(response, "Open Tablet Note Preview")
+        self.assertContains(response, "note-render-body")
+        self.assertContains(response, 'data-review-card="true"')
+        # When task is active, has_active_work is True so polling runs and syncs state
+        self.assertTrue(response.context["has_active_work"])
+
+    def test_manual_prefill_form_attributes_and_active_work(self):
+        from pipeline.tasks.creation import create_task
+
+        creation = create_task([self.p1], overrides={"provider": "manual", "review": False})
+        task = creation.task
+        item = task.items.first()
+        item.status = TaskItem.Status.NEEDS_INPUT
+        item.input_kind = TaskItem.InputKind.MANUAL_PREFILL
+        item.stage = Stage.GENERATE_PREFILL
+        item.save(update_fields=["status", "input_kind", "stage"])
+        item.stages.filter(stage=Stage.GENERATE_PREFILL).update(status=ItemStage.Status.WAITING)
+
+        url = reverse("ui:task_detail", kwargs={"task_id": task.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'id="manual-form-{item.id}"')
+        self.assertContains(response, 'data-manual-form="true"')
+        self.assertTrue(response.context["has_active_work"])
+
+        # When task is cancelled or paused, has_active_work is False
+        task.status = Task.Status.CANCELLED
+        task.save(update_fields=["status"])
+        response_cancelled = self.client.get(url)
+        self.assertFalse(response_cancelled.context["has_active_work"])
+
+    def test_inline_timeline_form_preserved_during_polling(self):
+        from pipeline.tasks.creation import create_task
+
+        creation = create_task([self.p1], overrides={"provider": "manual", "review": True})
+        task = creation.task
+        item = task.items.first()
+        item.status = TaskItem.Status.NEEDS_INPUT
+        item.input_kind = TaskItem.InputKind.MANUAL_PREFILL
+        item.stage = Stage.GENERATE_PREFILL
+        item.save(update_fields=["status", "input_kind", "stage"])
+
+        # 1. Detail page renders stages timeline with the form inside Stage 4
+        detail_url = reverse("ui:task_detail", kwargs={"task_id": task.id})
+        res_detail = self.client.get(detail_url)
+        self.assertEqual(res_detail.status_code, 200)
+        self.assertContains(res_detail, f'id="item-stages-{item.id}"')
+        self.assertContains(res_detail, f'id="manual-form-{item.id}"')
+        self.assertContains(res_detail, f'id="reply-textarea-{item.id}"')
+
+        # 2. When client does NOT have mounted form yet, live-status sends item-stages to mount it
+        live_url = reverse("ui:task_live_status", kwargs={"task_id": task.id})
+        res_initial_poll = self.client.get(live_url, HTTP_HX_REQUEST="true")
+        self.assertEqual(res_initial_poll.status_code, 200)
+        self.assertContains(res_initial_poll, f'<div id="item-stages-{item.id}" hx-swap-oob="innerHTML">')
+
+        # 3. When client reports mounted_forms (it is already visible), live-status does NOT replace item-stages
+        res_subsequent_poll = self.client.get(f"{live_url}?mounted_forms={item.id}", HTTP_HX_REQUEST="true")
+        self.assertEqual(res_subsequent_poll.status_code, 200)
+        # item status pill and stats are updated, but item-stages is NOT replaced
+        self.assertContains(res_subsequent_poll, f'<div id="item-status-pill-{item.id}"')
+        self.assertNotContains(res_subsequent_poll, f'<div id="item-stages-{item.id}"')

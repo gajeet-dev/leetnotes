@@ -5,6 +5,7 @@
   hx-get="{% url 'ui:task_live_status' task.id %}"
   hx-trigger="every 2s"
   hx-swap="outerHTML"
+  hx-vals="js:{mounted_forms: getMountedFormItemIds()}"
   {% endif %}
 ></div>
 
@@ -47,11 +48,17 @@
   </div>
 </div>
 
-<!-- Item Stages: Only swap if NOT waiting for manual prefill input (to avoid overwriting user typing) -->
-{% if item.status == 'needs_input' and item.input_kind == 'manual_prefill' %}
-{% else %}
+<!-- Item Stages: Only live-poll if NOT already mounted on client or not waiting for user input -->
+{% if not item.is_form_already_mounted or item.status != 'needs_input' %}
 <div id="item-stages-{{ item.id }}" hx-swap-oob="innerHTML">
   {% include "ui/partials/task_item_stages.html" with item=item %}
+</div>
+{% endif %}
+
+<!-- Note Review Modal Wrapper -->
+{% if item.note_rendered_html %}
+<div id="note-modal-wrapper-{{ item.id }}" hx-swap-oob="innerHTML">
+  {% include "ui/partials/note_review_modal.html" with item=item %}
 </div>
 {% endif %}
 {% endfor %}

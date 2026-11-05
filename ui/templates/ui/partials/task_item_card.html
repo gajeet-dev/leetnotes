@@ -11,4 +11,11 @@
       {% include "ui/partials/task_item_stages.html" with item=item manual_error=manual_error %}
     </div>
   </div>
+
+  <!-- Note Review Modal Wrapper (Outside item-stages so swapping item-stages never affects or resets the modal) -->
+  <div id="note-modal-wrapper-{{ item.id }}">
+    {% if item.note_rendered_html %}
+      {% include "ui/partials/note_review_modal.html" with item=item %}
+    {% endif %}
+  </div>
 </div>
