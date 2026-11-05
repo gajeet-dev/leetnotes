@@ -24,6 +24,9 @@ class TaskSettings(BaseModel):
     output_dirs: list[str] = Field(default_factory=list)
     replace_edited: bool = False  # replace notes you edited (backed up first)
     refetch: bool = False  # fetch data again even if the problem already has it
+    refetch_problem: bool = False
+    refetch_images: bool = False
+    refetch_submission: bool = False
     regenerate_prefill: bool = (
         False  # ask the AI again even if there is a current AI note
     )

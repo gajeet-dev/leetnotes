@@ -128,9 +128,13 @@ def plan_review(review_on: bool, prefill: StageStart) -> StageStart:
 def initial_stages(problem: Problem, settings: TaskSettings) -> dict[Stage, StageStart]:
     """How each stage of the pipeline begins for this problem, in pipeline order."""
     statuses = fetch_statuses(problem)
-    fetch_problem = plan_fetch_problem(statuses, settings.refetch)
+    refetch_prob = settings.refetch or settings.refetch_problem
+    refetch_sub = settings.refetch or settings.refetch_submission
+    fetch_problem = plan_fetch_problem(statuses, refetch_prob)
     fetch_images = plan_fetch_images(statuses, fetch_problem)
-    fetch_submission = plan_fetch_submission(problem, statuses, settings.refetch)
+    if settings.refetch_images and fetch_images.skipped:
+        fetch_images = PENDING
+    fetch_submission = plan_fetch_submission(problem, statuses, refetch_sub)
     data_unchanged = fetch_problem.skipped and fetch_submission.skipped
     prefill = plan_generate_prefill(
         problem, settings.regenerate_prefill, data_unchanged
