@@ -1,0 +1,258 @@
+<div id="generate-table-container" class="flex flex-col rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+  <!-- Single Unified Scrollable Viewport with Sticky Header -->
+  <div class="relative overflow-x-auto overflow-y-auto max-h-[calc(100vh-230px)] min-h-[420px]">
+    <table class="table w-full text-left text-sm">
+      <thead class="sticky top-0 z-20 border-b border-zinc-200 bg-zinc-50/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
+        <tr>
+          <th class="w-12 px-4 py-3 text-center">
+            <input
+              type="checkbox"
+              id="select-all-visible"
+              class="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100"
+              onchange="toggleAllCheckboxesInTable(this)"
+              title="Select all on this page"
+            />
+          </th>
+          <th class="w-20 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">#</th>
+          <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Title</th>
+          <th class="w-28 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Difficulty</th>
+          <th class="w-36 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Notes</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+
+        <!-- SECTION 1: Suggested / Recently Solved (Shown on Page 1) -->
+        {% if show_suggested %}
+        <tr class="bg-zinc-100/90 dark:bg-zinc-900/90 border-y border-zinc-200 dark:border-zinc-800 sticky top-[41px] z-10 backdrop-blur">
+          <td colspan="5" class="px-4 py-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <svg class="h-3.5 w-3.5 text-amber-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                <span class="text-xs font-bold uppercase tracking-wider text-zinc-800 dark:text-zinc-200">
+                  Suggested: Recently Solved
+                </span>
+                <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-400">
+                  {{ suggested_problems|length }}
+                </span>
+                <span class="text-[11px] text-zinc-400">· sorted by newest submission date</span>
+              </div>
+              <button
+                type="button"
+                onclick="toggleSuggestedRows()"
+                class="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+              >
+                <span id="suggested-toggle-label">Collapse</span>
+                <svg id="suggested-toggle-icon" class="h-3.5 w-3.5 transition-transform duration-200" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        {% for problem in suggested_problems %}
+        <tr class="suggested-row transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40 bg-amber-50/20 dark:bg-amber-950/10">
+          <td class="px-4 py-2.5 text-center">
+            <input
+              type="checkbox"
+              name="selected_problems"
+              value="{{ problem.id }}"
+              class="problem-select-checkbox h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100"
+              onchange="updateSelectionCount()"
+            />
+          </td>
+          <td class="px-4 py-2.5 font-mono text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+            {{ problem.leetcode_id|default:"-" }}
+          </td>
+          <td class="px-4 py-2.5">
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ problem.title|default:problem.slug }}</span>
+              {% if problem.latest_submission_date %}
+              <span class="inline-flex items-center gap-1 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300" title="Submission date: {{ problem.latest_submission_date|date:'Y-m-d H:i' }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                {{ problem.latest_submission_date|timesince }} ago
+              </span>
+              {% endif %}
+              {% if problem.paid_only %}
+              <span class="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-400">PRO</span>
+              {% endif %}
+              {% if problem.url %}
+              <a
+                href="{{ problem.url }}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-zinc-400 transition-colors hover:text-zinc-700 dark:hover:text-zinc-200"
+                title="Open on LeetCode"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+              </a>
+              {% endif %}
+            </div>
+            <div class="mt-0.5 font-mono text-xs text-zinc-400">{{ problem.slug }}</div>
+          </td>
+          <td class="px-4 py-2.5">
+            {% if problem.difficulty == "Easy" %}
+            <span class="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-400">Easy</span>
+            {% elif problem.difficulty == "Medium" %}
+            <span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-400">Medium</span>
+            {% elif problem.difficulty == "Hard" %}
+            <span class="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-400">Hard</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2.5">
+            {% if problem.has_note %}
+            <span class="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-400">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Saved on Disk
+            </span>
+            {% elif problem.has_draft %}
+            <span class="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:border-purple-800/60 dark:bg-purple-950/40 dark:text-purple-400">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+              AI Draft Ready
+            </span>
+            {% else %}
+            <span class="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-500">None</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+
+        <!-- SECTION 2: Other Solved Problems (or Filter/Search Results) -->
+        <tr class="bg-zinc-100/90 dark:bg-zinc-900/90 border-y border-zinc-200 dark:border-zinc-800 sticky top-[41px] z-10 backdrop-blur">
+          <td colspan="5" class="px-4 py-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-zinc-800 dark:text-zinc-200">
+                {% if is_filtered %}
+                Matching Solved Problems ({{ page_obj.paginator.count }})
+                {% elif show_suggested %}
+                Other Solved Problems ({{ page_obj.paginator.count }})
+                {% else %}
+                All Solved Problems ({{ page_obj.paginator.count }})
+                {% endif %}
+              </span>
+            </div>
+          </td>
+        </tr>
+
+        {% for problem in page_obj %}
+        <tr class="transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40">
+          <td class="px-4 py-2.5 text-center">
+            <input
+              type="checkbox"
+              name="selected_problems"
+              value="{{ problem.id }}"
+              class="problem-select-checkbox h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100"
+              onchange="updateSelectionCount()"
+            />
+          </td>
+          <td class="px-4 py-2.5 font-mono text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+            {{ problem.leetcode_id|default:"-" }}
+          </td>
+          <td class="px-4 py-2.5">
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ problem.title|default:problem.slug }}</span>
+              {% if problem.paid_only %}
+              <span class="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-400">PRO</span>
+              {% endif %}
+              {% if problem.url %}
+              <a
+                href="{{ problem.url }}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-zinc-400 transition-colors hover:text-zinc-700 dark:hover:text-zinc-200"
+                title="Open on LeetCode"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+              </a>
+              {% endif %}
+            </div>
+            <div class="mt-0.5 font-mono text-xs text-zinc-400">{{ problem.slug }}</div>
+          </td>
+          <td class="px-4 py-2.5">
+            {% if problem.difficulty == "Easy" %}
+            <span class="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-400">Easy</span>
+            {% elif problem.difficulty == "Medium" %}
+            <span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-400">Medium</span>
+            {% elif problem.difficulty == "Hard" %}
+            <span class="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-400">Hard</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2.5">
+            {% if problem.has_note %}
+            <span class="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-400">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Saved on Disk
+            </span>
+            {% elif problem.has_draft %}
+            <span class="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:border-purple-800/60 dark:bg-purple-950/40 dark:text-purple-400">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+              AI Draft Ready
+            </span>
+            {% else %}
+            <span class="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-500">None</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="py-12 text-center text-zinc-500 dark:text-zinc-400">
+            No solved algorithm problems found matching the filters.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Docked Pagination Footer (Always Visible!) -->
+  <div class="flex flex-col items-center justify-between gap-3 border-t border-zinc-200 bg-zinc-50/70 px-4 py-3 sm:flex-row dark:border-zinc-800 dark:bg-zinc-900/60 rounded-b-xl">
+    <div class="text-xs text-zinc-500 dark:text-zinc-400">
+      Showing <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ page_obj.start_index|default:0 }}</span>
+      to <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ page_obj.end_index|default:0 }}</span>
+      of <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ total_solved_count }}</span> solved algorithm problems
+    </div>
+
+    <div class="flex items-center gap-2">
+      {% if page_obj.has_previous %}
+      <button
+        type="button"
+        class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+        hx-get="{% url 'ui:generate_notes' %}?page={{ page_obj.previous_page_number }}&q={{ query|urlencode }}&difficulty={{ difficulty|urlencode }}&notes={{ notes_filter|urlencode }}"
+        hx-target="#generate-table-container"
+        hx-swap="outerHTML"
+        hx-include="#filter-form"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Previous
+      </button>
+      {% else %}
+      <button type="button" class="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-400 opacity-50 cursor-not-allowed dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-600" disabled>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Previous
+      </button>
+      {% endif %}
+
+      <span class="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+        {{ page_obj.number }} / {{ page_obj.paginator.num_pages|default:1 }}
+      </span>
+
+      {% if page_obj.has_next %}
+      <button
+        type="button"
+        class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+        hx-get="{% url 'ui:generate_notes' %}?page={{ page_obj.next_page_number }}&q={{ query|urlencode }}&difficulty={{ difficulty|urlencode }}&notes={{ notes_filter|urlencode }}"
+        hx-target="#generate-table-container"
+        hx-swap="outerHTML"
+        hx-include="#filter-form"
+      >
+        Next
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+      {% else %}
+      <button type="button" class="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-400 opacity-50 cursor-not-allowed dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-600" disabled>
+        Next
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+      {% endif %}
+    </div>
+  </div>
+</div>

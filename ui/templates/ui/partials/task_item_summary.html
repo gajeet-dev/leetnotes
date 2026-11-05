@@ -1,0 +1,79 @@
+<div
+  id="task-item-summary-{{ item.id }}"
+  onclick="toggleItemCard('{{ item.id }}')"
+  class="cursor-pointer p-5 transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40 select-none space-y-3.5"
+>
+  <!-- Top Row: Checkbox + Chevron + Problem Title + Difficulty Badge + Status Badge -->
+  <div class="flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <!-- Item Checkbox -->
+      <input
+        type="checkbox"
+        name="selected_items"
+        value="{{ item.id }}"
+        onchange="onTaskItemSelectChange()"
+        onclick="event.stopPropagation()"
+        class="task-item-checkbox h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-0 dark:border-zinc-700 dark:bg-zinc-900 cursor-pointer shrink-0"
+        title="Select problem"
+      />
+
+      <!-- Chevron icon -->
+      <svg
+        id="chevron-{{ item.id }}"
+        class="h-4 w-4 text-zinc-400 dark:text-zinc-500 transition-transform duration-200 shrink-0"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      ><polyline points="6 9 12 15 18 9"/></svg>
+
+      <!-- Problem ID & Title -->
+      <div class="flex items-center gap-2 truncate">
+        <span class="text-sm font-bold text-zinc-900 dark:text-white truncate">
+          #{{ item.problem.leetcode_id|default:"-" }} {{ item.problem.title|default:item.problem.slug }}
+        </span>
+
+        <!-- Difficulty Pill Badge -->
+        {% if item.problem.difficulty == "Easy" %}
+        <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-400 shrink-0">Easy</span>
+        {% elif item.problem.difficulty == "Medium" %}
+        <span class="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-500 shrink-0">Medium</span>
+        {% elif item.problem.difficulty == "Hard" %}
+        <span class="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400 shrink-0">Hard</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Right: Status Badge Pill -->
+    <div id="item-status-pill-{{ item.id }}">
+      <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium shrink-0 {{ item.status_badge_class }}">
+        {{ item.status_badge_label }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Dynamic Progress & Subtitle Section -->
+  <div id="item-progress-section-{{ item.id }}" class="space-y-3.5">
+    <!-- Plain English Status Subtitle -->
+    <p class="text-xs text-zinc-500 dark:text-zinc-400 pl-6.5">
+      {{ item.plain_status_text }}
+    </p>
+
+    <!-- Bottom: Segmented Pipeline Progress Bar & Count -->
+    <div class="space-y-1.5 pt-1">
+      <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+        <span>Pipeline progress</span>
+        <span>{{ item.completed_stages_count }} of 6 stages completed</span>
+      </div>
+      <!-- 6 Segmented Bars -->
+      <div class="flex items-center gap-1.5 w-full">
+        {% for seg in item.segments %}
+        <div class="flex-1 h-1.5 rounded-full {{ seg.color }} transition-colors"></div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>

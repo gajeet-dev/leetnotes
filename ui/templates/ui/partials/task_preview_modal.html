@@ -1,0 +1,220 @@
+<div id="task-preview-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-200">
+  <div class="relative w-full max-w-4xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 my-6">
+
+    <!-- Modal Header -->
+    <div class="flex items-center justify-between border-b border-zinc-200 pb-4 dark:border-zinc-800">
+      <div>
+        <h3 class="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Configure Generation Task</h3>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">Review and adjust pipeline options for these {{ problems|length }} problems.</p>
+      </div>
+      <button
+        type="button"
+        onclick="closeTaskModal()"
+        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 cursor-pointer"
+        title="Close"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Modal Form (Spacious 2-column landscape layout) -->
+    <form hx-post="{% url 'ui:create_task' %}" class="mt-5 space-y-5">
+      {% csrf_token %}
+      {% for problem in problems %}
+      <input type="hidden" name="problem_ids" value="{{ problem.id }}" />
+      {% endfor %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <!-- LEFT COLUMN: Identity, Plan, & AI Mode -->
+        <div class="space-y-4">
+          <!-- 1. Task Name -->
+          <div class="space-y-1.5">
+            <label for="task-name-input" class="text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+              Task Name
+            </label>
+            <input
+              type="text"
+              id="task-name-input"
+              name="name"
+              value="{{ default_name }}"
+              required
+              class="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100 dark:focus:border-zinc-100 dark:focus:bg-zinc-900"
+            />
+          </div>
+
+          <!-- 2. Pre-flight Summary Card -->
+          <div class="rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-3.5 dark:border-zinc-800/80 dark:bg-zinc-900/40 space-y-2.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                <svg class="h-4 w-4 text-emerald-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                {{ preview.eligible }} problems eligible
+              </span>
+              <span class="font-mono text-[11px] text-zinc-400">Pre-flight plan</span>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="rounded-lg border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
+                <div class="text-[11px] text-zinc-500 dark:text-zinc-400">Fetch API</div>
+                <div class="mt-0.5 font-bold text-zinc-900 dark:text-zinc-100">
+                  {{ preview.needs_fetching }}
+                  <span class="text-[10px] font-normal text-zinc-400">({{ cached_fetch_count }} cached)</span>
+                </div>
+              </div>
+              <div class="rounded-lg border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
+                <div class="text-[11px] text-zinc-500 dark:text-zinc-400">AI Prefill</div>
+                <div class="mt-0.5 font-bold text-zinc-900 dark:text-zinc-100">{{ prefill_count }}</div>
+              </div>
+              <div class="rounded-lg border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
+                <div class="text-[11px] text-zinc-500 dark:text-zinc-400">Notes to Save</div>
+                <div class="mt-0.5 font-bold text-zinc-900 dark:text-zinc-100">{{ preview.eligible }}</div>
+              </div>
+            </div>
+
+            {% if preview.warnings %}
+            <div class="rounded-lg border border-amber-200 bg-amber-50/80 p-2 text-[11px] text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+              {% for w in preview.warnings %}
+              <div>⚠ {{ w }}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- 3. AI Workflow Mode -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+              AI Workflow Mode
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <!-- Manual (Web Chat) -->
+              <label class="relative flex cursor-pointer flex-col rounded-xl border border-zinc-200 p-3 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900/50 has-checked:border-zinc-900 has-checked:ring-1 has-checked:ring-zinc-900 dark:has-checked:border-zinc-100 dark:has-checked:ring-zinc-100 transition-all">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100">Manual (Web Chat)</span>
+                  <input type="radio" name="provider" value="manual" checked class="h-3.5 w-3.5 text-zinc-900 focus:ring-zinc-900 dark:bg-zinc-900 dark:text-zinc-100" />
+                </div>
+                <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  Copy prompt to ChatGPT / Claude & paste response.
+                </p>
+              </label>
+
+              <!-- Automated AI Provider -->
+              {% if is_automated_available %}
+              <label class="relative flex cursor-pointer flex-col rounded-xl border border-zinc-200 p-3 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900/50 has-checked:border-zinc-900 has-checked:ring-1 has-checked:ring-zinc-900 dark:has-checked:border-zinc-100 dark:has-checked:ring-zinc-100 transition-all">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100">{{ default_provider|title }} (API)</span>
+                  <input type="radio" name="provider" value="{{ default_provider }}" class="h-3.5 w-3.5 text-zinc-900 focus:ring-zinc-900 dark:bg-zinc-900 dark:text-zinc-100" />
+                </div>
+                <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  Automated background LLM note generation.
+                </p>
+              </label>
+              {% else %}
+              <div class="relative flex flex-col rounded-xl border border-zinc-200/60 p-3 opacity-60 dark:border-zinc-800/60">
+                <span class="text-xs font-bold text-zinc-500">Automated Provider</span>
+                <p class="mt-1 text-[11px] text-zinc-400">
+                  No API provider configured in Settings.
+                </p>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Review, Refetch Options, & Replace Notes -->
+        <div class="space-y-4">
+          <!-- 4. Review Before Writing -->
+          <div class="flex items-start gap-2.5 rounded-xl border border-zinc-200 bg-white p-3.5 dark:border-zinc-800 dark:bg-zinc-900/40">
+            <input
+              type="checkbox"
+              id="review-checkbox"
+              name="review"
+              checked
+              class="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100"
+            />
+            <label for="review-checkbox" class="cursor-pointer select-none">
+              <div class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Review notes before saving to disk</div>
+              <div class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                Pauses for your inspection after validation before saving markdown files.
+              </div>
+            </label>
+          </div>
+
+          <!-- 5. Refetch Data from LeetCode (Toggle + Sub-checkboxes) -->
+          <div class="rounded-xl border border-zinc-200 bg-white p-3.5 dark:border-zinc-800 dark:bg-zinc-900/40 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Refetch data from LeetCode</div>
+                <div class="text-[11px] text-zinc-500 dark:text-zinc-400">Fetch fresh data even if already stored locally</div>
+              </div>
+              <input
+                type="checkbox"
+                id="refetch-toggle"
+                name="refetch_toggle"
+                onchange="document.getElementById('refetch-sub-options').classList.toggle('hidden', !this.checked)"
+                class="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100 cursor-pointer"
+              />
+            </div>
+
+            <!-- Sub-options for Refetch: Revealed only when toggle is checked -->
+            <div id="refetch-sub-options" class="hidden rounded-lg border border-zinc-200 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-900/80 space-y-2 transition-all">
+              <div class="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">Select parts to refetch:</div>
+              <div class="grid grid-cols-3 gap-2 text-xs">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" name="refetch_problem" class="h-3.5 w-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900" />
+                  <span class="text-[11px] text-zinc-700 dark:text-zinc-300">Problem</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" name="refetch_images" class="h-3.5 w-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900" />
+                  <span class="text-[11px] text-zinc-700 dark:text-zinc-300">Images</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" name="refetch_submission" checked class="h-3.5 w-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900" />
+                  <span class="text-[11px] font-medium text-zinc-900 dark:text-zinc-100">Submission</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6. Replace Existing Notes (Toggle + Safety Note) -->
+          <div class="rounded-xl border border-zinc-200 bg-white p-3.5 dark:border-zinc-800 dark:bg-zinc-900/40 space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Replace existing notes</div>
+                <div class="text-[11px] text-zinc-500 dark:text-zinc-400">Overwrite notes already created for these problems</div>
+              </div>
+              <input
+                type="checkbox"
+                id="replace-edited-toggle"
+                name="replace_edited"
+                onchange="document.getElementById('replace-safety-note').classList.toggle('hidden', !this.checked)"
+                class="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100 cursor-pointer"
+              />
+            </div>
+
+            <div id="replace-safety-note" class="hidden rounded-lg border border-blue-200 bg-blue-50/70 p-2 text-[11px] text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300 flex items-center gap-1.5 transition-all">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              <span>Existing notes will be backed up safely before replacing.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+        <button
+          type="button"
+          onclick="closeTaskModal()"
+          class="inline-flex h-9 items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 text-xs font-semibold text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-zinc-900 px-5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 cursor-pointer"
+        >
+          <span>Start Generation</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

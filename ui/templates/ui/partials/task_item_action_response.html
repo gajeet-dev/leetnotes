@@ -1,0 +1,50 @@
+<!-- 1. Main Target Replacement: Updated item stages -->
+{% include "ui/partials/task_item_stages.html" with item=item manual_error=manual_error %}
+
+<!-- 2. OOB Swap: Re-arm Background Poller (runs every 2s while task has active work) -->
+<div
+  id="task-live-poller"
+  hx-swap-oob="outerHTML"
+  {% if has_active_work %}
+  hx-get="{% url 'ui:task_live_status' task.id %}"
+  hx-trigger="every 2s"
+  hx-swap="outerHTML"
+  {% endif %}
+></div>
+
+<!-- 3. OOB Swap: Task Header Status Badge -->
+<div id="task-header-status-badge" hx-swap-oob="innerHTML">
+  <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium {{ status_badge_class }}">
+    {{ status_label }}
+  </span>
+</div>
+
+<!-- 4. OOB Swap: Task Live Stats (Metrics, Progress bar, Alert line, Action buttons) -->
+<div id="task-live-stats" hx-swap-oob="innerHTML">
+  {% include "ui/partials/task_live_stats.html" %}
+</div>
+
+<!-- 5. OOB Swap: Item Status Pill -->
+<div id="item-status-pill-{{ item.id }}" hx-swap-oob="innerHTML">
+  <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium shrink-0 {{ item.status_badge_class }}">
+    {{ item.status_badge_label }}
+  </span>
+</div>
+
+<!-- 6. OOB Swap: Item Progress Section (Subtitle + Count + Segments) -->
+<div id="item-progress-section-{{ item.id }}" hx-swap-oob="innerHTML">
+  <p class="text-xs text-zinc-500 dark:text-zinc-400 pl-6.5">
+    {{ item.plain_status_text }}
+  </p>
+  <div class="space-y-1.5 pt-1">
+    <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+      <span>Pipeline progress</span>
+      <span>{{ item.completed_stages_count }} of 6 stages completed</span>
+    </div>
+    <div class="flex items-center gap-1.5 w-full">
+      {% for seg in item.segments %}
+      <div class="flex-1 h-1.5 rounded-full {{ seg.color }} transition-colors"></div>
+      {% endfor %}
+    </div>
+  </div>
+</div>

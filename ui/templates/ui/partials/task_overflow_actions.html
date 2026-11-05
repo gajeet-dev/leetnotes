@@ -1,0 +1,33 @@
+{% if task.status == 'active' %}
+<form hx-post="{% url 'ui:task_pause' task.id %}" hx-target="#task-live-stats" hx-swap="innerHTML">
+  {% csrf_token %}
+  <button type="submit" class="w-full text-left px-3 py-2 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white flex items-center gap-2 transition-colors cursor-pointer">
+    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="4" height="16" x="6" y="4"/><rect width="4" height="16" x="14" y="4"/></svg>
+    <span>Pause Task</span>
+  </button>
+</form>
+{% elif task.status == 'paused' %}
+<form hx-post="{% url 'ui:task_resume' task.id %}" hx-target="#task-live-stats" hx-swap="innerHTML">
+  {% csrf_token %}
+  <button type="submit" class="w-full text-left px-3 py-2 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white flex items-center gap-2 transition-colors cursor-pointer">
+    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+    <span>Resume Task</span>
+  </button>
+</form>
+{% endif %}
+
+{% if task.status == 'active' or task.status == 'paused' %}
+<div class="h-px bg-zinc-100 dark:bg-zinc-800 my-1"></div>
+<form
+  hx-post="{% url 'ui:task_cancel' task.id %}"
+  hx-target="#task-live-stats"
+  hx-swap="innerHTML"
+  hx-confirm="Are you sure you want to cancel this task? Unfinished problems will be released back to the library."
+>
+  {% csrf_token %}
+  <button type="submit" class="w-full text-left px-3 py-2 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-zinc-800 dark:hover:text-rose-300 flex items-center gap-2 transition-colors cursor-pointer">
+    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+    <span>Cancel Task</span>
+  </button>
+</form>
+{% endif %}

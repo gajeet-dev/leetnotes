@@ -1,0 +1,218 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ task_display_title|default:"Task" }} · Leetnotes{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl space-y-6 pb-12">
+  <!-- Top Navigation / Breadcrumb -->
+  <div class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+    <a href="{% url 'ui:dashboard' %}" class="inline-flex items-center gap-1 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      Dashboard
+    </a>
+    <span>/</span>
+    <a href="{% url 'ui:tasks_list' %}" class="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
+      Tasks
+    </a>
+    <span>/</span>
+    <span class="text-zinc-900 dark:text-zinc-100 font-medium truncate max-w-xs">{{ task_display_title }}</span>
+  </div>
+
+  <!-- Main Task Detail Container -->
+  {% include "ui/partials/task_detail_content.html" %}
+
+</div>
+
+<script>
+  // Overflow menu toggle
+  function toggleTaskMenu(event) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    const menu = document.getElementById('task-overflow-menu');
+    if (!menu) return;
+    menu.classList.toggle('hidden');
+  }
+
+  // Close overflow menu when clicking anywhere else
+  document.addEventListener('click', function(evt) {
+    const menu = document.getElementById('task-overflow-menu');
+    const btn = document.getElementById('task-menu-btn');
+    if (menu && !menu.classList.contains('hidden')) {
+      if (!menu.contains(evt.target) && (!btn || !btn.contains(evt.target))) {
+        menu.classList.add('hidden');
+      }
+    }
+  });
+
+  // Batch Selection Logic
+  function onTaskItemSelectChange() {
+    const checkboxes = document.querySelectorAll('.task-item-checkbox');
+    const checked = document.querySelectorAll('.task-item-checkbox:checked');
+    const bar = document.getElementById('batch-action-bar');
+    const badge = document.getElementById('selected-count-badge');
+    const master = document.getElementById('select-all-items');
+
+    if (badge) badge.textContent = checked.length;
+
+    if (bar) {
+      if (checked.length > 0) {
+        bar.classList.remove('hidden');
+      } else {
+        bar.classList.add('hidden');
+      }
+    }
+
+    if (master && checkboxes.length > 0) {
+      if (checked.length === checkboxes.length) {
+        master.checked = true;
+        master.indeterminate = false;
+      } else if (checked.length > 0) {
+        master.checked = false;
+        master.indeterminate = true;
+      } else {
+        master.checked = false;
+        master.indeterminate = false;
+      }
+    }
+  }
+
+  function toggleSelectAllItems(masterCheckbox) {
+    const checkboxes = document.querySelectorAll('.task-item-checkbox');
+    checkboxes.forEach(cb => {
+      cb.checked = masterCheckbox.checked;
+    });
+    onTaskItemSelectChange();
+  }
+
+  function clearAllSelections() {
+    const checkboxes = document.querySelectorAll('.task-item-checkbox');
+    checkboxes.forEach(cb => {
+      cb.checked = false;
+    });
+    const master = document.getElementById('select-all-items');
+    if (master) {
+      master.checked = false;
+      master.indeterminate = false;
+    }
+    onTaskItemSelectChange();
+  }
+
+  function submitBatchPin(action) {
+    const checked = Array.from(document.querySelectorAll('.task-item-checkbox:checked')).map(cb => cb.value);
+    if (!checked.length) return;
+    const form = document.getElementById('batch-pin-form');
+    if (!form) return;
+    const actionInput = document.getElementById('batch-pin-action');
+    if (actionInput) actionInput.value = action;
+    const container = document.getElementById('batch-item-inputs');
+    if (container) {
+      container.innerHTML = '';
+      checked.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'item_ids';
+        input.value = id;
+        container.appendChild(input);
+      });
+    }
+    htmx.trigger(form, 'submit');
+  }
+
+  function scrollToFirstWaitingItem() {
+    const waitingItem = document.querySelector('[data-waiting="true"]');
+    if (waitingItem) {
+      const itemId = waitingItem.id.replace('task-item-', '');
+      const content = document.getElementById('item-content-' + itemId);
+      const chevron = document.getElementById('chevron-' + itemId);
+      if (content && content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        if (chevron) chevron.classList.add('rotate-180');
+      }
+      waitingItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => {
+        const textarea = waitingItem.querySelector('textarea[name="reply_text"]');
+        if (textarea) textarea.focus();
+      }, 400);
+      updateToggleAllLabel();
+    }
+  }
+
+  // Accordion Expand/Collapse
+  function updateToggleAllLabel() {
+    const contents = document.querySelectorAll('[id^="item-content-"]');
+    const label = document.getElementById('toggle-all-label');
+    if (!contents.length || !label) return;
+    const anyHidden = Array.from(contents).some(c => c.classList.contains('hidden'));
+    label.textContent = anyHidden ? 'Expand All' : 'Collapse All';
+  }
+
+  function toggleItemCard(itemId) {
+    const content = document.getElementById('item-content-' + itemId);
+    const chevron = document.getElementById('chevron-' + itemId);
+    if (!content) return;
+    const isHidden = content.classList.contains('hidden');
+    if (isHidden) {
+      content.classList.remove('hidden');
+      if (chevron) chevron.classList.add('rotate-180');
+    } else {
+      content.classList.add('hidden');
+      if (chevron) chevron.classList.remove('rotate-180');
+    }
+    updateToggleAllLabel();
+  }
+
+  function toggleAllProblemCards() {
+    const contents = document.querySelectorAll('[id^="item-content-"]');
+    const chevrons = document.querySelectorAll('[id^="chevron-"]');
+    if (!contents.length) return;
+    const anyHidden = Array.from(contents).some(c => c.classList.contains('hidden'));
+    contents.forEach(c => {
+      if (anyHidden) {
+        c.classList.remove('hidden');
+      } else {
+        c.classList.add('hidden');
+      }
+    });
+    chevrons.forEach(ch => {
+      if (anyHidden) {
+        ch.classList.add('rotate-180');
+      } else {
+        ch.classList.remove('rotate-180');
+      }
+    });
+    updateToggleAllLabel();
+  }
+
+  function copyPrompt(elementId, btn) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const textToCopy = el.value || el.textContent;
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      const originalHTML = btn.innerHTML;
+      btn.innerHTML = `
+        <svg class="h-3.5 w-3.5 text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <span class="text-emerald-400">Copied!</span>
+      `;
+      setTimeout(() => {
+        btn.innerHTML = originalHTML;
+      }, 2000);
+    }).catch(err => {
+      console.error('Failed to copy prompt:', err);
+    });
+  }
+
+  // Initialize on load and on HTMX swaps
+  document.addEventListener('DOMContentLoaded', function() {
+    updateToggleAllLabel();
+    onTaskItemSelectChange();
+  });
+  document.body.addEventListener('htmx:afterSwap', function() {
+    updateToggleAllLabel();
+    onTaskItemSelectChange();
+  });
+  // Immediate invocation if DOM already loaded
+  updateToggleAllLabel();
+  onTaskItemSelectChange();
+</script>
+{% endblock %}

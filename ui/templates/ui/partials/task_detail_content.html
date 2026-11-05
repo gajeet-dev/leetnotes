@@ -1,0 +1,158 @@
+<div id="task-detail-container" class="space-y-6">
+  <!-- Task Header Card (Theme-adaptive: Light & Dark) -->
+  <div class="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 space-y-6 relative transition-colors">
+    <!-- Top Row: Title + Status Badge + Overflow Menu (...) -->
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <h1 class="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+            {{ task_display_title }}
+          </h1>
+          <div id="task-header-status-badge" class="inline-flex">
+            <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium {{ status_badge_class }}">
+              {{ status_label }}
+            </span>
+          </div>
+        </div>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          {{ total_items }} {% if total_items == 1 %}problem{% else %}problems{% endif %} · Created {{ task.created_at|date:"M d, Y \a\t H:i" }}
+        </p>
+      </div>
+
+      <!-- Action Button: Only Secondary Overflow Menu (...) -->
+      <div class="relative">
+        <button
+          type="button"
+          onclick="toggleTaskMenu(event)"
+          class="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+          title="More actions"
+          id="task-menu-btn"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="2"/>
+            <circle cx="12" cy="12" r="2"/>
+            <circle cx="19" cy="12" r="2"/>
+          </svg>
+        </button>
+
+        <!-- Dropdown menu -->
+        <div
+          id="task-overflow-menu"
+          class="hidden absolute right-0 mt-1 w-52 rounded-xl border border-zinc-200 bg-white shadow-xl py-1 z-30 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+        >
+          <!-- Pin All / Unpin All Submissions Toggle (Single Action in Menu) -->
+          <div id="task-overflow-pin-toggle">
+            <form hx-post="{% url 'ui:task_pin_all' task.id %}" hx-target="#task-overflow-pin-toggle" hx-swap="outerHTML">
+              {% csrf_token %}
+              <button type="submit" class="w-full text-left px-3 py-2 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white flex items-center gap-2 transition-colors cursor-pointer">
+                {% if all_submissions_pinned %}
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="2" x2="22" y2="22"/><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+                <span>Unpin All Submissions</span>
+                {% else %}
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+                <span>Pin All Submissions</span>
+                {% endif %}
+              </button>
+            </form>
+          </div>
+
+          <!-- Dynamic actions inside overflow menu (Pause, Resume, Cancel) -->
+          <div id="task-overflow-menu-actions">
+            {% include "ui/partials/task_overflow_actions.html" %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Stats Component: Metrics, Slim Progress Bar, Alert Line, Bottom Buttons -->
+    <div id="task-live-stats" class="space-y-6">
+      {% include "ui/partials/task_live_stats.html" %}
+    </div>
+  </div>
+
+  <!-- Problems List & Batch Actions Toolbar -->
+  <div class="space-y-3">
+    <!-- Section Header with Select All Checkbox -->
+    <div class="flex items-center justify-between px-1">
+      <div class="flex items-center gap-2.5">
+        <input
+          type="checkbox"
+          id="select-all-items"
+          onchange="toggleSelectAllItems(this)"
+          class="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-0 dark:border-zinc-700 dark:bg-zinc-900 cursor-pointer shrink-0"
+          title="Select all problems"
+        />
+        <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 select-none">
+          Problems & Pipeline Stages
+        </h2>
+      </div>
+      <button
+        type="button"
+        onclick="toggleAllProblemCards()"
+        class="text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+      >
+        <span id="toggle-all-label">Expand All</span>
+      </button>
+    </div>
+
+    <!-- Hidden Form for Batch Pin Actions -->
+    <form id="batch-pin-form" hx-post="{% url 'ui:task_batch_pin' task.id %}" hx-swap="none" class="hidden">
+      {% csrf_token %}
+      <input type="hidden" name="pin_action" id="batch-pin-action" value="pin" />
+      <div id="batch-item-inputs"></div>
+    </form>
+
+    <!-- Batch Action Bar: Appears when 1+ problems are selected -->
+    <div
+      id="batch-action-bar"
+      class="hidden flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-2.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 transition-all"
+    >
+      <div class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <span id="selected-count-badge" class="rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">0</span>
+        <span>selected</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          onclick="submitBatchPin('pin')"
+          class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 dark:hover:text-white transition-colors cursor-pointer shadow-xs"
+          title="Pin submissions for selected problems"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+          <span>Pin Submissions</span>
+        </button>
+        <button
+          type="button"
+          onclick="submitBatchPin('unpin')"
+          class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 dark:hover:text-white transition-colors cursor-pointer shadow-xs"
+          title="Unpin submissions for selected problems"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="2" x2="22" y2="22"/><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+          <span>Unpin Submissions</span>
+        </button>
+        <button
+          type="button"
+          onclick="clearAllSelections()"
+          class="text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 px-2 py-1 transition-colors cursor-pointer"
+        >
+          Deselect
+        </button>
+      </div>
+    </div>
+
+    <!-- Problems List -->
+    {% for item in items %}
+    {% include "ui/partials/task_item_card.html" with item=item %}
+    {% endfor %}
+  </div>
+
+  <!-- Isolated Background Poller: Only runs when has_active_work is True, does NOT replace container -->
+  <div
+    id="task-live-poller"
+    {% if has_active_work %}
+    hx-get="{% url 'ui:task_live_status' task.id %}"
+    hx-trigger="every 2s"
+    hx-swap="outerHTML"
+    {% endif %}
+  ></div>
+</div>

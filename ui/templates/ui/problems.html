@@ -1,0 +1,115 @@
+{% extends "ui/base.html" %}
+{% block title %}Problems · Leetnotes{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+  <!-- Page Header -->
+  <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Problems</h1>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400">
+        Browse, filter, and select solved problems to generate notes for.
+      </p>
+    </div>
+  </div>
+
+  <!-- Filter & Search Toolbar (shadcn style) -->
+  <form
+    id="filter-form"
+    hx-get="{% url 'ui:problems' %}"
+    hx-target="#problems-table-container"
+    hx-swap="outerHTML"
+    hx-trigger="change from:select, submit"
+    class="flex flex-wrap items-center gap-2.5 rounded-xl border border-zinc-200 bg-white p-2.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+  >
+    <!-- Search Input (Fixed dark mode focus bug) -->
+    <div class="relative min-w-[200px] flex-1">
+      <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-400">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+      <input
+        type="search"
+        name="q"
+        value="{{ query }}"
+        placeholder="Search by ID, title, or slug..."
+        class="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50/50 pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-100 dark:focus:bg-zinc-900 dark:focus:ring-zinc-100"
+        hx-get="{% url 'ui:problems' %}"
+        hx-target="#problems-table-container"
+        hx-swap="outerHTML"
+        hx-include="#filter-form"
+        hx-trigger="input changed delay:300ms, search"
+      />
+    </div>
+
+    <!-- Difficulty Filter -->
+    <div class="w-32">
+      <select name="difficulty" class="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100 dark:focus:border-zinc-100">
+        <option value="">Difficulty: All</option>
+        {% for diff in difficulties %}
+        <option value="{{ diff }}" {% if difficulty == diff %}selected{% endif %}>{{ diff }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Status Filter -->
+    <div class="w-32">
+      <select name="status" class="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100 dark:focus:border-zinc-100">
+        <option value="">Status: All</option>
+        <option value="solved" {% if status == 'solved' %}selected{% endif %}>Solved</option>
+        <option value="unsolved" {% if status == 'unsolved' %}selected{% endif %}>Unsolved</option>
+      </select>
+    </div>
+
+    <!-- Notes Filter (Saved on Disk vs AI Draft Ready vs Needs Note) -->
+    <div class="w-36">
+      <select name="notes" class="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100 dark:focus:border-zinc-100">
+        <option value="">Notes: All</option>
+        <option value="has_note" {% if notes_filter == 'has_note' %}selected{% endif %}>Saved on Disk</option>
+        <option value="has_draft" {% if notes_filter == 'has_draft' %}selected{% endif %}>AI Draft Ready</option>
+        <option value="no_note" {% if notes_filter == 'no_note' %}selected{% endif %}>Needs Note</option>
+      </select>
+    </div>
+
+    <!-- Category Filter -->
+    <div class="w-36">
+      <select name="category" class="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100 dark:focus:border-zinc-100">
+        <option value="">Category: All</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Reset Filters Button (Full height, danger/warning outline) -->
+    <a
+      href="{% url 'ui:problems' %}"
+      class="h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-3 text-sm font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors shadow-sm"
+      title="Reset all filters"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      Reset
+    </a>
+  </form>
+
+  <!-- The Table Partial Container -->
+  {% include "ui/partials/problems_table.html" %}
+</div>
+
+<script>
+  function toggleAllCheckboxes(masterCheckbox) {
+    const checkboxes = document.querySelectorAll('.problem-checkbox');
+    checkboxes.forEach(cb => {
+      cb.checked = masterCheckbox.checked;
+    });
+  }
+
+  function clearSelections() {
+    const checkboxes = document.querySelectorAll('.problem-checkbox');
+    checkboxes.forEach(cb => {
+      cb.checked = false;
+    });
+    const master = document.getElementById('select-all-visible');
+    if (master) master.checked = false;
+  }
+</script>
+{% endblock %}

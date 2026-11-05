@@ -1,0 +1,22 @@
+<!-- 1. Background Poller Element (re-arms every 2s ONLY if has_active_tasks) -->
+<div
+  id="tasks-live-poller"
+  {% if has_active_tasks %}
+  hx-get="{% url 'ui:tasks_live_status' %}?page={{ page_obj.number }}&status={{ status_filter }}"
+  hx-trigger="every 2s"
+  hx-swap="outerHTML"
+  {% endif %}
+></div>
+
+<!-- 2. OOB Swaps for active, paused, failed, or newly completed tasks -->
+{% for item in tasks_data %}
+{% if item.is_active or item.task.status == 'finished' %}
+<a
+  href="{% url 'ui:task_detail' item.task.id %}"
+  id="task-row-{{ item.task.id }}"
+  hx-swap-oob="innerHTML"
+>
+  {% include "ui/partials/task_row_content.html" with item=item %}
+</a>
+{% endif %}
+{% endfor %}
