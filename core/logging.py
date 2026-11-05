@@ -58,5 +58,6 @@ def configure_logging(*, debug: bool, level: str = "INFO") -> dict:
             "urllib3": {"level": "WARNING"},
             "asyncio": {"level": "WARNING"},
             "requests_ratelimiter": {"level": "WARNING"},
+            "django.utils.autoreload": {"level": "WARNING"},
         },
     }

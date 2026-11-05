@@ -151,6 +151,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "assets"]
+TAILWIND_CLI_SRC_CSS = BASE_DIR / "theme" / "source.css"
 
 MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"
