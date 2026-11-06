@@ -23,7 +23,7 @@
     <script src="{% static 'ui/sidebar-responsive.js' %}" defer></script>
     <style>
       .note-render-body h1 {
-        font-size: 1.25rem;
+        font-size: 1.45rem;
         font-weight: 700;
         line-height: 1.4;
         margin-top: 0.5rem;
@@ -33,7 +33,7 @@
         color: inherit;
       }
       .note-render-body h2 {
-        font-size: 1.05rem;
+        font-size: 1.25rem;
         font-weight: 700;
         line-height: 1.4;
         margin-top: 1.5rem;
@@ -41,7 +41,7 @@
         color: inherit;
       }
       .note-render-body h3 {
-        font-size: 0.925rem;
+        font-size: 1.05rem;
         font-weight: 600;
         line-height: 1.4;
         margin-top: 1.25rem;
@@ -49,19 +49,19 @@
         color: inherit;
       }
       .note-render-body p {
-        font-size: 0.825rem;
-        line-height: 1.6;
-        margin-top: 0.5rem;
-        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+        line-height: 1.7;
+        margin-top: 0.6rem;
+        margin-bottom: 0.6rem;
         color: inherit;
       }
       .note-render-body blockquote {
         border-left: 3px solid #10b981;
-        padding: 0.5rem 0.75rem;
-        margin: 0.75rem 0;
+        padding: 0.6rem 0.9rem;
+        margin: 0.85rem 0;
         background-color: rgba(244, 244, 245, 0.6);
         border-radius: 0 0.5rem 0.5rem 0;
-        font-size: 0.825rem;
+        font-size: 0.925rem;
         font-style: italic;
       }
       .dark .note-render-body blockquote {
@@ -73,21 +73,21 @@
       .note-render-body pre {
         background-color: #09090b;
         color: #f4f4f5;
-        padding: 0.875rem 1rem;
+        padding: 1rem 1.15rem;
         border-radius: 0.75rem;
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 0.775rem;
-        line-height: 1.55;
+        font-size: 0.875rem;
+        line-height: 1.6;
         overflow-x: auto;
-        margin: 0.75rem 0;
+        margin: 0.85rem 0;
         border: 1px solid rgba(63, 63, 70, 0.5);
       }
       .note-render-body code {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 0.75rem;
+        font-size: 0.85rem;
         background-color: rgba(244, 244, 245, 0.9);
         color: inherit;
-        padding: 0.15rem 0.35rem;
+        padding: 0.2rem 0.4rem;
         border-radius: 0.25rem;
       }
       .dark .note-render-body code {
@@ -101,23 +101,23 @@
       }
       .note-render-body ul {
         list-style-type: disc;
-        padding-left: 1.25rem;
-        margin: 0.5rem 0;
-        font-size: 0.825rem;
-        line-height: 1.6;
+        padding-left: 1.35rem;
+        margin: 0.6rem 0;
+        font-size: 0.95rem;
+        line-height: 1.7;
       }
       .note-render-body ol {
         list-style-type: decimal;
-        padding-left: 1.25rem;
-        margin: 0.5rem 0;
-        font-size: 0.825rem;
-        line-height: 1.6;
+        padding-left: 1.35rem;
+        margin: 0.6rem 0;
+        font-size: 0.95rem;
+        line-height: 1.7;
       }
       .note-render-body li {
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.35rem;
       }
       .note-render-body hr {
-        margin: 1.25rem 0;
+        margin: 1.5rem 0;
         border-color: rgba(161, 161, 170, 0.25);
       }
     </style>
@@ -169,34 +169,72 @@
         return ids.join(',');
       }
 
-      // Prevent destructive OOB swaps when user is interacting with forms or viewing modals
+      function getMountedModalItemIds() {
+        const ids = [];
+        document.querySelectorAll('[id^="note-modal-"]').forEach(el => {
+          const id = el.id.replace('note-modal-', '');
+          if (id) ids.push(id);
+        });
+        return ids.join(',');
+      }
+
+      // Prevent destructive OOB swaps when user is interacting with forms, selecting text, or viewing modals
       document.body.addEventListener('htmx:oobBeforeSwap', function(evt) {
         const target = evt.detail.target;
         const fragment = evt.detail.fragment;
         if (!target || !target.id) return;
 
-        // 1. If any tablet review modal is currently open, DO NOT swap that open modal
-        const openModal = document.querySelector('[id^="note-modal-"][data-open="true"]');
-        if (openModal) {
-          const modalId = openModal.id;
-          const itemId = openModal.dataset.modalId || modalId.replace('note-modal-', '');
-          if (target.id === modalId || target.id === 'note-modal-wrapper-' + itemId) {
+        // Check if user currently has active text selected in the document
+        const selection = window.getSelection();
+        const hasTextSelected = Boolean(selection && selection.toString().length > 0);
+
+        // 1. Note review modal and its wrapper protection:
+        // A: If ANY note modal is currently open, DO NOT swap that open modal or its wrapper
+        const openModals = document.querySelectorAll('[id^="note-modal-"]:not(.hidden)');
+        for (const openModal of openModals) {
+          const itemId = openModal.dataset.modalId || openModal.id.replace('note-modal-', '');
+          if (target.id === openModal.id || target.id === 'note-modal-wrapper-' + itemId) {
             evt.preventDefault();
             evt.detail.shouldSwap = false;
             return;
           }
         }
 
+        // B: If user is selecting text inside the modal or wrapper, DO NOT swap
+        if (target.id.startsWith('note-modal-') || target.id.startsWith('note-modal-wrapper-')) {
+          if (hasTextSelected && (target.contains(selection.anchorNode) || target.contains(selection.focusNode))) {
+            evt.preventDefault();
+            evt.detail.shouldSwap = false;
+            return;
+          }
+          // C: If modal wrapper already contains a rendered modal and client already mounted it, do not re-swap
+          if (target.id.startsWith('note-modal-wrapper-')) {
+            const existingModal = target.querySelector('[id^="note-modal-"]');
+            if (existingModal) {
+              evt.preventDefault();
+              evt.detail.shouldSwap = false;
+              return;
+            }
+          }
+        }
+
         // 2. Protect item-stages- containers (keep forms inside timeline without re-rendering)
         if (target.id.startsWith('item-stages-')) {
-          // A: If user is currently focused or active in ANY input/textarea inside this stages container, DO NOT swap
+          // A: If user has text selected inside this stages container (e.g. prompt, manual reply, code preview), DO NOT swap
+          if (hasTextSelected && (target.contains(selection.anchorNode) || target.contains(selection.focusNode))) {
+            evt.preventDefault();
+            evt.detail.shouldSwap = false;
+            return;
+          }
+
+          // B: If user is currently focused or active in ANY input/textarea inside this stages container, DO NOT swap
           if (target.contains(document.activeElement) && (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT')) {
             evt.preventDefault();
             evt.detail.shouldSwap = false;
             return;
           }
 
-          // B: If the user has typed anything into reply_text textarea, DO NOT swap (preserve their work)
+          // C: If the user has typed anything into reply_text textarea, DO NOT swap (preserve their work)
           const replyTextarea = target.querySelector('textarea[name="reply_text"]');
           if (replyTextarea && replyTextarea.value && replyTextarea.value.trim().length > 0) {
             evt.preventDefault();
@@ -204,7 +242,7 @@
             return;
           }
 
-          // C: If the container already has the manual form mounted, and incoming fragment also has the form,
+          // D: If the container already has the manual form mounted, and incoming fragment also has the form,
           // no state transition occurred; do not re-render the form.
           const currentForm = target.querySelector('form[data-manual-form="true"]');
           const incomingForm = fragment && fragment.querySelector ? fragment.querySelector('form[data-manual-form="true"]') : null;
@@ -214,7 +252,7 @@
             return;
           }
 
-          // D: If the container already has the review card mounted, and incoming fragment also has the review card,
+          // E: If the container already has the review card mounted, and incoming fragment also has the review card,
           // do not re-render the review card.
           const currentReview = target.querySelector('[data-review-card="true"]');
           const incomingReview = fragment && fragment.querySelector ? fragment.querySelector('[data-review-card="true"]') : null;

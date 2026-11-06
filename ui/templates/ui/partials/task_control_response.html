@@ -20,6 +20,6 @@
   hx-get="{% url 'ui:task_live_status' task.id %}"
   hx-trigger="every 2s"
   hx-swap="outerHTML"
-  hx-vals="js:{mounted_forms: getMountedFormItemIds()}"
+  hx-vals="js:{mounted_forms: getMountedFormItemIds(), mounted_modals: getMountedModalItemIds()}"
   {% endif %}
 ></div>

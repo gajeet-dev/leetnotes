@@ -652,7 +652,7 @@ def solveNQueens(n):
         self.assertIn("<pre><code", html)
         self.assertIn("solveNQueens", html)
 
-    def test_review_stage_displays_tablet_device_modal(self):
+    def test_review_stage_displays_note_preview_modal(self):
         from prefill.models import AIResponse
         from pipeline.tasks.creation import create_task
 
@@ -692,13 +692,14 @@ def solveNQueens(n):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
-        # Check Tablet Device Modal & Action controls
+        # Check Note Preview Modal & Action controls
         self.assertContains(response, f"note-modal-{item.id}")
         self.assertContains(response, f"note-modal-wrapper-{item.id}")
-        self.assertContains(response, "Tablet Preview")
+        self.assertContains(response, "Note Preview")
+        self.assertNotContains(response, "Tablet")
         self.assertContains(response, "Approve &amp; Write")
         self.assertContains(response, "Reject")
-        self.assertContains(response, "Open Tablet Note Preview")
+        self.assertContains(response, "Preview Note")
         self.assertContains(response, "note-render-body")
         self.assertContains(response, 'data-review-card="true"')
         # When task is active, has_active_work is True so polling runs and syncs state

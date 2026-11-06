@@ -891,8 +891,15 @@ def task_live_status(request, task_id: int):
     mounted_ids = set()
     if mounted_forms_param:
         mounted_ids = {int(x) for x in mounted_forms_param.split(",") if x.strip().isdigit()}
+
+    mounted_modals_param = request.GET.get("mounted_modals", "").strip()
+    mounted_modal_ids = set()
+    if mounted_modals_param:
+        mounted_modal_ids = {int(x) for x in mounted_modals_param.split(",") if x.strip().isdigit()}
+
     for it in context.get("items", []):
         it.is_form_already_mounted = bool(it.id in mounted_ids)
+        it.is_modal_already_mounted = bool(it.id in mounted_modal_ids)
     return render(request, "ui/partials/task_live_updates.html", context)
 
 
