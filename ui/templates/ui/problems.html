@@ -25,6 +25,7 @@
     class="flex flex-wrap items-center gap-2.5 rounded-xl border border-zinc-200 bg-white p-2.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
   >
     <!-- Hidden Inputs for Active Filters -->
+    <input type="hidden" name="per_page" id="filter-per-page" value="{{ per_page|default:25 }}" />
     <input type="hidden" name="difficulty" value="{{ difficulty }}" />
     <input type="hidden" name="status" value="{{ status }}" />
     <input type="hidden" name="paid" value="{{ paid_filter }}" />
@@ -72,18 +73,20 @@
       <svg id="filter-chevron" class="h-3.5 w-3.5 text-zinc-400 transition-transform duration-200 rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
     </button>
 
-    <!-- Reset Filters Button -->
-    {% if has_active_filters %}
-    <button
-      type="button"
-      onclick="clearAllFilters()"
-      class="h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-3 text-sm font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors shadow-xs cursor-pointer"
-      title="Reset all filters"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-      Reset
-    </button>
-    {% endif %}
+    <!-- Reset Filters Button Container -->
+    <span id="filter-reset-container">
+      {% if has_active_filters %}
+      <button
+        type="button"
+        onclick="clearAllFilters()"
+        class="h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-3 text-sm font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors shadow-xs cursor-pointer"
+        title="Reset all filters"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        Reset
+      </button>
+      {% endif %}
+    </span>
   </form>
 
   <!-- Collapsible 5-Column Filter Panel (Placed below the search bar) -->
@@ -164,65 +167,116 @@
 
         <div
           id="refetch-dropdown"
-          class="hidden absolute right-0 z-30 mt-1.5 w-56 rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+          class="hidden absolute right-0 z-30 mt-1.5 w-72 sm:w-80 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
         >
           <button
             type="button"
-            onclick="runRefetch('content')"
-            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+            onclick="openRefetchConfirmModal('content')"
+            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer group"
           >
-            <svg class="h-3.5 w-3.5 shrink-0 text-zinc-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:group-hover:bg-zinc-700">
+              <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
             <div>
-              <div class="font-medium">Refetch Content & Images</div>
-              <div class="text-[10px] text-zinc-400">Resets content and re-downloads images</div>
+              <div class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Refetch & Sync Content & Images</div>
+              <div class="text-xs text-zinc-500 dark:text-zinc-400">Resets content and downloads images</div>
             </div>
           </button>
           <button
             type="button"
-            onclick="runRefetch('submissions')"
-            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+            onclick="openRefetchConfirmModal('submissions')"
+            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer group"
           >
-            <svg class="h-3.5 w-3.5 shrink-0 text-zinc-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:group-hover:bg-zinc-700">
+              <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </div>
             <div>
-              <div class="font-medium">Refetch Submissions</div>
-              <div class="text-[10px] text-zinc-400">Resets code task (skips pinned)</div>
+              <div class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Refetch & Sync Submissions</div>
+              <div class="text-xs text-zinc-500 dark:text-zinc-400">Resets code submissions (skips pinned)</div>
             </div>
           </button>
+          <div class="my-1 border-t border-zinc-200 dark:border-zinc-800"></div>
           <button
             type="button"
-            onclick="runRefetch('submissions')"
-            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+            onclick="openRefetchConfirmModal('all')"
+            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-amber-900 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40 transition-colors cursor-pointer group"
           >
-            <svg class="h-3.5 w-3.5 shrink-0 text-zinc-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-            <div>
-              <div class="font-medium">Refetch Submissions</div>
-              <div class="text-[10px] text-zinc-400">Resets code task (skips pinned)</div>
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 group-hover:bg-amber-200 dark:bg-amber-950/80 dark:text-amber-400 dark:group-hover:bg-amber-900">
+              <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
             </div>
-          </button>
-          <button
-            type="button"
-            onclick="runRefetch('images')"
-            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 text-left transition-colors cursor-pointer"
-          >
-            <svg class="h-3.5 w-3.5 shrink-0 text-zinc-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
             <div>
-              <div class="font-medium">Refetch Images Only</div>
-              <div class="text-[10px] text-zinc-400">Re-downloads question diagram images</div>
-            </div>
-          </button>
-          <div class="my-1 border-t border-zinc-100 dark:border-zinc-800"></div>
-          <button
-            type="button"
-            onclick="runRefetch('all')"
-            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 text-left transition-colors cursor-pointer"
-          >
-            <svg class="h-3.5 w-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-            <div>
-              <div>Refetch All Parts</div>
-              <div class="text-[10px] opacity-75">Resets content, images & submissions</div>
+              <div class="text-sm font-semibold">Refetch & Sync All</div>
+              <div class="text-xs text-zinc-500 dark:text-zinc-400">Resets content, images, and submissions</div>
             </div>
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Centered Confirmation Modal for Refetch & Sync -->
+  <div
+    id="refetch-confirm-modal"
+    class="fixed inset-0 z-50 hidden items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="refetch-modal-title"
+  >
+    <!-- Backdrop with blur -->
+    <div
+      class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity cursor-pointer"
+      onclick="closeRefetchConfirmModal()"
+    ></div>
+
+    <!-- Modal Card -->
+    <div class="relative z-10 w-full max-w-lg sm:max-w-xl transform overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 sm:p-7 text-left shadow-2xl transition-all dark:border-zinc-800 dark:bg-zinc-900">
+      <div class="flex items-start gap-4 sm:gap-5">
+        <div class="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-400">
+          <svg class="h-6 w-6 sm:h-7 sm:w-7" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 id="refetch-modal-title" class="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+            Refetch & Sync Selected Problems?
+          </h3>
+          <p class="mt-2.5 text-sm sm:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+            This will reset and immediately re-download data from LeetCode for <strong id="refetch-modal-count" class="text-zinc-900 dark:text-zinc-100 font-bold">0</strong> selected problem(s) in the background.
+          </p>
+          <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 sm:p-4 text-xs sm:text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+            <div class="font-semibold flex items-center gap-2 text-amber-800 dark:text-amber-200 text-sm">
+              <svg class="h-4.5 w-4.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span id="refetch-modal-part-label">Content & Images</span>
+            </div>
+            <div class="mt-1.5 opacity-90 leading-relaxed" id="refetch-modal-part-hint">
+              Question description will be updated and diagram images re-downloaded. Pinned submissions will not be affected.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Actions -->
+      <div class="mt-7 flex items-center justify-end gap-3 border-t border-zinc-100 pt-5 dark:border-zinc-800">
+        <button
+          type="button"
+          onclick="closeRefetchConfirmModal()"
+          class="rounded-xl border border-zinc-300 bg-white px-4 sm:px-5 py-2.5 text-sm font-medium text-zinc-700 shadow-xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          id="btn-confirm-refetch"
+          onclick="confirmAndExecuteRefetch()"
+          class="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 sm:px-5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-600/50 dark:bg-amber-500 dark:text-zinc-950 dark:hover:bg-amber-400 cursor-pointer transition-colors"
+        >
+          <svg id="refetch-spinner" class="hidden h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span id="refetch-confirm-btn-label">Confirm & Sync</span>
+        </button>
       </div>
     </div>
   </div>
@@ -272,15 +326,29 @@
     updateSelectionBar();
   }
 
-  function clearSelections() {
+  function resetPageSelections() {
     selectedProblemIds.clear();
-    const checkboxes = document.querySelectorAll('.problem-checkbox');
-    checkboxes.forEach(cb => {
+    document.querySelectorAll('.problem-checkbox, #select-all-visible').forEach(cb => {
       cb.checked = false;
     });
-    const master = document.getElementById('select-all-visible');
-    if (master) master.checked = false;
     updateSelectionBar();
+  }
+
+  function clearSelections() {
+    resetPageSelections();
+  }
+
+  function onPerPageChange(val) {
+    let num = parseInt(val, 10);
+    if (isNaN(num) || num < 1) num = 25;
+    if (num > 1000) num = 1000;
+    const filterInput = document.getElementById('filter-per-page');
+    if (filterInput) filterInput.value = num;
+    resetPageSelections();
+    const form = document.getElementById('filter-form');
+    if (form && window.htmx) {
+      window.htmx.trigger(form, 'submit');
+    }
   }
 
   function updateSelectionBar() {
@@ -387,13 +455,10 @@
     }
   }
 
-  // Restore checked boxes and selection bar after HTMX replaces the table
+  // Do not track checkboxes across pages or table swaps
   document.body.addEventListener('htmx:afterSwap', function(evt) {
     if (evt.detail.target && evt.detail.target.id === 'problems-table-container') {
-      document.querySelectorAll('.problem-checkbox').forEach(cb => {
-        cb.checked = selectedProblemIds.has(cb.value);
-      });
-      updateSelectionBar();
+      resetPageSelections();
       syncFilterPanelState();
     }
   });
@@ -449,13 +514,14 @@
     const params = new URLSearchParams(window.location.search);
     const form = document.getElementById('filter-form');
     if (form) {
-      ['difficulty', 'status', 'paid', 'sync', 'notes', 'category'].forEach(name => {
+      ['difficulty', 'status', 'paid', 'sync', 'notes', 'category', 'per_page'].forEach(name => {
         const inp = form.querySelector(`input[name="${name}"]`);
-        if (inp) inp.value = params.get(name) || '';
+        if (inp) inp.value = params.get(name) || (name === 'per_page' ? '25' : '');
       });
       const qInput = form.querySelector('input[name="q"]');
       if (qInput) qInput.value = params.get('q') || '';
     }
+    resetPageSelections();
   });
 
   function getCsrfToken() {
@@ -527,11 +593,15 @@
   function clearAllFilters() {
     const form = document.getElementById('filter-form');
     if (!form) return;
-    form.querySelectorAll('input[type="hidden"]').forEach(inp => {
-      inp.value = '';
+    ['difficulty', 'status', 'paid', 'sync', 'notes', 'category'].forEach(name => {
+      const inp = form.querySelector(`input[name="${name}"]`);
+      if (inp) inp.value = '';
     });
     const qInput = form.querySelector('input[name="q"]');
     if (qInput) qInput.value = '';
+    // Immediately hide the reset button in UI
+    const resetContainer = document.getElementById('filter-reset-container');
+    if (resetContainer) resetContainer.innerHTML = '';
     if (window.htmx) {
       window.htmx.trigger(form, 'submit');
     }
@@ -567,7 +637,14 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', syncFilterPanelState);
+  document.addEventListener('DOMContentLoaded', function() {
+    resetPageSelections();
+    syncFilterPanelState();
+  });
+
+  window.addEventListener('pageshow', function() {
+    resetPageSelections();
+  });
 
   async function runBulkSync() {
     if (selectedProblemIds.size === 0) return;
@@ -604,10 +681,62 @@
     }
   }
 
-  async function runRefetch(part) {
+  let pendingRefetchPart = null;
+
+  function openRefetchConfirmModal(part) {
     closeRefetchDropdown();
     if (selectedProblemIds.size === 0) return;
+    pendingRefetchPart = part;
+
+    const count = selectedProblemIds.size;
+    const modal = document.getElementById('refetch-confirm-modal');
+    const countEl = document.getElementById('refetch-modal-count');
+    const labelEl = document.getElementById('refetch-modal-part-label');
+    const hintEl = document.getElementById('refetch-modal-part-hint');
+
+    if (countEl) countEl.textContent = count;
+
+    if (part === 'content' || part === 'content_images') {
+      if (labelEl) labelEl.textContent = 'Content & Images';
+      if (hintEl) hintEl.textContent = 'Question description will be updated and diagram images re-downloaded.';
+    } else if (part === 'submissions') {
+      if (labelEl) labelEl.textContent = 'Submissions';
+      if (hintEl) hintEl.textContent = 'Submission code tasks will be re-fetched. Pinned solutions will be kept intact.';
+    } else if (part === 'all') {
+      if (labelEl) labelEl.textContent = 'All Parts';
+      if (hintEl) hintEl.textContent = 'Resets content, images, and code submissions. Pinned solutions will be kept intact.';
+    }
+
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+  }
+
+  function closeRefetchConfirmModal() {
+    const modal = document.getElementById('refetch-confirm-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+    pendingRefetchPart = null;
+  }
+
+  async function confirmAndExecuteRefetch() {
+    if (!pendingRefetchPart || selectedProblemIds.size === 0) {
+      closeRefetchConfirmModal();
+      return;
+    }
+    const part = pendingRefetchPart;
     const ids = Array.from(selectedProblemIds);
+
+    const btn = document.getElementById('btn-confirm-refetch');
+    const spinner = document.getElementById('refetch-spinner');
+    const label = document.getElementById('refetch-confirm-btn-label');
+
+    if (btn) btn.disabled = true;
+    if (spinner) spinner.classList.remove('hidden');
+    if (label) label.textContent = 'Starting sync...';
 
     try {
       const res = await fetch("{% url 'ui:refetch_selected' %}", {
@@ -622,10 +751,15 @@
         }),
       });
       const data = await res.json();
+      closeRefetchConfirmModal();
       showNotification(data.status, data.message);
       refreshProblemsTable();
     } catch (err) {
       showNotification('error', 'Refetch request failed: ' + err);
+    } finally {
+      if (btn) btn.disabled = false;
+      if (spinner) spinner.classList.add('hidden');
+      if (label) label.textContent = 'Confirm & Sync';
     }
   }
 
@@ -643,6 +777,13 @@
   document.addEventListener('click', function(e) {
     const menu = document.getElementById('refetch-menu-container');
     if (menu && !menu.contains(e.target)) {
+      closeRefetchDropdown();
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeRefetchConfirmModal();
       closeRefetchDropdown();
     }
   });

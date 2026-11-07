@@ -2,8 +2,96 @@
   id="problems-table-container"
   data-total-count="{{ total_count }}"
   data-page-count="{{ page_obj|length }}"
+  data-per-page="{{ per_page|default:25 }}"
   class="flex flex-col rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
 >
+  <!-- Top Pagination Header (Always Visible!) -->
+  <div class="flex flex-col items-center justify-between gap-3 border-b border-zinc-200 bg-zinc-50/70 px-4 py-2.5 sm:flex-row dark:border-zinc-800 dark:bg-zinc-900/60 rounded-t-xl">
+    <div class="flex flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+      <div>
+        Showing <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ page_obj.start_index|default:0 }}</span>
+        to <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ page_obj.end_index|default:0 }}</span>
+        of <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ total_count }}</span> problems
+      </div>
+
+      <div class="hidden h-4 w-px bg-zinc-200 dark:bg-zinc-800 sm:block"></div>
+
+      <!-- Desired Number of Problems Per Page Option -->
+      <div class="flex items-center gap-1.5">
+        <label for="per-page-input-top" class="font-medium text-zinc-700 dark:text-zinc-300">Per page:</label>
+        <input
+          type="number"
+          id="per-page-input-top"
+          value="{{ per_page|default:25 }}"
+          min="1"
+          max="1000"
+          step="1"
+          class="h-7 w-16 rounded-md border border-zinc-300 bg-white px-2 text-center font-mono text-xs font-semibold text-zinc-800 shadow-xs focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:focus:border-zinc-100"
+          onchange="onPerPageChange(this.value)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault(); onPerPageChange(this.value);}"
+          title="Enter number of problems to show per page and press Enter"
+        />
+        <div class="inline-flex rounded-md border border-zinc-200 dark:border-zinc-700 divide-x divide-zinc-200 dark:divide-zinc-700 overflow-hidden shadow-xs">
+          {% for size in per_page_presets %}
+          <button
+            type="button"
+            onclick="onPerPageChange('{{ size }}')"
+            class="px-2 py-0.5 text-xs font-medium transition-colors cursor-pointer {% if per_page == size %}bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900{% else %}bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700{% endif %}"
+          >
+            {{ size }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      {% if page_obj.has_previous %}
+      <button
+        type="button"
+        class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
+        hx-get="{% url 'ui:problems' %}?page={{ page_obj.previous_page_number }}&per_page={{ per_page|default:25 }}"
+        hx-include="#filter-form"
+        hx-target="#problems-table-container"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Previous
+      </button>
+      {% else %}
+      <button type="button" class="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-400 opacity-50 cursor-not-allowed dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-600" disabled>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Previous
+      </button>
+      {% endif %}
+
+      <span class="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+        {{ page_obj.number }} / {{ page_obj.paginator.num_pages|default:1 }}
+      </span>
+
+      {% if page_obj.has_next %}
+      <button
+        type="button"
+        class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
+        hx-get="{% url 'ui:problems' %}?page={{ page_obj.next_page_number }}&per_page={{ per_page|default:25 }}"
+        hx-include="#filter-form"
+        hx-target="#problems-table-container"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+      >
+        Next
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+      {% else %}
+      <button type="button" class="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-400 opacity-50 cursor-not-allowed dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-600" disabled>
+        Next
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
   <!-- Scrollable Table Viewport with Sticky Header -->
   <div class="relative overflow-x-auto overflow-y-auto max-h-[calc(100vh-270px)] min-h-[400px]">
     <table class="table w-full text-left text-sm">
@@ -13,6 +101,7 @@
             <input
               type="checkbox"
               id="select-all-visible"
+              autocomplete="off"
               class="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100 cursor-pointer"
               onchange="toggleAllCheckboxes(this)"
               title="Select all on this page"
@@ -36,6 +125,7 @@
               type="checkbox"
               name="selected_problems"
               value="{{ problem.id }}"
+              autocomplete="off"
               class="problem-checkbox h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100 cursor-pointer"
               onchange="onProblemCheckboxChange(this)"
             />
@@ -97,12 +187,7 @@
             {% endif %}
           </td>
           <td class="px-4 py-3">
-            {% if problem.id in busy_ids %}
-            <span class="inline-flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:border-purple-800/60 dark:bg-purple-950/40 dark:text-purple-400">
-              <span class="h-1.5 w-1.5 rounded-full bg-purple-500 animate-pulse"></span>
-              In Task
-            </span>
-            {% elif problem.solved %}
+            {% if problem.solved %}
             <span class="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-400">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
               Solved
@@ -176,18 +261,50 @@
 
   <!-- Docked Pagination Footer (Always Visible!) -->
   <div class="flex flex-col items-center justify-between gap-3 border-t border-zinc-200 bg-zinc-50/70 px-4 py-3 sm:flex-row dark:border-zinc-800 dark:bg-zinc-900/60 rounded-b-xl">
-    <div class="text-xs text-zinc-500 dark:text-zinc-400">
-      Showing <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ page_obj.start_index|default:0 }}</span>
-      to <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ page_obj.end_index|default:0 }}</span>
-      of <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ total_count }}</span> problems
+    <div class="flex flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+      <div>
+        Showing <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ page_obj.start_index|default:0 }}</span>
+        to <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ page_obj.end_index|default:0 }}</span>
+        of <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ total_count }}</span> problems
+      </div>
+
+      <div class="hidden h-4 w-px bg-zinc-200 dark:bg-zinc-800 sm:block"></div>
+
+      <!-- Desired Number of Problems Per Page Option -->
+      <div class="flex items-center gap-1.5">
+        <label for="per-page-input-bottom" class="font-medium text-zinc-700 dark:text-zinc-300">Per page:</label>
+        <input
+          type="number"
+          id="per-page-input-bottom"
+          value="{{ per_page|default:25 }}"
+          min="1"
+          max="1000"
+          step="1"
+          class="h-7 w-16 rounded-md border border-zinc-300 bg-white px-2 text-center font-mono text-xs font-semibold text-zinc-800 shadow-xs focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:focus:border-zinc-100"
+          onchange="onPerPageChange(this.value)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault(); onPerPageChange(this.value);}"
+          title="Enter number of problems to show per page and press Enter"
+        />
+        <div class="inline-flex rounded-md border border-zinc-200 dark:border-zinc-700 divide-x divide-zinc-200 dark:divide-zinc-700 overflow-hidden shadow-xs">
+          {% for size in per_page_presets %}
+          <button
+            type="button"
+            onclick="onPerPageChange('{{ size }}')"
+            class="px-2 py-0.5 text-xs font-medium transition-colors cursor-pointer {% if per_page == size %}bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900{% else %}bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700{% endif %}"
+          >
+            {{ size }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
     </div>
 
     <div class="flex items-center gap-2">
       {% if page_obj.has_previous %}
       <button
         type="button"
-        class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-        hx-get="{% url 'ui:problems' %}?page={{ page_obj.previous_page_number }}"
+        class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
+        hx-get="{% url 'ui:problems' %}?page={{ page_obj.previous_page_number }}&per_page={{ per_page|default:25 }}"
         hx-include="#filter-form"
         hx-target="#problems-table-container"
         hx-swap="outerHTML"
@@ -210,8 +327,8 @@
       {% if page_obj.has_next %}
       <button
         type="button"
-        class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-        hx-get="{% url 'ui:problems' %}?page={{ page_obj.next_page_number }}"
+        class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
+        hx-get="{% url 'ui:problems' %}?page={{ page_obj.next_page_number }}&per_page={{ per_page|default:25 }}"
         hx-include="#filter-form"
         hx-target="#problems-table-container"
         hx-swap="outerHTML"
@@ -239,6 +356,19 @@
     <span class="rounded-full bg-zinc-900 px-1.5 py-0.2 text-[10px] font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
       {{ active_filter_count }}
     </span>
+    {% endif %}
+  </span>
+  <span id="filter-reset-container" hx-swap-oob="outerHTML">
+    {% if has_active_filters %}
+    <button
+      type="button"
+      onclick="clearAllFilters()"
+      class="h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-3 text-sm font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors shadow-xs cursor-pointer"
+      title="Reset all filters"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      Reset
+    </button>
     {% endif %}
   </span>
 {% endif %}

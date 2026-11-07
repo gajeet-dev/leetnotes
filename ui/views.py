@@ -6,7 +6,6 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET, require_POST
 
-from pipeline.tasks.eligibility import busy_problem_ids
 from problems.models import Problem, SyncTask
 from problems.services.runner import start_background_sync
 from problems.services.sync import mark_for_refetch
@@ -16,6 +15,7 @@ from .helpers.problems import (
     extract_selected_problem_ids,
     filter_problems,
     get_problem_base_queryset,
+    parse_per_page,
     parse_problem_filters,
 )
 
@@ -35,6 +35,7 @@ __all__ = [
 def problems_list(request):
     """Catalog browser for all LeetCode problems with search, filtering, and pagination."""
     filters = parse_problem_filters(request)
+    per_page = parse_per_page(request)
     page_number = request.GET.get("page", 1)
 
     base_qs = get_problem_base_queryset()
@@ -47,9 +48,8 @@ def problems_list(request):
         .prefetch_related("sync_tasks")
     )
 
-    paginator = Paginator(qs, 25)
+    paginator = Paginator(qs, per_page)
     page_obj = paginator.get_page(page_number)
-    busy_ids = busy_problem_ids(page_obj.object_list)
 
     active_filter_count = sum(bool(v) for k, v in filters.items() if k != "query")
     has_active_filters = bool(filters["query"]) or active_filter_count > 0
@@ -57,6 +57,8 @@ def problems_list(request):
     context = {
         "active": "problems",
         "page_obj": page_obj,
+        "per_page": per_page,
+        "per_page_presets": [25, 50, 100, 200],
         "query": filters["query"],
         "difficulty": filters["difficulty"],
         "status": filters["status"],
@@ -66,7 +68,6 @@ def problems_list(request):
         "paid_filter": filters["paid_filter"],
         "difficulties": Problem.Difficulty.values,
         "categories": Problem.Category.values,
-        "busy_ids": busy_ids,
         "total_count": paginator.count,
         "facets": facets,
         "has_active_filters": has_active_filters,
@@ -143,7 +144,7 @@ def sync_selected_problems(request):
 
 @require_POST
 def refetch_selected_problems(request):
-    """Reset selected problem sync tasks back to pending for re-fetching."""
+    """Reset selected problem sync tasks back to pending and launch background sync."""
     try:
         problem_ids = extract_selected_problem_ids(request)
         if request.content_type == "application/json":
@@ -163,8 +164,9 @@ def refetch_selected_problems(request):
 
     valid_parts = {
         "content": SyncTask.Part.CONTENT,
+        "content_images": SyncTask.Part.CONTENT,
         "submissions": SyncTask.Part.SUBMISSIONS,
-        "images": SyncTask.Part.IMAGES,
+        "images": SyncTask.Part.CONTENT,
     }
 
     if part_str == "all":
@@ -186,19 +188,36 @@ def refetch_selected_problems(request):
         total_pinned += res.pinned_skipped
         total_missing += res.missing
 
-    notes = [f"{total_reset} task(s) reset to pending"]
+    sync_started = False
+    if total_reset > 0:
+        sync_started = start_background_sync(problem_ids, retry_failed=True)
+
+    notes = [f"{total_reset} task(s) reset"]
     if total_pinned:
         notes.append(f"{total_pinned} skipped because solution is pinned")
     if total_missing:
         notes.append(f"{total_missing} had no matching task")
 
-    status = (
-        "warning" if (total_pinned or total_missing) and not total_reset else "success"
-    )
+    if total_reset > 0:
+        if sync_started:
+            notes.append(
+                f"Started background sync for {len(problem_ids)} problem(s). Refresh to see progress"
+            )
+            status = "success"
+        else:
+            notes.append(
+                "A sync is already running in the background. Wait for it to finish"
+            )
+            status = "warning"
+    else:
+        status = "warning" if (total_pinned or total_missing) else "info"
+        notes.append("No tasks needed resetting")
+
     return JsonResponse(
         {
             "status": status,
-            "message": ". ".join(notes) + ". Now run 'Sync Selected' to fetch them.",
+            "message": ". ".join(notes) + ".",
             "tasks_reset": total_reset,
+            "sync_started": sync_started,
         }
     )

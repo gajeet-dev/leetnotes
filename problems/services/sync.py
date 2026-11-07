@@ -25,7 +25,7 @@ from .images import process_problem_images
 logger = structlog.get_logger(__name__)
 
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.db.models import Max
 
@@ -372,18 +372,25 @@ def _sync_submissions(task: SyncTask, deps: Deps) -> None:
             _complete(task)
         return
 
+    # LeetCode's submission list query (queue timestamp) and submission details
+    # query (completion timestamp) can differ by 1-2 seconds. Compare within a
+    # small window to prevent redundant fetches of already-stored solutions.
+    window_start = latest.timestamp - timedelta(seconds=10)
+    window_end = latest.timestamp + timedelta(seconds=10)
     already_stored = problem.submissions.filter(
-        submission_date=latest.timestamp
+        submission_date__range=(window_start, window_end)
     ).exists()
     detail = None if already_stored else deps.client.get_submission_details(latest.id)
 
     with transaction.atomic():
         if detail is not None:
-            Submission.objects.create(
+            Submission.objects.update_or_create(
                 problem=problem,
-                lang=detail.lang,
-                code=detail.code,
                 submission_date=detail.submission_date,
+                defaults={
+                    "lang": detail.lang,
+                    "code": detail.code,
+                },
             )
             # Keep only the latest. Nothing is pinned at this point, so any
             # other row for this problem is an older solution.

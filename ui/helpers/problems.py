@@ -24,6 +24,20 @@ def parse_problem_filters(request) -> dict[str, str]:
     }
 
 
+def parse_per_page(
+    request, default: int = 25, min_val: int = 1, max_val: int = 1000
+) -> int:
+    """Extract and validate per_page pagination parameter from request.GET."""
+    raw = request.GET.get("per_page")
+    if not raw:
+        return default
+    try:
+        val = int(raw)
+        return max(min_val, min(val, max_val))
+    except (ValueError, TypeError):
+        return default
+
+
 def get_problem_base_queryset():
     """Return base queryset for problems annotated with note existence and sync counts."""
     has_note_subquery = NoteRecord.objects.filter(problem_id=OuterRef("pk"))

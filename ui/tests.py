@@ -220,7 +220,9 @@ class ProblemsUITests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
-    def test_refetch_selected_submissions(self):
+    @patch("ui.views.start_background_sync")
+    def test_refetch_selected_submissions(self, mock_start):
+        mock_start.return_value = True
         url = reverse("ui:refetch_selected")
         response = self.client.post(
             url,
@@ -231,11 +233,15 @@ class ProblemsUITests(TestCase):
         data = response.json()
         self.assertEqual(data["status"], "success")
         self.assertEqual(data["tasks_reset"], 1)
+        self.assertTrue(data["sync_started"])
+        mock_start.assert_called_once_with([self.p_synced.id], retry_failed=True)
 
         task = SyncTask.objects.get(problem=self.p_synced, part=SyncTask.Part.SUBMISSIONS)
         self.assertEqual(task.status, SyncTask.Status.PENDING)
 
-    def test_refetch_selected_content_cascades(self):
+    @patch("ui.views.start_background_sync")
+    def test_refetch_selected_content_cascades(self, mock_start):
+        mock_start.return_value = True
         # Add images task to p_synced to test cascade
         SyncTask.objects.create(
             problem=self.p_synced,
@@ -253,6 +259,66 @@ class ProblemsUITests(TestCase):
         self.assertEqual(data["status"], "success")
         # Both content and images reset
         self.assertEqual(data["tasks_reset"], 2)
+        self.assertTrue(data["sync_started"])
+        mock_start.assert_called_once_with([self.p_synced.id], retry_failed=True)
+
+    @patch("ui.views.start_background_sync")
+    def test_refetch_selected_content_images_cascades(self, mock_start):
+        mock_start.return_value = True
+        SyncTask.objects.create(
+            problem=self.p_synced,
+            part=SyncTask.Part.IMAGES,
+            status=SyncTask.Status.DONE,
+        )
+        url = reverse("ui:refetch_selected")
+        response = self.client.post(
+            url,
+            json.dumps({"problem_ids": [self.p_synced.id], "part": "content_images"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["tasks_reset"], 2)
+        self.assertTrue(data["sync_started"])
+        mock_start.assert_called_once_with([self.p_synced.id], retry_failed=True)
+
+    @patch("ui.views.start_background_sync")
+    def test_refetch_selected_all(self, mock_start):
+        mock_start.return_value = True
+        SyncTask.objects.create(
+            problem=self.p_synced,
+            part=SyncTask.Part.IMAGES,
+            status=SyncTask.Status.DONE,
+        )
+        url = reverse("ui:refetch_selected")
+        response = self.client.post(
+            url,
+            json.dumps({"problem_ids": [self.p_synced.id], "part": "all"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        # Content cascade (content + images) + submissions = 3 tasks reset
+        self.assertEqual(data["tasks_reset"], 3)
+        self.assertTrue(data["sync_started"])
+        mock_start.assert_called_once_with([self.p_synced.id], retry_failed=True)
+
+    @patch("ui.views.start_background_sync")
+    def test_refetch_selected_already_running(self, mock_start):
+        mock_start.return_value = False
+        url = reverse("ui:refetch_selected")
+        response = self.client.post(
+            url,
+            json.dumps({"problem_ids": [self.p_synced.id], "part": "submissions"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "warning")
+        self.assertFalse(data["sync_started"])
+        mock_start.assert_called_once_with([self.p_synced.id], retry_failed=True)
 
     def test_refetch_selected_invalid_part(self):
         url = reverse("ui:refetch_selected")
@@ -262,6 +328,66 @@ class ProblemsUITests(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_custom_per_page_pagination(self):
+        url = reverse("ui:problems")
+        response = self.client.get(url, {"per_page": "1"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["per_page"], 1)
+        self.assertEqual(len(response.context["page_obj"]), 1)
+        self.assertContains(response, 'name="per_page"')
+        self.assertContains(response, 'id="per-page-input-top"')
+        self.assertContains(response, 'id="per-page-input-bottom"')
+
+    def test_dual_pagination_top_and_bottom(self):
+        url = reverse("ui:problems")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        # Both top and bottom pagination controls are present
+        self.assertEqual(content.count("Previous"), 2)
+        self.assertEqual(content.count("Next"), 2)
+        self.assertIn('id="per-page-input-top"', content)
+        self.assertIn('id="per-page-input-bottom"', content)
+
+    def test_refetch_menu_markup(self):
+        url = reverse("ui:problems")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("Refetch & Sync Content & Images", content)
+        self.assertIn("Refetch & Sync All", content)
+        # Should only have one Refetch & Sync Submissions button in the dropdown
+        self.assertEqual(content.count("Refetch & Sync Submissions"), 1)
+        # Should not contain "Refetch Images Only"
+        self.assertNotIn("Refetch Images Only", content)
+        # Centered confirmation modal is present
+        self.assertIn('id="refetch-confirm-modal"', content)
+
+    def test_htmx_filter_reset_button_oob_swap(self):
+        url = reverse("ui:problems")
+        # HTMX request without active filters: reset container is empty
+        response_clean = self.client.get(url, HTTP_HX_REQUEST="true")
+        self.assertEqual(response_clean.status_code, 200)
+        content_clean = response_clean.content.decode()
+        self.assertIn('id="filter-reset-container"', content_clean)
+        self.assertNotIn('Reset all filters', content_clean)
+
+        # HTMX request with active filter: reset container includes Reset button
+        response_filtered = self.client.get(url, {"difficulty": "Easy"}, HTTP_HX_REQUEST="true")
+        self.assertEqual(response_filtered.status_code, 200)
+        content_filtered = response_filtered.content.decode()
+        self.assertIn('id="filter-reset-container"', content_filtered)
+        self.assertIn('Reset all filters', content_filtered)
+
+    def test_problem_status_column_only_solved_unsolved(self):
+        url = reverse("ui:problems")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("Solved", content)
+        self.assertIn("Unsolved", content)
+        self.assertNotIn("In Task", content)
 
     def test_filter_panel_renders_on_full_page(self):
         """Full page GET renders the 6-column filter panel without duplicate OOB swap markup."""
