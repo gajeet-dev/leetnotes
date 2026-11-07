@@ -1,7 +1,7 @@
 import random
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import structlog
 from django.conf import settings
@@ -51,6 +51,7 @@ class RecentCheckResult:
     pinned_skipped: int = 0  # protected by a pin
     unknown: int = 0  # slug not in our DB: run Discover
     newly_solved: int = 0  # known problems we had flagged unsolved
+    slug_timestamps: dict[str, datetime] = field(default_factory=dict)
 
 
 def refresh_recent_submissions(
@@ -66,6 +67,7 @@ def refresh_recent_submissions(
         if item.slug not in newest or item.timestamp > newest[item.slug]:
             newest[item.slug] = item.timestamp
 
+    result.slug_timestamps = newest
     problems = {p.slug: p for p in Problem.objects.filter(slug__in=newest)}
 
     with transaction.atomic():
@@ -74,6 +76,11 @@ def refresh_recent_submissions(
             if problem is None:
                 result.unknown += 1
                 continue
+
+            if not problem.solved:
+                problem.solved = True
+                problem.save(update_fields=["solved", "updated_at"])
+                result.newly_solved += 1
 
             if problem.submissions.filter(pinned=True).exists():
                 result.pinned_skipped += 1
@@ -86,11 +93,6 @@ def refresh_recent_submissions(
                 result.up_to_date += 1
                 continue
 
-            if not problem.solved:
-                problem.solved = True
-                problem.save(update_fields=["solved", "updated_at"])
-                result.newly_solved += 1
-
             task, created = SyncTask.objects.get_or_create(
                 problem=problem, part=SyncTask.Part.SUBMISSIONS
             )
@@ -102,7 +104,15 @@ def refresh_recent_submissions(
                 task.save()
             result.reset += 1
 
-    logger.info("recent_check_completed", **result.__dict__)
+    logger.info(
+        "recent_check_completed",
+        checked=result.checked,
+        reset=result.reset,
+        up_to_date=result.up_to_date,
+        pinned_skipped=result.pinned_skipped,
+        unknown=result.unknown,
+        newly_solved=result.newly_solved,
+    )
     return result
 
 

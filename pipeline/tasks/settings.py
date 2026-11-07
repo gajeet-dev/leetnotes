@@ -30,6 +30,9 @@ class TaskSettings(BaseModel):
     regenerate_prefill: bool = (
         False  # ask the AI again even if there is a current AI note
     )
+    use_existing_prefill: bool = (
+        True  # use existing AI note if available
+    )
     manual_fallback: bool = (
         True  # if the AI tool fails, ask you to paste a reply instead
     )

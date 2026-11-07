@@ -80,14 +80,21 @@ class StagePlanTests(TestCase):
         self.assertTrue(plan[Stage.FETCH_SUBMISSION].skipped)
         self.assertFalse(plan[Stage.FETCH_PROBLEM].skipped)
 
-    def test_a_current_ai_note_skips_prefill_and_review(self):
+    def test_a_current_ai_note_skips_prefill_and_keeps_review_pending(self):
         self.mark_fetched()
         self.add_ai_note()
-        plan = self.plan()
+        plan = self.plan(review=True)
         self.assertEqual(plan[Stage.GENERATE_PREFILL].detail, AI_NOTE_EXISTS)
         self.assertTrue(plan[Stage.GENERATE_PREFILL].skipped)
-        self.assertEqual(plan[Stage.REVIEW].detail, EXISTING_AI_NOTE)
+        self.assertFalse(plan[Stage.REVIEW].skipped)
+
+    def test_a_current_ai_note_skips_review_when_review_off(self):
+        self.mark_fetched()
+        self.add_ai_note()
+        plan = self.plan(review=False)
+        self.assertTrue(plan[Stage.GENERATE_PREFILL].skipped)
         self.assertTrue(plan[Stage.REVIEW].skipped)
+        self.assertEqual(plan[Stage.REVIEW].detail, REVIEW_OFF)
 
     def test_regenerating_forces_prefill_and_review(self):
         self.mark_fetched()

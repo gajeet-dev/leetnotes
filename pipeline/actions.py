@@ -10,6 +10,7 @@ from pipeline.runtime.worker import ensure_worker_running
 from pipeline.stages.definitions import Stage
 from pipeline.stages.outcomes import done
 from pipeline.tasks.transitions import complete_stage, refresh_task_status, save_fields
+from prefill.models import AIResponse
 from prefill.parsing import ParseError, parse_solution
 from prefill.prompt_builder import PromptInputError, build_prompt
 from prefill.services import import_manual_response
@@ -132,6 +133,27 @@ def submit_manual_reply(
     row = waiting_stage(item, TaskItem.InputKind.MANUAL_PREFILL)
     check_reply_is_valid(text)
     save_pasted_reply(item, row, text, label)
+    wake()
+    return item
+
+
+def select_existing_prefill(
+    item_id: int,
+    response_id: int,
+    wake: WakeWorker = ensure_worker_running,
+) -> TaskItem:
+    """Use an existing AIResponse as this item's AI note, then advance the pipeline."""
+    item = get_item(item_id)
+    row = waiting_stage(item, TaskItem.InputKind.MANUAL_PREFILL)
+    with transaction.atomic():
+        chosen = AIResponse.objects.get(
+            pk=response_id, problem=item.problem, status=AIResponse.Status.VALID
+        )
+        AIResponse.objects.filter(problem=item.problem, is_active=True).update(is_active=False)
+        chosen.is_active = True
+        chosen.save(update_fields=["is_active"])
+        label = chosen.model_name or chosen.provider_name or "existing"
+        finish_waiting_stage(item, row, f"reused existing draft ({label})")
     wake()
     return item
 

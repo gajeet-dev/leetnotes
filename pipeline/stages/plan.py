@@ -114,11 +114,9 @@ def plan_generate_prefill(
     return PENDING
 
 
-def plan_review(review_on: bool, prefill: StageStart) -> StageStart:
+def plan_review(review_on: bool, prefill: StageStart | None = None) -> StageStart:
     if not review_on:
         return skip(REVIEW_OFF)
-    if prefill.skipped:
-        return skip(EXISTING_AI_NOTE)  # an existing note was already approved
     return PENDING
 
 
@@ -137,7 +135,9 @@ def initial_stages(problem: Problem, settings: TaskSettings) -> dict[Stage, Stag
     fetch_submission = plan_fetch_submission(problem, statuses, refetch_sub)
     data_unchanged = fetch_problem.skipped and fetch_submission.skipped
     prefill = plan_generate_prefill(
-        problem, settings.regenerate_prefill, data_unchanged
+        problem,
+        (settings.regenerate_prefill or not settings.use_existing_prefill),
+        data_unchanged,
     )
     review = plan_review(settings.review, prefill)
     return {
