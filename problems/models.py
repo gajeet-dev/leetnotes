@@ -63,6 +63,14 @@ class Problem(models.Model):
         """
         return self.has_images is False or self.images.exclude(file="").exists()  # pyright: ignore[reportAttributeAccessIssue]
 
+    @property
+    def pending_sync_parts(self) -> list[str]:
+        return [t.part for t in self.sync_tasks.all() if t.status == "pending"]
+
+    @property
+    def failed_sync_parts(self) -> list[str]:
+        return [t.part for t in self.sync_tasks.all() if t.status == "failed"]
+
 
 class Submission(models.Model):
     problem = models.ForeignKey(
