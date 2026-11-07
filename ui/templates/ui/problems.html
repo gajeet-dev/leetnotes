@@ -2,13 +2,13 @@
 {% block title %}Problems · Leetnotes{% endblock %}
 
 {% block content %}
-<div class="space-y-4">
+<div class="space-y-3.5">
   <!-- Page Header -->
   <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
     <div>
       <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Problems</h1>
       <p class="text-sm text-zinc-500 dark:text-zinc-400">
-        Browse, filter, and select solved problems to generate notes for.
+        Browse, filter, sync, and manage your LeetCode problem library.
       </p>
     </div>
   </div>
@@ -19,10 +19,20 @@
     hx-get="{% url 'ui:problems' %}"
     hx-target="#problems-table-container"
     hx-swap="outerHTML"
-    hx-trigger="change from:select, submit"
+    hx-push-url="true"
+    hx-trigger="submit"
+    autocomplete="off"
     class="flex flex-wrap items-center gap-2.5 rounded-xl border border-zinc-200 bg-white p-2.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
   >
-    <!-- Search Input (Fixed dark mode focus bug) -->
+    <!-- Hidden Inputs for Active Filters -->
+    <input type="hidden" name="difficulty" value="{{ difficulty }}" />
+    <input type="hidden" name="status" value="{{ status }}" />
+    <input type="hidden" name="paid" value="{{ paid_filter }}" />
+    <input type="hidden" name="sync" value="{{ sync_filter }}" />
+    <input type="hidden" name="notes" value="{{ notes_filter }}" />
+    <input type="hidden" name="category" value="{{ category }}" />
+
+    <!-- Search Input -->
     <div class="relative min-w-[200px] flex-1">
       <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-400">
         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -37,79 +47,604 @@
         hx-target="#problems-table-container"
         hx-swap="outerHTML"
         hx-include="#filter-form"
+        hx-push-url="true"
         hx-trigger="input changed delay:300ms, search"
       />
     </div>
 
-    <!-- Difficulty Filter -->
-    <div class="w-32">
-      <select name="difficulty" class="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100 dark:focus:border-zinc-100">
-        <option value="">Difficulty: All</option>
-        {% for diff in difficulties %}
-        <option value="{{ diff }}" {% if difficulty == diff %}selected{% endif %}>{{ diff }}</option>
-        {% endfor %}
-      </select>
-    </div>
+    <!-- Toggle Filter Panel Button -->
+    <button
+      type="button"
+      id="btn-toggle-filters"
+      onclick="toggleFilterPanel()"
+      class="h-9 inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50/50 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-200 dark:hover:bg-zinc-800 transition-colors shadow-xs cursor-pointer"
+      title="Toggle filter panel"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <span>Filters</span>
+      <span id="filter-count-badge">
+        {% if active_filter_count > 0 %}
+        <span class="rounded-full bg-zinc-900 px-1.5 py-0.2 text-[10px] font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
+          {{ active_filter_count }}
+        </span>
+        {% endif %}
+      </span>
+      <svg id="filter-chevron" class="h-3.5 w-3.5 text-zinc-400 transition-transform duration-200 rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
 
-    <!-- Status Filter -->
-    <div class="w-32">
-      <select name="status" class="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100 dark:focus:border-zinc-100">
-        <option value="">Status: All</option>
-        <option value="solved" {% if status == 'solved' %}selected{% endif %}>Solved</option>
-        <option value="unsolved" {% if status == 'unsolved' %}selected{% endif %}>Unsolved</option>
-      </select>
-    </div>
-
-    <!-- Notes Filter (Saved on Disk vs AI Draft Ready vs Needs Note) -->
-    <div class="w-36">
-      <select name="notes" class="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100 dark:focus:border-zinc-100">
-        <option value="">Notes: All</option>
-        <option value="has_note" {% if notes_filter == 'has_note' %}selected{% endif %}>Saved on Disk</option>
-        <option value="has_draft" {% if notes_filter == 'has_draft' %}selected{% endif %}>AI Draft Ready</option>
-        <option value="no_note" {% if notes_filter == 'no_note' %}selected{% endif %}>Needs Note</option>
-      </select>
-    </div>
-
-    <!-- Category Filter -->
-    <div class="w-36">
-      <select name="category" class="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100 dark:focus:border-zinc-100">
-        <option value="">Category: All</option>
-        {% for cat in categories %}
-        <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <!-- Reset Filters Button (Full height, danger/warning outline) -->
-    <a
-      href="{% url 'ui:problems' %}"
-      class="h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-3 text-sm font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors shadow-sm"
+    <!-- Reset Filters Button -->
+    {% if has_active_filters %}
+    <button
+      type="button"
+      onclick="clearAllFilters()"
+      class="h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-3 text-sm font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors shadow-xs cursor-pointer"
       title="Reset all filters"
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
       Reset
-    </a>
+    </button>
+    {% endif %}
   </form>
+
+  <!-- Collapsible 5-Column Filter Panel (Placed below the search bar) -->
+  {% include "ui/partials/filter_panel.html" %}
+
+  <!-- Options Bar (Revealed below search & filter bar when problems are selected) -->
+  <div
+    id="selection-options-bar"
+    class="hidden flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 transition-all duration-200"
+  >
+    <!-- Left: Selected Count, Select All Remaining, & Deselect Button -->
+    <div class="flex flex-wrap items-center gap-2.5 sm:gap-3.5">
+      <span class="inline-flex items-center rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm">
+        <span id="selected-count" class="mr-1">0</span> selected
+      </span>
+
+      <!-- Select All Matching / Remaining Button -->
+      <button
+        type="button"
+        id="btn-select-all-matching"
+        onclick="selectAllMatchingProblems()"
+        class="hidden items-center gap-2 rounded-lg border border-zinc-300 bg-zinc-100/90 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+      >
+        <span>Select all <strong id="select-all-total-count">0</strong> problems matching filters</span>
+        <span id="select-all-remaining-badge" class="rounded-md bg-zinc-200 px-2 py-0.5 text-xs font-bold text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200 border border-zinc-300/60 dark:border-zinc-600/60">
+          <span id="select-all-remaining-count">0</span> remaining
+        </span>
+      </button>
+
+      <!-- Badge shown when all matching are selected -->
+      <span
+        id="all-matching-selected-badge"
+        class="hidden items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-800 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
+      >
+        <svg class="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
+        </svg>
+        <span>All <strong id="all-selected-total-count">0</strong> problems matching filters selected</span>
+      </span>
+
+      <button
+        type="button"
+        onclick="clearSelections()"
+        class="text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 underline underline-offset-4 transition-colors cursor-pointer"
+      >
+        Clear selection
+      </button>
+    </div>
+
+    <!-- Right: Sync & Refetch Actions -->
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Sync Selected Button -->
+      <button
+        type="button"
+        id="btn-sync-selected"
+        onclick="runBulkSync()"
+        class="inline-flex h-9 items-center gap-2 rounded-lg bg-zinc-900 px-3.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 cursor-pointer"
+        title="Sync selected problems (fetches pending and retries failed parts)"
+      >
+        <svg id="sync-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+        <svg id="sync-spinner" class="hidden h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <span id="sync-label">Sync Selected</span>
+      </button>
+
+      <!-- Refetch Dropdown -->
+      <div class="relative inline-block text-left" id="refetch-menu-container">
+        <button
+          type="button"
+          id="refetch-menu-btn"
+          onclick="toggleRefetchDropdown(event)"
+          class="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
+          title="Mark selected parts for re-fetching"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          <span>Refetch</span>
+          <svg class="h-3.5 w-3.5 text-zinc-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+
+        <div
+          id="refetch-dropdown"
+          class="hidden absolute right-0 z-30 mt-1.5 w-56 rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+        >
+          <button
+            type="button"
+            onclick="runRefetch('content')"
+            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5 shrink-0 text-zinc-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <div>
+              <div class="font-medium">Refetch Content & Images</div>
+              <div class="text-[10px] text-zinc-400">Resets content and re-downloads images</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            onclick="runRefetch('submissions')"
+            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5 shrink-0 text-zinc-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <div>
+              <div class="font-medium">Refetch Submissions</div>
+              <div class="text-[10px] text-zinc-400">Resets code task (skips pinned)</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            onclick="runRefetch('submissions')"
+            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5 shrink-0 text-zinc-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <div>
+              <div class="font-medium">Refetch Submissions</div>
+              <div class="text-[10px] text-zinc-400">Resets code task (skips pinned)</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            onclick="runRefetch('images')"
+            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 text-left transition-colors cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5 shrink-0 text-zinc-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            <div>
+              <div class="font-medium">Refetch Images Only</div>
+              <div class="text-[10px] text-zinc-400">Re-downloads question diagram images</div>
+            </div>
+          </button>
+          <div class="my-1 border-t border-zinc-100 dark:border-zinc-800"></div>
+          <button
+            type="button"
+            onclick="runRefetch('all')"
+            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 text-left transition-colors cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            <div>
+              <div>Refetch All Parts</div>
+              <div class="text-[10px] opacity-75">Resets content, images & submissions</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Banner (Feedback after sync/refetch actions) -->
+  <div
+    id="sync-notification-container"
+    class="hidden items-center justify-between gap-3 rounded-xl border p-3 text-sm shadow-sm transition-all duration-200"
+  >
+    <div class="flex items-center gap-2.5" id="sync-notification-message"></div>
+    <button
+      type="button"
+      onclick="closeNotification()"
+      class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors p-1"
+      title="Dismiss"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
 
   <!-- The Table Partial Container -->
   {% include "ui/partials/problems_table.html" %}
 </div>
 
 <script>
+  const selectedProblemIds = new Set();
+
+  function onProblemCheckboxChange(cb) {
+    if (cb.checked) {
+      selectedProblemIds.add(cb.value);
+    } else {
+      selectedProblemIds.delete(cb.value);
+    }
+    updateSelectionBar();
+  }
+
   function toggleAllCheckboxes(masterCheckbox) {
     const checkboxes = document.querySelectorAll('.problem-checkbox');
     checkboxes.forEach(cb => {
       cb.checked = masterCheckbox.checked;
+      if (masterCheckbox.checked) {
+        selectedProblemIds.add(cb.value);
+      } else {
+        selectedProblemIds.delete(cb.value);
+      }
     });
+    updateSelectionBar();
   }
 
   function clearSelections() {
+    selectedProblemIds.clear();
     const checkboxes = document.querySelectorAll('.problem-checkbox');
     checkboxes.forEach(cb => {
       cb.checked = false;
     });
     const master = document.getElementById('select-all-visible');
     if (master) master.checked = false;
+    updateSelectionBar();
   }
+
+  function updateSelectionBar() {
+    const count = selectedProblemIds.size;
+    const bar = document.getElementById('selection-options-bar');
+    const countEl = document.getElementById('selected-count');
+    const container = document.getElementById('problems-table-container');
+    const totalCount = container ? parseInt(container.getAttribute('data-total-count') || '0', 10) : 0;
+
+    if (countEl) countEl.textContent = count;
+
+    if (bar) {
+      if (count > 0) {
+        bar.classList.remove('hidden');
+        bar.classList.add('flex');
+      } else {
+        bar.classList.add('hidden');
+        bar.classList.remove('flex');
+      }
+    }
+
+    // Update master checkbox check state on current page
+    const visible = document.querySelectorAll('.problem-checkbox');
+    const master = document.getElementById('select-all-visible');
+    const allVisibleChecked = visible.length > 0 && Array.from(visible).every(cb => cb.checked);
+    if (master) {
+      master.checked = allVisibleChecked;
+    }
+
+    // Remaining count calculation for active filters
+    const remaining = Math.max(0, totalCount - count);
+
+    // Update Select All Matching button & badge in Options Bar
+    const selectAllBtn = document.getElementById('btn-select-all-matching');
+    const totalCountSpan = document.getElementById('select-all-total-count');
+    const remainingCountSpan = document.getElementById('select-all-remaining-count');
+    const allSelectedBadge = document.getElementById('all-matching-selected-badge');
+    const allSelectedTotalSpan = document.getElementById('all-selected-total-count');
+
+    if (count > 0 && totalCount > 0) {
+      if (count >= totalCount) {
+        // All matching problems selected: hide select-all button, show all-selected badge
+        if (selectAllBtn) {
+          selectAllBtn.classList.add('hidden');
+          selectAllBtn.classList.remove('inline-flex', 'flex');
+        }
+        if (allSelectedBadge) {
+          allSelectedBadge.classList.remove('hidden');
+          allSelectedBadge.classList.add('inline-flex');
+        }
+        if (allSelectedTotalSpan) allSelectedTotalSpan.textContent = totalCount;
+      } else {
+        // Some problems selected: show select-all button with remaining count, hide all-selected badge
+        if (allSelectedBadge) {
+          allSelectedBadge.classList.add('hidden');
+          allSelectedBadge.classList.remove('inline-flex', 'flex');
+        }
+        if (selectAllBtn) {
+          selectAllBtn.classList.remove('hidden');
+          selectAllBtn.classList.add('inline-flex');
+        }
+        if (totalCountSpan) totalCountSpan.textContent = totalCount;
+        if (remainingCountSpan) remainingCountSpan.textContent = remaining;
+      }
+    } else {
+      if (selectAllBtn) {
+        selectAllBtn.classList.add('hidden');
+        selectAllBtn.classList.remove('inline-flex', 'flex');
+      }
+      if (allSelectedBadge) {
+        allSelectedBadge.classList.add('hidden');
+        allSelectedBadge.classList.remove('inline-flex', 'flex');
+      }
+    }
+  }
+
+  async function selectAllMatchingProblems() {
+    const form = document.getElementById('filter-form');
+    const params = form ? new FormData(form) : new FormData();
+    const searchParams = new URLSearchParams();
+    for (const [key, value] of params.entries()) {
+      if (value && typeof value === 'string' && value.trim()) {
+        searchParams.set(key, value.trim());
+      }
+    }
+
+    const btn = document.getElementById('btn-select-all-matching');
+    if (btn) btn.disabled = true;
+
+    try {
+      const res = await fetch(`{% url 'ui:matching_ids' %}?${searchParams.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch problem IDs');
+      const data = await res.json();
+      (data.ids || []).forEach(id => selectedProblemIds.add(String(id)));
+
+      document.querySelectorAll('.problem-checkbox').forEach(cb => {
+        cb.checked = selectedProblemIds.has(cb.value);
+      });
+      updateSelectionBar();
+    } catch (err) {
+      showNotification('error', 'Could not select all problems: ' + err.message);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // Restore checked boxes and selection bar after HTMX replaces the table
+  document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target && evt.detail.target.id === 'problems-table-container') {
+      document.querySelectorAll('.problem-checkbox').forEach(cb => {
+        cb.checked = selectedProblemIds.has(cb.value);
+      });
+      updateSelectionBar();
+      syncFilterPanelState();
+    }
+  });
+
+  // Keep filter panel in its closed/open state across HTMX out-of-band swaps
+  document.body.addEventListener('htmx:oobBeforeSwap', function(evt) {
+    if (evt.detail.target && evt.detail.target.id === 'filter-panel') {
+      const saved = localStorage.getItem('leetnotes_filter_panel_open');
+      const wasHidden = evt.detail.target.classList.contains('hidden');
+      if (saved === 'false' || (saved === null && wasHidden)) {
+        const frag = evt.detail.fragment;
+        if (frag) {
+          if (frag.classList) {
+            frag.classList.add('hidden');
+          }
+          if (frag.querySelector) {
+            const p = frag.querySelector('#filter-panel');
+            if (p) p.classList.add('hidden');
+          }
+        }
+      }
+    }
+  });
+
+  document.body.addEventListener('htmx:oobAfterSwap', function(evt) {
+    if (evt.detail.target && evt.detail.target.id === 'filter-panel') {
+      syncFilterPanelState();
+    }
+  });
+
+  document.body.addEventListener('htmx:afterSettle', function() {
+    syncFilterPanelState();
+  });
+
+  // Strip empty filter parameters so pushed URLs are clean (e.g. ?difficulty=Easy)
+  document.body.addEventListener('htmx:configRequest', function(evt) {
+    if (
+      evt.detail.elt &&
+      (evt.detail.elt.id === 'filter-form' ||
+        evt.detail.elt.closest('#filter-form') ||
+        evt.detail.elt.closest('#problems-table-container'))
+    ) {
+      for (const key in evt.detail.parameters) {
+        if (evt.detail.parameters[key] === '') {
+          delete evt.detail.parameters[key];
+        }
+      }
+    }
+  });
+
+  // Keep form inputs synchronized when using browser Back/Forward navigation
+  document.body.addEventListener('htmx:restored', function() {
+    const params = new URLSearchParams(window.location.search);
+    const form = document.getElementById('filter-form');
+    if (form) {
+      ['difficulty', 'status', 'paid', 'sync', 'notes', 'category'].forEach(name => {
+        const inp = form.querySelector(`input[name="${name}"]`);
+        if (inp) inp.value = params.get(name) || '';
+      });
+      const qInput = form.querySelector('input[name="q"]');
+      if (qInput) qInput.value = params.get('q') || '';
+    }
+  });
+
+  function getCsrfToken() {
+    const meta = document.querySelector('body')?.getAttribute('hx-headers');
+    if (meta) {
+      try {
+        const parsed = JSON.parse(meta);
+        if (parsed['X-CSRFToken']) return parsed['X-CSRFToken'];
+      } catch(e) {}
+    }
+    const match = document.cookie.match(/csrftoken=([^;]+)/);
+    return match ? match[1] : '';
+  }
+
+  function showNotification(type, message) {
+    const container = document.getElementById('sync-notification-container');
+    const msgEl = document.getElementById('sync-notification-message');
+    if (!container || !msgEl) return;
+
+    container.className = 'flex items-center justify-between gap-3 rounded-xl border p-3 text-sm shadow-sm transition-all duration-200';
+    let iconHtml = '';
+
+    if (type === 'success') {
+      container.classList.add('border-emerald-200', 'bg-emerald-50/80', 'text-emerald-900', 'dark:border-emerald-900/60', 'dark:bg-emerald-950/40', 'dark:text-emerald-300');
+      iconHtml = '<svg class="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>';
+    } else if (type === 'warning') {
+      container.classList.add('border-amber-200', 'bg-amber-50/80', 'text-amber-900', 'dark:border-amber-900/60', 'dark:bg-amber-950/40', 'dark:text-amber-300');
+      iconHtml = '<svg class="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+    } else if (type === 'error') {
+      container.classList.add('border-rose-200', 'bg-rose-50/80', 'text-rose-900', 'dark:border-rose-900/60', 'dark:bg-rose-950/40', 'dark:text-rose-300');
+      iconHtml = '<svg class="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+    } else {
+      container.classList.add('border-blue-200', 'bg-blue-50/80', 'text-blue-900', 'dark:border-blue-900/60', 'dark:bg-blue-950/40', 'dark:text-blue-300');
+      iconHtml = '<svg class="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+    }
+
+    msgEl.innerHTML = iconHtml + '<span class="font-medium">' + message + '</span>';
+    container.classList.remove('hidden');
+    container.classList.add('flex');
+  }
+
+  function closeNotification() {
+    const container = document.getElementById('sync-notification-container');
+    if (container) {
+      container.classList.add('hidden');
+      container.classList.remove('flex');
+    }
+  }
+
+  function refreshProblemsTable() {
+    const form = document.getElementById('filter-form');
+    if (form && window.htmx) {
+      window.htmx.trigger(form, 'submit');
+    }
+  }
+
+  function setFacetFilter(name, value) {
+    const form = document.getElementById('filter-form');
+    if (!form) return;
+    const input = form.querySelector(`input[name="${name}"]`);
+    if (!input) return;
+    // Toggle: if already active value, clear it; otherwise set to new value
+    input.value = (input.value === value) ? '' : value;
+    if (window.htmx) {
+      window.htmx.trigger(form, 'submit');
+    }
+  }
+
+  function clearAllFilters() {
+    const form = document.getElementById('filter-form');
+    if (!form) return;
+    form.querySelectorAll('input[type="hidden"]').forEach(inp => {
+      inp.value = '';
+    });
+    const qInput = form.querySelector('input[name="q"]');
+    if (qInput) qInput.value = '';
+    if (window.htmx) {
+      window.htmx.trigger(form, 'submit');
+    }
+  }
+
+  function toggleFilterPanel() {
+    const panel = document.getElementById('filter-panel');
+    const chevron = document.getElementById('filter-chevron');
+    if (!panel) return;
+    const isHidden = panel.classList.contains('hidden');
+    if (isHidden) {
+      panel.classList.remove('hidden');
+      if (chevron) chevron.classList.add('rotate-180');
+      localStorage.setItem('leetnotes_filter_panel_open', 'true');
+    } else {
+      panel.classList.add('hidden');
+      if (chevron) chevron.classList.remove('rotate-180');
+      localStorage.setItem('leetnotes_filter_panel_open', 'false');
+    }
+  }
+
+  function syncFilterPanelState() {
+    const panel = document.getElementById('filter-panel');
+    const chevron = document.getElementById('filter-chevron');
+    if (!panel) return;
+    const saved = localStorage.getItem('leetnotes_filter_panel_open');
+    if (saved === 'false') {
+      panel.classList.add('hidden');
+      if (chevron) chevron.classList.remove('rotate-180');
+    } else if (saved === 'true') {
+      panel.classList.remove('hidden');
+      if (chevron) chevron.classList.add('rotate-180');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', syncFilterPanelState);
+
+  async function runBulkSync() {
+    if (selectedProblemIds.size === 0) return;
+    const ids = Array.from(selectedProblemIds);
+
+    const syncLabel = document.getElementById('sync-label');
+    const syncIcon = document.getElementById('sync-icon');
+    const syncSpinner = document.getElementById('sync-spinner');
+
+    if (syncIcon) syncIcon.classList.add('hidden');
+    if (syncSpinner) syncSpinner.classList.remove('hidden');
+    if (syncLabel) syncLabel.textContent = 'Starting...';
+
+    try {
+      const res = await fetch("{% url 'ui:sync_selected' %}", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify({
+          problem_ids: ids,
+        }),
+      });
+      const data = await res.json();
+      showNotification(data.status, data.message);
+      refreshProblemsTable();
+    } catch (err) {
+      showNotification('error', 'Sync request failed: ' + err);
+    } finally {
+      if (syncIcon) syncIcon.classList.remove('hidden');
+      if (syncSpinner) syncSpinner.classList.add('hidden');
+      if (syncLabel) syncLabel.textContent = 'Sync Selected';
+    }
+  }
+
+  async function runRefetch(part) {
+    closeRefetchDropdown();
+    if (selectedProblemIds.size === 0) return;
+    const ids = Array.from(selectedProblemIds);
+
+    try {
+      const res = await fetch("{% url 'ui:refetch_selected' %}", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify({
+          problem_ids: ids,
+          part: part,
+        }),
+      });
+      const data = await res.json();
+      showNotification(data.status, data.message);
+      refreshProblemsTable();
+    } catch (err) {
+      showNotification('error', 'Refetch request failed: ' + err);
+    }
+  }
+
+  function toggleRefetchDropdown(event) {
+    event.stopPropagation();
+    const dropdown = document.getElementById('refetch-dropdown');
+    if (dropdown) dropdown.classList.toggle('hidden');
+  }
+
+  function closeRefetchDropdown() {
+    const dropdown = document.getElementById('refetch-dropdown');
+    if (dropdown) dropdown.classList.add('hidden');
+  }
+
+  document.addEventListener('click', function(e) {
+    const menu = document.getElementById('refetch-menu-container');
+    if (menu && !menu.contains(e.target)) {
+      closeRefetchDropdown();
+    }
+  });
 </script>
 {% endblock %}

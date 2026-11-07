@@ -1,5 +1,9 @@
-<div id="problems-table-container" class="flex flex-col rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-  
+<div
+  id="problems-table-container"
+  data-total-count="{{ total_count }}"
+  data-page-count="{{ page_obj|length }}"
+  class="flex flex-col rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+>
   <!-- Scrollable Table Viewport with Sticky Header -->
   <div class="relative overflow-x-auto overflow-y-auto max-h-[calc(100vh-270px)] min-h-[400px]">
     <table class="table w-full text-left text-sm">
@@ -9,7 +13,7 @@
             <input
               type="checkbox"
               id="select-all-visible"
-              class="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100"
+              class="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100 cursor-pointer"
               onchange="toggleAllCheckboxes(this)"
               title="Select all on this page"
             />
@@ -17,7 +21,9 @@
           <th class="w-20 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">#</th>
           <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Title</th>
           <th class="w-28 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Difficulty</th>
+          <th class="w-24 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Paid</th>
           <th class="w-32 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Status</th>
+          <th class="w-36 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Sync</th>
           <th class="w-36 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Notes</th>
           <th class="w-32 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Category</th>
         </tr>
@@ -30,9 +36,8 @@
               type="checkbox"
               name="selected_problems"
               value="{{ problem.id }}"
-              class="problem-checkbox h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100"
-              onchange="updateSelectionBar()"
-              {% if not problem.solved or problem.id in busy_ids %}data-ineligible="true"{% endif %}
+              class="problem-checkbox h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100 cursor-pointer"
+              onchange="onProblemCheckboxChange(this)"
             />
           </td>
           <!-- LeetCode ID with larger, clear font -->
@@ -78,6 +83,19 @@
             <span class="text-zinc-400">-</span>
             {% endif %}
           </td>
+          <!-- Paid / Free Access Status -->
+          <td class="px-4 py-3">
+            {% if problem.paid_only %}
+            <span class="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-400" title="LeetCode Premium only">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Paid
+            </span>
+            {% else %}
+            <span class="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
+              Free
+            </span>
+            {% endif %}
+          </td>
           <td class="px-4 py-3">
             {% if problem.id in busy_ids %}
             <span class="inline-flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:border-purple-800/60 dark:bg-purple-950/40 dark:text-purple-400">
@@ -91,6 +109,29 @@
             </span>
             {% else %}
             <span class="text-xs text-zinc-400">Unsolved</span>
+            {% endif %}
+          </td>
+          <!-- Sync Status Column -->
+          <td class="px-4 py-3">
+            {% if problem.total_sync_count == 0 %}
+            <span class="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-500" title="No sync tasks">
+              N/A
+            </span>
+            {% elif problem.failed_sync_count > 0 %}
+            <span class="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-400" title="Failed parts: {{ problem.failed_sync_parts|join:', ' }}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Failed ({{ problem.failed_sync_count }})
+            </span>
+            {% elif problem.pending_sync_count > 0 %}
+            <span class="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-400" title="Pending: {{ problem.pending_sync_parts|join:', ' }}">
+              <span class="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+              Pending ({{ problem.pending_sync_count }}/{{ problem.total_sync_count }})
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-400" title="Fully synced">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              Synced
+            </span>
             {% endif %}
           </td>
           <!-- Clear Notes Status: Saved on Disk vs AI Draft vs None -->
@@ -118,7 +159,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="7" class="py-16 text-center text-zinc-500 dark:text-zinc-400">
+          <td colspan="9" class="py-16 text-center text-zinc-500 dark:text-zinc-400">
             <div class="mx-auto flex max-w-xs flex-col items-center justify-center">
               <svg class="h-8 w-8 text-zinc-400 dark:text-zinc-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -150,6 +191,7 @@
         hx-include="#filter-form"
         hx-target="#problems-table-container"
         hx-swap="outerHTML"
+        hx-push-url="true"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         Previous
@@ -173,6 +215,7 @@
         hx-include="#filter-form"
         hx-target="#problems-table-container"
         hx-swap="outerHTML"
+        hx-push-url="true"
       >
         Next
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
@@ -187,3 +230,15 @@
   </div>
 
 </div>
+
+<!-- Out-Of-Band Swaps for Reactive Filter Panel & Toggle Count Badge -->
+{% if is_htmx %}
+  {% include "ui/partials/filter_panel.html" with is_oob=True %}
+  <span id="filter-count-badge" hx-swap-oob="outerHTML">
+    {% if active_filter_count > 0 %}
+    <span class="rounded-full bg-zinc-900 px-1.5 py-0.2 text-[10px] font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
+      {{ active_filter_count }}
+    </span>
+    {% endif %}
+  </span>
+{% endif %}
