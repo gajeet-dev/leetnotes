@@ -15,7 +15,7 @@ def build_problem_context(problem: Problem) -> dict:
         "url": problem.url,
         "tags": problem.tags or [],  # list of {"name", "slug"} dicts
         "content": problem.content_local_markdown or "",
-        "submission": problem.submissions.order_by("-submission_date").first(),
+        "submission": getattr(problem, "submission", None),
         "solution_note": solution_note_stem(problem),
     }
 

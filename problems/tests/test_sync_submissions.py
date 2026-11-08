@@ -70,7 +70,9 @@ class SyncSubmissionsTests(TestCase):
         self.client.get_submission_details.assert_not_called()
         self.task.refresh_from_db()
         self.assertEqual(self.task.status, SyncTask.Status.DONE)
-        self.assertEqual(self.problem.submissions.count(), 1)
+        self.assertEqual(Submission.objects.filter(problem=self.problem).count(), 1)
+        sub = self.problem.submission
+        self.assertEqual(sub.code, "stored code")
 
     def test_detail_fetched_when_new_submission(self):
         now = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
@@ -91,7 +93,8 @@ class SyncSubmissionsTests(TestCase):
         self.client.get_submission_details.assert_called_once_with(123)
         self.task.refresh_from_db()
         self.assertEqual(self.task.status, SyncTask.Status.DONE)
-        sub = self.problem.submissions.first()
+        self.problem.refresh_from_db()
+        sub = self.problem.submission
         self.assertIsNotNone(sub)
         self.assertEqual(sub.code, "print('hello')")
         self.assertEqual(sub.submission_date, now + timedelta(seconds=1))
@@ -121,8 +124,9 @@ class SyncSubmissionsTests(TestCase):
         _sync_submissions(self.task, self.deps)
         self.task.refresh_from_db()
         self.assertEqual(self.task.status, SyncTask.Status.DONE)
-        self.assertEqual(self.problem.submissions.count(), 1)
-        sub = self.problem.submissions.first()
+        self.assertEqual(Submission.objects.filter(problem=self.problem).count(), 1)
+        self.problem.refresh_from_db()
+        sub = self.problem.submission
         self.assertEqual(sub.lang, "java")
         self.assertEqual(sub.code, "class Solution {}")
 
@@ -150,6 +154,7 @@ class SyncSubmissionsTests(TestCase):
         _sync_submissions(self.task, self.deps)
         self.task.refresh_from_db()
         self.assertEqual(self.task.status, SyncTask.Status.DONE)
-        self.assertEqual(self.problem.submissions.count(), 1)
-        sub = self.problem.submissions.first()
+        self.assertEqual(Submission.objects.filter(problem=self.problem).count(), 1)
+        self.problem.refresh_from_db()
+        sub = self.problem.submission
         self.assertEqual(sub.code, "updated code")

@@ -56,7 +56,8 @@ def is_fetched(statuses: dict[str, str], part: str) -> bool:
 
 
 def has_pinned_submission(problem: Problem) -> bool:
-    return problem.submissions.filter(pinned=True).exists()
+    sub = getattr(problem, "submission", None)
+    return sub is not None and sub.pinned
 
 
 def ai_note_state(problem: Problem) -> AiNoteState:

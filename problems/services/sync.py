@@ -25,9 +25,7 @@ from .images import process_problem_images
 logger = structlog.get_logger(__name__)
 
 from collections.abc import Iterable
-from datetime import datetime, timedelta
-
-from django.db.models import Max
+from datetime import datetime
 
 from userconfig import effective
 
@@ -68,7 +66,10 @@ def refresh_recent_submissions(
             newest[item.slug] = item.timestamp
 
     result.slug_timestamps = newest
-    problems = {p.slug: p for p in Problem.objects.filter(slug__in=newest)}
+    problems = {
+        p.slug: p
+        for p in Problem.objects.filter(slug__in=newest).select_related("submission")
+    }
 
     with transaction.atomic():
         for slug, timestamp in newest.items():
@@ -82,14 +83,12 @@ def refresh_recent_submissions(
                 problem.save(update_fields=["solved", "updated_at"])
                 result.newly_solved += 1
 
-            if problem.submissions.filter(pinned=True).exists():
+            sub = getattr(problem, "submission", None)
+            if sub is not None and sub.pinned:
                 result.pinned_skipped += 1
                 continue
 
-            latest_stored = problem.submissions.aggregate(
-                latest=Max("submission_date")
-            )["latest"]
-            if latest_stored is not None and timestamp <= latest_stored:
+            if sub is not None and timestamp <= sub.submission_date:
                 result.up_to_date += 1
                 continue
 
@@ -358,7 +357,8 @@ def _sync_submissions(task: SyncTask, deps: Deps) -> None:
 
     # A pinned solution is never replaced, even on an explicit refetch.
     # Checked before any network call. Unpin it first to allow a replacement.
-    if problem.submissions.filter(pinned=True).exists():
+    existing = getattr(problem, "submission", None)
+    if existing is not None and existing.pinned:
         logger.info("submission_sync_skipped", reason="pinned")
         with transaction.atomic():
             _complete(task)
@@ -375,26 +375,22 @@ def _sync_submissions(task: SyncTask, deps: Deps) -> None:
     # LeetCode's submission list query (queue timestamp) and submission details
     # query (completion timestamp) can differ by 1-2 seconds. Compare within a
     # small window to prevent redundant fetches of already-stored solutions.
-    window_start = latest.timestamp - timedelta(seconds=10)
-    window_end = latest.timestamp + timedelta(seconds=10)
-    already_stored = problem.submissions.filter(
-        submission_date__range=(window_start, window_end)
-    ).exists()
+    already_stored = (
+        existing is not None
+        and abs((existing.submission_date - latest.timestamp).total_seconds()) <= 10
+    )
     detail = None if already_stored else deps.client.get_submission_details(latest.id)
 
     with transaction.atomic():
         if detail is not None:
             Submission.objects.update_or_create(
                 problem=problem,
-                submission_date=detail.submission_date,
                 defaults={
                     "lang": detail.lang,
                     "code": detail.code,
+                    "submission_date": detail.submission_date,
                 },
             )
-            # Keep only the latest. Nothing is pinned at this point, so any
-            # other row for this problem is an older solution.
-            problem.submissions.exclude(submission_date=detail.submission_date).delete()
         _complete(task)
 
 

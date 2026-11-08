@@ -33,7 +33,7 @@ class Command(BaseCommand):
                 raise CommandError(f"No problem with slug {slug!r}")
         else:
             problems = (
-                Problem.objects.filter(solved=True, submissions__isnull=False)
+                Problem.objects.filter(solved=True, submission__isnull=False)
                 .exclude(content_remote_markdown__isnull=True)
                 .annotate(
                     has_note=Exists(

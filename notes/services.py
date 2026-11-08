@@ -44,7 +44,7 @@ def skip_reason(problem: Problem) -> str | None:
         if part not in done:
             return f"{part} not synced"
 
-    if not problem.submissions.exists():
+    if getattr(problem, "submission", None) is None:
         return "no submission stored"
     return None
 

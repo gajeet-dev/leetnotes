@@ -73,8 +73,8 @@ class Problem(models.Model):
 
 
 class Submission(models.Model):
-    problem = models.ForeignKey(
-        Problem, on_delete=models.CASCADE, related_name="submissions"
+    problem = models.OneToOneField(
+        Problem, on_delete=models.CASCADE, related_name="submission"
     )
     lang = models.CharField(max_length=50)
     code = models.TextField()
@@ -83,12 +83,13 @@ class Submission(models.Model):
 
     class Meta:
         ordering = ["-submission_date"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["problem", "submission_date"],
-                name="unique_submission_per_problem_date",
+
+    def delete(self, *args, **kwargs):
+        if hasattr(self, "problem") and self.problem is not None:
+            getattr(self.problem, "_state", None) and self.problem._state.fields_cache.pop(
+                "submission", None
             )
-        ]
+        return super().delete(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.problem.slug} ({self.lang}, {self.submission_date:%Y-%m-%d})"

@@ -51,8 +51,8 @@ def build_prompt(problem: Problem) -> Prompt:
     if not statement:
         raise PromptInputError("problem content has not been synced yet")
 
-    submission = problem.submissions.order_by("-submission_date").first()
-    if submission is None:
+    submission = getattr(problem, "submission", None)
+    if submission is None or submission.pk is None:
         raise PromptInputError("no stored submission for this problem")
 
     statement = _IMAGE.sub("[image omitted]", statement)
