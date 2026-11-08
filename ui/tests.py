@@ -8,7 +8,9 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from problems.models import Problem, SyncTask
+from userconfig import effective, update_config, update_credentials
 from userconfig.credentials import load_credentials
+from userconfig.paths import PROJECT_ROOT
 from userconfig.store import load_config
 from userconfig.tests.helpers import DataDirDBTestCase
 
@@ -702,3 +704,58 @@ class SettingsUITests(DataDirDBTestCase):
             self.assertTrue(new_dir.is_dir())
             config = load_config()
             self.assertTrue(config.create_directory)
+
+    def test_reset_settings_restores_defaults_and_preserves_secrets(self):
+        # 1. Setup custom settings and credentials
+        update_credentials(session="my-secret-session", csrf_token="my-csrf-token")
+        update_config(
+            {
+                "output_dirs": ["/custom/vault"],
+                "create_directory": True,
+                "leetcode_username": "my_account",
+                "time_zone": "Europe/London",
+                "problems_per_minute": 15.0,
+                "default_provider": "claude",
+                "review_before_writing": False,
+            }
+        )
+
+        # Verify custom settings are present
+        cfg_before = load_config()
+        self.assertEqual(cfg_before.output_dirs, ["/custom/vault"])
+        self.assertEqual(cfg_before.problems_per_minute, 15.0)
+        self.assertEqual(cfg_before.default_provider, "claude")
+
+        # 2. Call reset_settings endpoint with HTMX
+        url = reverse("ui:reset_settings")
+        response = self.client.post(url, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 200)
+
+        # 3. Assert config in data/config.json is reset to defaults
+        cfg_after = load_config()
+        self.assertIsNone(cfg_after.output_dirs)  # None in config.json means default notes_output
+        self.assertIsNone(cfg_after.time_zone)
+        self.assertIsNone(cfg_after.problems_per_minute)
+        self.assertIsNone(cfg_after.default_provider)
+        self.assertFalse(cfg_after.create_directory)
+        self.assertTrue(cfg_after.review_before_writing)
+        # Username linked to login is preserved
+        self.assertEqual(cfg_after.leetcode_username, "my_account")
+
+        # Effective values reflect defaults
+        self.assertEqual(effective.problems_per_minute(), 5.0)
+        self.assertEqual(effective.output_dirs(), [PROJECT_ROOT / "notes_output"])
+
+        # 4. CRITICAL: Assert credentials in secrets.json were completely preserved!
+        creds_after = load_credentials()
+        self.assertEqual(creds_after.session, "my-secret-session")
+        self.assertEqual(creds_after.csrf_token, "my-csrf-token")
+        self.assertEqual(effective.leetcode_session(), "my-secret-session")
+        self.assertEqual(effective.leetcode_csrf_token(), "my-csrf-token")
+
+        # 5. Check response content includes toast and configurable-settings swap
+        content = response.content.decode("utf-8")
+        self.assertIn("Preferences reset to default values", content)
+        self.assertIn("Saved credentials preserved", content)
+        self.assertIn('id="configurable-settings"', content)
+        self.assertIn('hx-swap-oob="outerHTML:#configurable-settings"', content)

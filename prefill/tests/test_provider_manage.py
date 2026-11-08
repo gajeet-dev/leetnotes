@@ -50,14 +50,14 @@ class ResetAndDefaultTests(DataDirTestCase):
         change_provider("mine", CUSTOM)
         set_default_provider("mine")
         reset_provider("mine")
-        self.assertEqual(default_provider_name(), "claude")
+        self.assertEqual(default_provider_name(), "manual")
         self.assertNotIn("mine", provider_names())
 
     def test_the_default_can_be_set_and_cleared(self):
         set_default_provider("agy")
         self.assertEqual(get_provider().name, "agy")
         set_default_provider(None)
-        self.assertEqual(get_provider().name, "claude")
+        self.assertEqual(get_provider().name, "manual")
 
     def test_the_default_must_exist(self):
         with self.assertRaises(ImproperlyConfigured):

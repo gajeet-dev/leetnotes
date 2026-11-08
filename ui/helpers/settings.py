@@ -2,8 +2,6 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from django.conf import settings
-
 from leetcode.bootstrap import reset_client
 from leetcode.connection import check_connection
 from prefill.providers.config import default_provider_name, provider_names
@@ -29,9 +27,7 @@ def get_settings_context() -> dict:
     output_dir_str = str(dirs[0]) if dirs else ""
     output_dir_exists = Path(output_dir_str).expanduser().is_dir() if output_dir_str else False
 
-    # Check if a custom timezone was explicitly saved or if we are using the auto/env fallback
-    saved_tz = config.time_zone
-    current_tz = saved_tz or settings.TIME_ZONE
+    current_tz = config.time_zone or "UTC"
 
     try:
         tz_obj = ZoneInfo(current_tz)
@@ -67,10 +63,10 @@ def get_settings_context() -> dict:
         "output_dir_exists": output_dir_exists,
         "create_directory": config.create_directory,
         "time_zone": current_tz,
-        "is_time_zone_saved": saved_tz is not None,
+        "is_time_zone_saved": current_tz != "UTC",
         "local_time_display": local_time_display,
         "common_timezones": common_timezones,
-        "problems_per_minute": config.problems_per_minute or settings.LEETCODE_PROBLEMS_PER_MINUTE,
+        "problems_per_minute": config.problems_per_minute,
         "review_before_writing": config.review_before_writing,
         "default_provider": default_provider_name(),
         "available_providers": provider_names(),
@@ -191,7 +187,7 @@ def save_general_settings(
                     },
                 )
         else:
-            changes["time_zone"] = None
+            changes["time_zone"] = "UTC"
 
     if problems_per_minute is not None:
         if problems_per_minute <= 0:

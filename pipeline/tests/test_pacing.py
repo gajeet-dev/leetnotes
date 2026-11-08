@@ -96,10 +96,9 @@ class PacerTests(SimpleTestCase):
         self.assertEqual(len(self.clock.waits), 2)
 
 
-@override_settings(LEETCODE_PROBLEMS_PER_MINUTE=6.0)
 class SecondsPerProblemTests(DataDirTestCase):
-    def test_uses_the_env_pace_by_default(self):
-        self.assertEqual(seconds_per_problem(), 10.0)
+    def test_uses_the_default_pace(self):
+        self.assertEqual(seconds_per_problem(), 12.0)
 
     def test_the_saved_pace_wins(self):
         update_config({"problems_per_minute": 12})

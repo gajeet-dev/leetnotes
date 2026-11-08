@@ -49,10 +49,8 @@ class PreviewTests(DataDirDBTestCase):
             )
             self.assertEqual(replacing.edited_notes, 0)
 
-    @override_settings(NOTES_OUTPUT_DIRS=[])
     def test_a_missing_output_folder_is_a_warning(self):
-        update_config({"output_dirs": None})
-        self.assertIn("No output folder", preview_plan([self.fresh]).warnings[0])
+        self.assertIn("No output folder", preview_plan([self.fresh], {"output_dirs": []}).warnings[0])
 
     def test_description(self):
         self.assertEqual(

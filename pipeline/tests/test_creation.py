@@ -88,9 +88,7 @@ class CreateTaskTests(DataDirDBTestCase):
             create_task([self.a], {"review": "maybe"})
         self.assertEqual(Task.objects.count(), 0)
 
-    @override_settings(NOTES_OUTPUT_DIRS=[])
     def test_an_output_folder_is_required(self):
-        update_config({"output_dirs": None})
         with self.assertRaisesMessage(TaskSettingsError, "No output folder"):
-            create_task([self.a])
+            create_task([self.a], {"output_dirs": []})
         self.assertEqual(Task.objects.count(), 0)

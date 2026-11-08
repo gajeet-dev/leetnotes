@@ -2,49 +2,21 @@ import logging.config
 import sys
 from pathlib import Path
 
-import environ
-
 from userconfig import ConfigError, load_config
 
 from .logging import configure_logging
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-env = environ.Env(
-    DEBUG=(bool, True),  # local-only project
-    LOG_LEVEL=(str, "INFO"),
-)
-environ.Env.read_env(BASE_DIR / ".env")
-
-SECRET_KEY = env(
-    "SECRET_KEY",
-    default="django-insecure-ttf$s^z6dyc^n%h8m02%wvzx-#z-h&zgp-s3(q#=8&g1@1y!-n",
-)
-
-DEBUG = env("DEBUG")
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+SECRET_KEY = "django-insecure-ttf$s^z6dyc^n%h8m02%wvzx-#z-h&zgp-s3(q#=8&g1@1y!-n"
+DEBUG = True
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]", "testserver"]
 
 LOGGING_CONFIG = None  # stop Django applying its default logging config
-LOGGING = configure_logging(debug=DEBUG, level=env("LOG_LEVEL"))
+LOGGING = configure_logging(debug=DEBUG, level="INFO")
 logging.config.dictConfig(LOGGING)
 
-LEETCODE_SESSION = env("LEETCODE_SESSION", default="")
-LEETCODE_CSRF_TOKEN = env("LEETCODE_CSRF_TOKEN", default="")
-LEETCODE_USERNAME = env("LEETCODE_USERNAME", default="")
-LEETCODE_BASE_URL = env("LEETCODE_BASE_URL", default="https://leetcode.com")
-
-# applied on http session
-LEETCODE_REQUESTS_PER_SECOND = env.float("LEETCODE_REQUESTS_PER_SECOND", default=1.0)
-LEETCODE_REQUESTS_PER_MINUTE = env.float("LEETCODE_REQUESTS_PER_MINUTE", default=20.0)
-
-# applied on process_pending()
-LEETCODE_PROBLEMS_PER_MINUTE = env.float("LEETCODE_PROBLEMS_PER_MINUTE", default=5.0)
-
-NOTES_OUTPUT_DIRS = [
-    Path(p.strip()).expanduser()
-    for p in env.list("NOTES_OUTPUT_DIRS", default=[str(BASE_DIR / "notes_output")])
-    if p.strip()
-]
+LEETCODE_BASE_URL = "https://leetcode.com"
 
 # Application definition
 
@@ -130,16 +102,16 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = "en-us"
 
 
-def saved_time_zone() -> str | None:
+def saved_time_zone() -> str:
     """The time zone saved in data/config.json. A broken file must not stop Django from starting."""
     try:
         return load_config().time_zone
     except ConfigError as exc:
         print(f"Ignoring data/config.json: {exc}", file=sys.stderr)
-        return None
+        return "UTC"
 
 
-TIME_ZONE = saved_time_zone() or env("TIME_ZONE", default="Asia/Kolkata")
+TIME_ZONE = saved_time_zone() or "UTC"
 
 USE_I18N = True
 

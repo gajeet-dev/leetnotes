@@ -1,14 +1,11 @@
-from django.test import override_settings
-
 from problems.services.sync import PACE_FROM_SETTINGS, resolve_pace
 from userconfig import update_config
 from userconfig.tests.helpers import DataDirTestCase
 
 
-@override_settings(LEETCODE_PROBLEMS_PER_MINUTE=6.0)
 class ResolvePaceTests(DataDirTestCase):
-    def test_the_default_uses_the_env_value(self):
-        self.assertEqual(resolve_pace(PACE_FROM_SETTINGS), 6.0)
+    def test_the_default_uses_the_builtin_value(self):
+        self.assertEqual(resolve_pace(PACE_FROM_SETTINGS), 5.0)
 
     def test_the_default_uses_the_saved_value_when_there_is_one(self):
         update_config({"problems_per_minute": 3})

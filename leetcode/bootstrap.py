@@ -19,10 +19,7 @@ from .transport.graphql import GraphQLClient
 from .transport.http import HttpClient
 from .transport.session import SessionConfig, create_image_session, create_session
 
-NOT_CONFIGURED_MESSAGE = (
-    "LeetCode cookies are not set. Add them in Settings "
-    "(or LEETCODE_SESSION and LEETCODE_CSRF_TOKEN in .env)."
-)
+NOT_CONFIGURED_MESSAGE = "LeetCode cookies are not set. Add them in Settings."
 
 
 @dataclass(frozen=True)

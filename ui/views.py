@@ -3,12 +3,13 @@ import json
 import structlog
 from django.core.paginator import Paginator
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from problems.models import Problem, SyncTask
 from problems.services.runner import start_background_sync
 from problems.services.sync import mark_for_refetch
+from userconfig import AppConfig, load_config, save_config
 
 from .helpers.problems import (
     compute_facets,
@@ -306,10 +307,7 @@ def test_connection_view(request):
 def save_general_settings_view(request):
     """Save notes output directory, timezone, sync pacing, and AI preferences."""
     output_dir = request.POST.get("output_dir")
-    create_directory = (
-        request.POST.get("create_directory") == "true"
-        or "create_directory" in request.POST
-    )
+    create_directory = request.POST.get("create_directory") in ("true", "on", "1")
     time_zone = request.POST.get("time_zone")
 
     raw_ppm = request.POST.get("problems_per_minute")
@@ -319,10 +317,7 @@ def save_general_settings_view(request):
         ppm = None
 
     provider = request.POST.get("default_provider")
-    review = (
-        request.POST.get("review_before_writing") == "true"
-        or "review_before_writing" in request.POST
-    )
+    review = request.POST.get("review_before_writing") in ("true", "on", "1")
 
     ok, msg, details = save_general_settings(
         output_dir=output_dir,
@@ -371,3 +366,33 @@ def set_timezone_view(request):
 
     ok, msg = auto_set_timezone(tz_name)
     return JsonResponse({"status": "ok" if ok else "skipped", "message": msg})
+
+
+@require_POST
+def reset_settings_view(request):
+    """Reset configuration to default values in data/config.json, leaving credentials in secrets.json untouched."""
+    current_username = load_config().leetcode_username
+    default_config = AppConfig(leetcode_username=current_username)
+    save_config(default_config)
+
+    if request.headers.get("HX-Request"):
+        toast_html = render(
+            request,
+            "ui/partials/toast.html",
+            {
+                "status": "success",
+                "message": "Preferences reset to default values. Saved credentials preserved.",
+            },
+        ).content.decode("utf-8")
+
+        context = get_settings_context()
+        context["oob"] = True
+        cards_html = render(
+            request,
+            "ui/partials/configurable_settings.html",
+            context,
+        ).content.decode("utf-8")
+
+        return HttpResponse(toast_html + cards_html)
+
+    return redirect("ui:settings")

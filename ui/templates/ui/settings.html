@@ -4,11 +4,26 @@
 {% block content %}
 <div class="w-full max-w-3xl mx-auto flex flex-col gap-8 pb-16">
   <!-- Page Header -->
-  <div class="flex flex-col gap-1">
-    <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Settings</h1>
-    <p class="text-sm text-zinc-500 dark:text-zinc-400">
-      Manage your LeetCode authentication, notes storage directory, and sync preferences.
-    </p>
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="flex flex-col gap-1">
+      <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Settings</h1>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400">
+        Manage your LeetCode authentication, notes storage directory, and sync preferences.
+      </p>
+    </div>
+    <button
+      type="button"
+      hx-post="{% url 'ui:reset_settings' %}"
+      hx-target="#toast-container"
+      hx-swap="beforeend"
+      hx-confirm="Reset all preferences to default values? Your LeetCode credentials will NOT be changed."
+      class="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 shadow-2xs transition-colors cursor-pointer"
+    >
+      <svg class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>Reset to Defaults</span>
+    </button>
   </div>
 
   <!-- Card 1: LeetCode Account & Authentication -->
@@ -133,234 +148,8 @@
     </form>
   </div>
 
-  <!-- Card 2: Notes Storage & Timezone -->
-  <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-950">
-    <div class="border-b border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
-      <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Storage & Timezone</h2>
-      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-        Location for generated Markdown problem notes and local timezone formatting.
-      </p>
-    </div>
-
-    <form
-      id="general-settings-form"
-      hx-post="{% url 'ui:save_general_settings' %}"
-      hx-target="#toast-container"
-      hx-swap="beforeend"
-      hx-indicator="#save-general-spinner"
-    >
-      {% csrf_token %}
-      <div class="p-6 flex flex-col gap-6">
-        <!-- Notes Output Directory -->
-        <div class="flex flex-col gap-1.5">
-          <div class="flex items-center justify-between">
-            <label for="output-dir-input" class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              Notes Output Directory
-            </label>
-            {% include "ui/partials/output_dir_badge.html" %}
-          </div>
-          <div class="relative">
-            <input
-              type="text"
-              name="output_dir"
-              id="output-dir-input"
-              value="{{ output_dir }}"
-              placeholder="e.g. /home/user/Obsidian/LeetCodeNotes"
-              class="h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm font-mono text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-100 dark:focus:ring-zinc-100 shadow-2xs transition-colors"
-            />
-          </div>
-          <p class="text-xs text-zinc-500 dark:text-zinc-400">
-            Absolute folder path where markdown problem notes, editorial solutions, and embedded diagrams are written.
-          </p>
-          <div class="pt-1">
-            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                name="create_directory"
-                id="create-directory-toggle"
-                value="true"
-                {% if create_directory %}checked{% endif %}
-                class="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100 cursor-pointer"
-              />
-              <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                Create directory if it doesn't exist
-              </span>
-            </label>
-          </div>
-        </div>
-
-        <div class="border-t border-zinc-100 dark:border-zinc-800/80"></div>
-
-        <!-- Timezone Input -->
-        <div class="flex flex-col gap-1.5">
-          <div class="flex items-center justify-between">
-            <label for="timezone-input" class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              Display Timezone
-            </label>
-            <button
-              type="button"
-              onclick="detectAndSetTimezone()"
-              class="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors cursor-pointer shrink-0"
-              title="Sync with browser device timezone"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-              <span>Detect from browser</span>
-            </button>
-          </div>
-          <div class="relative">
-            <input
-              type="text"
-              name="time_zone"
-              id="timezone-input"
-              list="timezone-options"
-              value="{{ time_zone }}"
-              placeholder="e.g. Asia/Kolkata, America/New_York, UTC"
-              class="h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm font-mono text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-100 dark:focus:ring-zinc-100 shadow-2xs transition-colors"
-            />
-            <datalist id="timezone-options">
-              {% for tz in common_timezones %}
-                <option value="{{ tz }}">{{ tz }}</option>
-              {% endfor %}
-            </datalist>
-          </div>
-          <div class="flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 pt-0.5">
-            {% if is_time_zone_saved %}
-              <span class="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                Custom saved
-              </span>
-            {% else %}
-              <span class="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-                Auto-detected
-              </span>
-            {% endif %}
-            {% if local_time_display %}
-              <span class="text-zinc-300 dark:text-zinc-700">•</span>
-              <span>Current time in this zone: <strong id="current-local-time" class="font-medium text-zinc-800 dark:text-zinc-200 font-mono">{{ local_time_display }}</strong></span>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      <!-- Card Footer -->
-      <div class="flex items-center justify-between border-t border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
-        <span class="text-xs text-zinc-500 dark:text-zinc-400">
-          Saved to <code class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">data/config.json</code>
-        </span>
-        <button
-          type="submit"
-          class="h-9 inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 text-xs font-semibold text-white shadow-xs hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors cursor-pointer shrink-0"
-        >
-          <svg id="save-general-spinner" class="htmx-indicator h-3.5 w-3.5 animate-spin text-white dark:text-zinc-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-          </svg>
-          <span>Save Storage & Timezone</span>
-        </button>
-      </div>
-    </form>
-  </div>
-
-  <!-- Card 3: Sync & AI Preferences -->
-  <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-950">
-    <div class="border-b border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
-      <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Sync & AI Preferences</h2>
-      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-        Tune background sync rate limits and automated AI solution generation.
-      </p>
-    </div>
-
-    <form
-      id="preferences-form"
-      hx-post="{% url 'ui:save_general_settings' %}"
-      hx-target="#toast-container"
-      hx-swap="beforeend"
-      hx-indicator="#save-pref-spinner"
-    >
-      {% csrf_token %}
-      <input type="hidden" name="output_dir" value="{{ output_dir }}" />
-      <input type="hidden" name="time_zone" value="{{ time_zone }}" />
-
-      <div class="p-6 flex flex-col gap-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <!-- Sync Pacing -->
-          <div class="flex flex-col gap-1.5">
-            <label for="pacing-input" class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              Sync Pacing Rate
-            </label>
-            <input
-              type="number"
-              step="0.5"
-              min="0.5"
-              max="60"
-              name="problems_per_minute"
-              id="pacing-input"
-              value="{{ problems_per_minute }}"
-              class="h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-100 shadow-2xs transition-colors"
-            />
-            <p class="text-xs text-zinc-500 dark:text-zinc-400">
-              Problems per minute (default: 5.0) to prevent rate limits.
-            </p>
-          </div>
-
-          <!-- AI Provider -->
-          <div class="flex flex-col gap-1.5">
-            <label for="provider-select" class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              Default AI Note Provider
-            </label>
-            <select
-              name="default_provider"
-              id="provider-select"
-              class="h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-100 shadow-2xs transition-colors cursor-pointer"
-            >
-              {% for provider in available_providers %}
-                <option value="{{ provider }}" {% if provider == default_provider %}selected{% endif %}>{{ provider }}</option>
-              {% endfor %}
-            </select>
-            <p class="text-xs text-zinc-500 dark:text-zinc-400">
-              Default LLM provider used to draft editorial problem solution notes.
-            </p>
-          </div>
-        </div>
-
-        <div class="border-t border-zinc-100 dark:border-zinc-800/80"></div>
-
-        <!-- Review Before Writing Checkbox -->
-        <label class="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50/50 p-4 hover:bg-zinc-100/60 dark:border-zinc-800 dark:bg-zinc-900/30 dark:hover:bg-zinc-900/50 transition-colors cursor-pointer select-none">
-          <input
-            type="checkbox"
-            name="review_before_writing"
-            id="review-toggle"
-            value="true"
-            {% if review_before_writing %}checked{% endif %}
-            class="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100 cursor-pointer shrink-0"
-          />
-          <div class="flex flex-col gap-0.5">
-            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Review notes before writing to disk</span>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400">
-              When enabled, newly generated AI solutions are queued in the Review tab for your approval before writing into your vault.
-            </span>
-          </div>
-        </label>
-      </div>
-
-      <!-- Card Footer -->
-      <div class="flex items-center justify-between border-t border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
-        <span class="text-xs text-zinc-500 dark:text-zinc-400">
-          Sync settings apply to all background pipeline runners
-        </span>
-        <button
-          type="submit"
-          class="h-9 inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 text-xs font-semibold text-white shadow-xs hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors cursor-pointer shrink-0"
-        >
-          <svg id="save-pref-spinner" class="htmx-indicator h-3.5 w-3.5 animate-spin text-white dark:text-zinc-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-          </svg>
-          <span>Save Preferences</span>
-        </button>
-      </div>
-    </form>
-  </div>
+  <!-- Configurable Preferences (Storage, Timezone, Pacing, Providers) -->
+  {% include "ui/partials/configurable_settings.html" %}
 </div>
 
 <script>

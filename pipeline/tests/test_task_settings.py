@@ -13,20 +13,22 @@ from pipeline.tasks.settings import (
 )
 from prefill.providers.manage import change_provider
 from userconfig import update_config
+from userconfig.paths import PROJECT_ROOT
 from userconfig.tests.helpers import DataDirDBTestCase
 
 
-@override_settings(NOTES_OUTPUT_DIRS=[Path("/env/vault")])
 class TaskSettingsTests(DataDirDBTestCase):
     def test_defaults_come_from_the_saved_settings(self):
         update_config({"output_dirs": ["/vault"], "review_before_writing": False})
         defaults = default_task_settings()
-        self.assertEqual(defaults.provider, "claude")
+        self.assertEqual(defaults.provider, "manual")
         self.assertFalse(defaults.review)
         self.assertEqual(defaults.output_dirs, ["/vault"])
 
-    def test_output_folders_fall_back_to_env(self):
-        self.assertEqual(default_task_settings().output_dirs, ["/env/vault"])
+    def test_output_folders_fall_back_to_default(self):
+        self.assertEqual(
+            default_task_settings().output_dirs, [str(PROJECT_ROOT / "notes_output")]
+        )
 
     def test_overrides_win_over_the_defaults(self):
         settings = settings_with_overrides(

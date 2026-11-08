@@ -1,18 +1,9 @@
-from django.test import override_settings
-
 from leetcode.bootstrap import get_client, reset_client
 from leetcode.exceptions import NotConfigured
 from userconfig import update_config, update_credentials
 from userconfig.tests.helpers import DataDirTestCase
 
-NO_ENV_VALUES = {
-    "LEETCODE_SESSION": "",
-    "LEETCODE_CSRF_TOKEN": "",
-    "LEETCODE_USERNAME": "",
-}
 
-
-@override_settings(**NO_ENV_VALUES)
 class GetClientTests(DataDirTestCase):
     def setUp(self):
         super().setUp()
@@ -46,9 +37,3 @@ class GetClientTests(DataDirTestCase):
         first = get_client()
         update_config({"requests_per_minute": 5})
         self.assertIsNot(get_client(), first)
-
-    def test_cookies_from_env_still_work(self):
-        with override_settings(
-            LEETCODE_SESSION="env-session", LEETCODE_CSRF_TOKEN="env-csrf"
-        ):
-            self.assertIsNotNone(get_client())

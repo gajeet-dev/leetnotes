@@ -2,14 +2,20 @@ from django.core.exceptions import ImproperlyConfigured
 
 from prefill.providers.cli import CliProvider
 from prefill.providers.defaults import BUILTIN_PROVIDERS
+from prefill.providers.manual import ManualProvider
 from prefill.providers.registry import get_provider
 from userconfig import update_config
 from userconfig.tests.helpers import DataDirTestCase
 
 
 class RegistryTests(DataDirTestCase):
-    def test_default_builds_a_cli_provider(self):
+    def test_default_builds_a_manual_provider(self):
         provider = get_provider()
+        self.assertIsInstance(provider, ManualProvider)
+        self.assertEqual((provider.name, provider.model), ("manual", "manual"))
+
+    def test_named_cli_provider_builds(self):
+        provider = get_provider("claude")
         self.assertIsInstance(provider, CliProvider)
         self.assertEqual((provider.name, provider.model), ("claude", "sonnet"))
 

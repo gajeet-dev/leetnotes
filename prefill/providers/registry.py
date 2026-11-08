@@ -5,10 +5,12 @@ from django.core.exceptions import ImproperlyConfigured
 from .base import Provider
 from .cli import CliProvider
 from .config import provider_entry
+from .manual import ManualProvider
 
 # The only place that knows which "type" maps to which class.
 PROVIDER_TYPES: dict[str, type[Provider]] = {
     "cli": CliProvider,
+    "manual": ManualProvider,
 }
 
 

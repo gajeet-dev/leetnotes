@@ -9,7 +9,7 @@ CONFIG_VERSION = 1
 
 
 class AppConfig(BaseModel):
-    """None means 'not set here': the value falls back to .env, then to the built-in default."""
+    """Configuration stored in data/config.json. None means use built-in default."""
 
     model_config = ConfigDict(extra="ignore")  # old or newer files still load
 
@@ -46,7 +46,7 @@ class AppConfig(BaseModel):
             return None
         try:
             ZoneInfo(name)
-        except ZoneInfoNotFoundError, ValueError:
+        except (ZoneInfoNotFoundError, ValueError):
             raise ValueError(
                 f"unknown time zone {name!r} (use a name like Asia/Kolkata)"
             ) from None

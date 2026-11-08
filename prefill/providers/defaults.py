@@ -3,6 +3,11 @@
 DISALLOWED_TOOLS = "Bash Read Write Edit Glob Grep WebFetch WebSearch NotebookEdit Task"
 
 BUILTIN_PROVIDERS: dict[str, dict] = {
+    "manual": {
+        "type": "manual",
+        "model": "manual",
+        "description": "Manual input: paste AI response from web chat",
+    },
     "claude": {  # the free Claude Code wrapper
         "type": "cli",
         "command": [
@@ -30,4 +35,4 @@ BUILTIN_PROVIDERS: dict[str, dict] = {
     },
 }
 
-DEFAULT_PROVIDER_NAME = "claude"
+DEFAULT_PROVIDER_NAME = "manual"
