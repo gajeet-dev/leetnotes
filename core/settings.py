@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "notes",
     "prefill",
     "django_tailwind_cli",
+    "lucide",
     "ui",
     "pipeline",
 ]
@@ -54,6 +55,9 @@ TEMPLATES = [
         "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
+            "builtins": [
+                "lucide.templatetags.lucide",
+            ],
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",

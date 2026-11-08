@@ -13,22 +13,17 @@
     </div>
     <button
       type="button"
-      hx-post="{% url 'ui:reset_settings' %}"
-      hx-target="#toast-container"
-      hx-swap="beforeend"
-      hx-confirm="Reset all preferences to default values? Your LeetCode credentials will NOT be changed."
+      onclick="document.getElementById('reset-alert-dialog').showModal()"
       class="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 shadow-2xs transition-colors cursor-pointer"
     >
-      <svg class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
+      {% lucide "rotate-cw" class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" size=14 %}
       <span>Reset to Defaults</span>
     </button>
   </div>
 
   <!-- Card 1: LeetCode Account & Authentication -->
-  <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-950">
-    <div class="border-b border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+  <div class="relative z-30 rounded-xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-950">
+    <div class="rounded-t-xl border-b border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
       <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">LeetCode Credentials</h2>
       <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
         Session authentication used for pulling problem submissions, descriptions, and account info.
@@ -70,8 +65,8 @@
               class="absolute inset-y-0 right-0 flex items-center pr-2.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
               title="Toggle visibility"
             >
-              <svg class="eye-open h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-              <svg class="eye-closed hidden h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
+              {% lucide "eye" class="eye-open h-4 w-4" %}
+              {% lucide "eye-off" class="eye-closed hidden h-4 w-4" %}
             </button>
           </div>
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
@@ -102,8 +97,8 @@
               class="absolute inset-y-0 right-0 flex items-center pr-2.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
               title="Toggle visibility"
             >
-              <svg class="eye-open h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-              <svg class="eye-closed hidden h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
+              {% lucide "eye" class="eye-open h-4 w-4" %}
+              {% lucide "eye-off" class="eye-closed hidden h-4 w-4" %}
             </button>
           </div>
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
@@ -115,10 +110,10 @@
         <details class="group rounded-lg border border-zinc-200/80 bg-zinc-50/60 p-3.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-400">
           <summary class="flex items-center justify-between font-medium text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100 cursor-pointer select-none">
             <span class="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              {% lucide "info" class="h-3.5 w-3.5" %}
               How to retrieve your cookies from your browser
             </span>
-            <svg class="h-3.5 w-3.5 text-zinc-400 transition-transform group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            {% lucide "chevron-down" class="h-3.5 w-3.5 text-zinc-400 transition-transform group-open:rotate-180" %}
           </summary>
           <div class="mt-3 flex flex-col gap-1.5 border-t border-zinc-200/60 pt-3 dark:border-zinc-800">
             <p>1. Open <a href="https://leetcode.com" target="_blank" rel="noopener" class="font-medium underline text-zinc-900 dark:text-zinc-100">leetcode.com</a> and sign in to your account.</p>
@@ -130,7 +125,7 @@
       </div>
 
       <!-- Card Footer -->
-      <div class="flex items-center justify-between border-t border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+      <div class="rounded-b-xl flex items-center justify-between border-t border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
         <span class="text-xs text-zinc-500 dark:text-zinc-400">
           Stored in <code class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">data/secrets.json</code> (0600)
         </span>
@@ -138,10 +133,7 @@
           type="submit"
           class="h-9 inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 text-xs font-semibold text-white shadow-xs hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors cursor-pointer shrink-0"
         >
-          <svg id="save-creds-spinner" class="htmx-indicator h-3.5 w-3.5 animate-spin text-white dark:text-zinc-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-          </svg>
+          {% lucide "loader-circle" id="save-creds-spinner" class="htmx-indicator h-3.5 w-3.5 animate-spin text-white dark:text-zinc-900" %}
           <span>Save Credentials</span>
         </button>
       </div>
@@ -151,6 +143,48 @@
   <!-- Configurable Preferences (Storage, Timezone, Pacing, Providers) -->
   {% include "ui/partials/configurable_settings.html" %}
 </div>
+
+<!-- Reset Confirmation Alert Dialog -->
+<dialog
+  id="reset-alert-dialog"
+  class="alert-dialog"
+  data-size="sm"
+  onclick="if (event.target === this) this.close()"
+>
+  <div>
+    <header>
+      <h2 data-title>Reset to Defaults?</h2>
+      <p data-description>
+        This will restore your notes storage directory, fetch pacing rate, AI note provider, and timezone preferences back to defaults. Saved LeetCode credentials will NOT be changed.
+      </p>
+    </header>
+    <footer>
+      <button
+        type="button"
+        class="btn"
+        data-variant="outline"
+        onclick="document.getElementById('reset-alert-dialog').close()"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="btn"
+        data-variant="destructive"
+        hx-post="{% url 'ui:reset_settings' %}"
+        hx-target="#toast-container"
+        hx-swap="beforeend"
+        onclick="document.getElementById('reset-alert-dialog').close()"
+      >
+        Reset to Defaults
+      </button>
+    </footer>
+  </div>
+</dialog>
+
+<template id="tz-check-icon-template">
+  <span data-indicator>{% lucide "check" class="h-3.5 w-3.5 text-zinc-900 dark:text-zinc-100" %}</span>
+</template>
 
 <script>
   function togglePasswordVisibility(inputId, btn) {
@@ -162,14 +196,94 @@
     btn.querySelector('.eye-closed')?.classList.toggle('hidden', !isPassword);
   }
 
-  function detectAndSetTimezone() {
+  function selectProvider(value, label) {
+    const input = document.getElementById('default-provider-input');
+    if (input) {
+      input.value = value;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    const labelEl = document.getElementById('provider-selected-label');
+    if (labelEl) {
+      labelEl.textContent = label;
+    }
+    const menu = document.querySelector('#provider-dropdown [role="menu"]');
+    if (menu) {
+      menu.querySelectorAll('[role="menuitemradio"]').forEach(function(item) {
+        const itemVal = item.getAttribute('data-provider');
+        item.setAttribute('aria-checked', itemVal === value ? 'true' : 'false');
+      });
+    }
+  }
+
+  function setTimezoneSelection(tz, isAutoDetected = false) {
+    if (!tz) return;
+    const input = document.getElementById('timezone-input');
+    if (input) {
+      input.value = tz;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    const labelEl = document.getElementById('timezone-selected-label');
+    if (labelEl) {
+      labelEl.textContent = tz;
+    }
+
+    const menu = document.querySelector('#timezone-dropdown [role="menu"]');
+    if (menu) {
+      const items = menu.querySelectorAll('[role="menuitemradio"]');
+      let matched = false;
+      items.forEach(function(item) {
+        const itemTz = item.getAttribute('data-tz');
+        const isMatch = itemTz === tz;
+        item.setAttribute('aria-checked', isMatch ? 'true' : 'false');
+        if (isMatch) matched = true;
+      });
+
+      // If detected timezone is not already in the list, insert it under Regional Timezones
+      if (!matched) {
+        const sep = menu.querySelector('[role="separator"]');
+        const newItem = document.createElement('div');
+        newItem.setAttribute('role', 'menuitemradio');
+        newItem.setAttribute('data-tz', tz);
+        newItem.setAttribute('aria-checked', 'true');
+        newItem.className = 'flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer select-none transition-colors';
+        newItem.onclick = function() { setTimezoneSelection(tz, false); };
+        const iconTemplate = document.getElementById('tz-check-icon-template');
+        newItem.innerHTML = '<span class="font-mono font-medium">' + tz + '</span>' +
+          (iconTemplate ? iconTemplate.innerHTML : '<span data-indicator></span>');
+        if (sep && sep.nextElementSibling) {
+          sep.parentNode.insertBefore(newItem, sep.nextElementSibling.nextElementSibling || sep.nextElementSibling);
+        } else {
+          menu.appendChild(newItem);
+        }
+      }
+    }
+
+    const badge = document.getElementById('timezone-badge');
+    if (badge) {
+      if (isAutoDetected) {
+        badge.textContent = 'Auto-detected';
+        badge.className = 'inline-flex items-center rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 px-1.5 py-0.5 text-[10px] font-medium';
+      } else {
+        badge.textContent = 'Custom saved';
+        badge.className = 'inline-flex items-center rounded-md bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 px-1.5 py-0.5 text-[10px] font-medium';
+      }
+    }
+  }
+
+  function detectAndSetTimezone(saveToServer = false) {
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       if (tz) {
-        const input = document.getElementById('timezone-input');
-        if (input) {
-          input.value = tz;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
+        setTimezoneSelection(tz, true);
+        if (saveToServer) {
+          fetch("{% url 'ui:set_timezone' %}", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: JSON.stringify({ timezone: tz })
+          }).catch(function() {});
         }
       }
     } catch (e) {
@@ -177,11 +291,46 @@
     }
   }
 
-  // Pre-fill timezone input on first load if input is empty
+  // Pre-fill timezone automatically from browser on first load if not explicitly saved
   document.addEventListener('DOMContentLoaded', function() {
-    const input = document.getElementById('timezone-input');
-    if (input && !input.value.trim()) {
-      detectAndSetTimezone();
+    {% if not is_time_zone_saved %}
+    detectAndSetTimezone(true);
+    {% endif %}
+
+    function openWhenReady(dropdownId) {
+      const dd = document.getElementById(dropdownId);
+      if (!dd) return;
+      const doOpen = () => {
+        const pop = dd.querySelector('[data-popover]');
+        const btn = dd.querySelector('button');
+        if (pop) pop.setAttribute('aria-hidden', 'false');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+      };
+      if (dd.dataset.dropdownMenuInitialized) {
+        doOpen();
+      } else {
+        dd.addEventListener('basecoat:initialized', doOpen);
+        setTimeout(doOpen, 100);
+      }
+    }
+
+    if (window.location.hash === '#reset-dialog') {
+      document.getElementById('reset-alert-dialog')?.showModal();
+    } else if (window.location.hash === '#timezone-dropdown') {
+      openWhenReady('timezone-dropdown');
+    } else if (window.location.hash === '#provider-dropdown') {
+      openWhenReady('provider-dropdown');
+    }
+  });
+
+  // Re-initialize Basecoat popovers/dropdowns after HTMX content swap
+  document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (window.basecoat && typeof window.basecoat.initAll === 'function') {
+      window.basecoat.initAll();
+    }
+    const badge = document.getElementById('timezone-badge');
+    if (badge && badge.textContent.includes('Auto-detected')) {
+      detectAndSetTimezone(false);
     }
   });
 </script>

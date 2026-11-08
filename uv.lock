@@ -268,6 +268,7 @@ dependencies = [
     { name = "django-environ" },
     { name = "django-tailwind-cli" },
     { name = "jinja2" },
+    { name = "lucide", extra = ["django"] },
     { name = "markdown" },
     { name = "markdownify" },
     { name = "pillow" },
@@ -291,6 +292,7 @@ requires-dist = [
     { name = "django-environ", specifier = ">=0.14.0" },
     { name = "django-tailwind-cli", specifier = ">=4.8.1" },
     { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "lucide", extras = ["django"], specifier = ">=1.1.4" },
     { name = "markdown", specifier = ">=3.11.2" },
     { name = "markdownify", specifier = ">=1.2.3" },
     { name = "pillow", specifier = ">=12.3.0" },
@@ -305,6 +307,20 @@ dev = [
     { name = "django-types", specifier = ">=0.24.0" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "ruff", specifier = ">=0.16.5" },
+]
+
+[[package]]
+name = "lucide"
+version = "1.1.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/47/ee3c40e705747a932b64f56b343464bf11111d758e945223755538be3d17/lucide-1.1.4.tar.gz", hash = "sha256:9386940c57a801d92d62a3805d3d584a9e6ca3a43d54765203d72acf8f4965d4", size = 445501, upload-time = "2026-07-09T13:45:48.377Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ef/3d/a99fbb96be09f7cf6ed1b431c87350676dbb4924f01aa39a25848d7e0145/lucide-1.1.4-py3-none-any.whl", hash = "sha256:c2aa88a2bd7d99fcb56a9cdd4959cdf0c5ecd75f05d7ebbeb41010341639f449", size = 443438, upload-time = "2026-07-09T13:45:46.86Z" },
+]
+
+[package.optional-dependencies]
+django = [
+    { name = "django" },
 ]
 
 [[package]]

@@ -23,13 +23,17 @@
             hx-target="#connection-status-panel"
             hx-swap="outerHTML"
             hx-indicator="#conn-spinner-test"
-            class="h-8 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white/90 px-3 text-xs font-medium text-emerald-800 shadow-2xs hover:bg-white dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            class="group h-8 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white/90 px-3 text-xs font-medium text-emerald-800 shadow-2xs hover:bg-white dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
             title="Re-verify LeetCode session"
           >
-            <svg id="conn-spinner-test" class="htmx-indicator h-3.5 w-3.5 animate-spin text-emerald-700 dark:text-emerald-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-            </svg>
+            <span class="relative flex items-center justify-center h-3.5 w-3.5">
+              <span id="conn-spinner-test" class="htmx-indicator absolute inset-0">
+                {% lucide "loader-circle" class="h-3.5 w-3.5 animate-spin text-emerald-700 dark:text-emerald-300" %}
+              </span>
+              <span class="group-[.htmx-request]:hidden">
+                {% lucide "rotate-cw" class="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" %}
+              </span>
+            </span>
             <span>Re-test</span>
           </button>
         </div>
@@ -49,12 +53,16 @@
           hx-target="#connection-status-panel"
           hx-swap="outerHTML"
           hx-indicator="#conn-spinner-retry"
-          class="h-8 inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white/90 px-3 text-xs font-medium text-rose-800 shadow-2xs hover:bg-white dark:border-rose-800 dark:bg-rose-900/40 dark:text-rose-200 dark:hover:bg-rose-900/60 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+          class="group h-8 inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white/90 px-3 text-xs font-medium text-rose-800 shadow-2xs hover:bg-white dark:border-rose-800 dark:bg-rose-900/40 dark:text-rose-200 dark:hover:bg-rose-900/60 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
         >
-          <svg id="conn-spinner-retry" class="htmx-indicator h-3.5 w-3.5 animate-spin text-rose-700 dark:text-rose-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-          </svg>
+          <span class="relative flex items-center justify-center h-3.5 w-3.5">
+            <span id="conn-spinner-retry" class="htmx-indicator absolute inset-0">
+              {% lucide "loader-circle" class="h-3.5 w-3.5 animate-spin text-rose-700 dark:text-rose-300" %}
+            </span>
+            <span class="group-[.htmx-request]:hidden">
+              {% lucide "rotate-cw" class="h-3.5 w-3.5 text-rose-700 dark:text-rose-300" %}
+            </span>
+          </span>
           <span>Retry Connection</span>
         </button>
       </div>
@@ -77,13 +85,16 @@
         hx-target="#connection-status-panel"
         hx-swap="outerHTML"
         hx-indicator="#conn-spinner-init"
-        class="h-8 inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 shadow-2xs hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+        class="group h-8 inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 shadow-2xs hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
       >
-        <svg id="conn-spinner-init" class="htmx-indicator h-3.5 w-3.5 animate-spin text-zinc-600 dark:text-zinc-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-        </svg>
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span class="relative flex items-center justify-center h-3.5 w-3.5">
+          <span id="conn-spinner-init" class="htmx-indicator absolute inset-0">
+            {% lucide "loader-circle" class="h-3.5 w-3.5 animate-spin text-zinc-600 dark:text-zinc-400" %}
+          </span>
+          <span class="group-[.htmx-request]:hidden">
+            {% lucide "badge-check" class="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" %}
+          </span>
+        </span>
         <span>Test Connection</span>
       </button>
     </div>

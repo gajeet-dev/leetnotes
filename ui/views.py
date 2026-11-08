@@ -307,7 +307,11 @@ def test_connection_view(request):
 def save_general_settings_view(request):
     """Save notes output directory, timezone, sync pacing, and AI preferences."""
     output_dir = request.POST.get("output_dir")
-    create_directory = request.POST.get("create_directory") in ("true", "on", "1")
+    create_directory = (
+        request.POST.get("create_directory") in ("true", "on", "1")
+        if ("output_dir" in request.POST or "create_directory" in request.POST)
+        else None
+    )
     time_zone = request.POST.get("time_zone")
 
     raw_ppm = request.POST.get("problems_per_minute")
@@ -317,7 +321,11 @@ def save_general_settings_view(request):
         ppm = None
 
     provider = request.POST.get("default_provider")
-    review = request.POST.get("review_before_writing") in ("true", "on", "1")
+    review = (
+        request.POST.get("review_before_writing") in ("true", "on", "1")
+        if ("default_provider" in request.POST or "problems_per_minute" in request.POST or "review_before_writing" in request.POST)
+        else None
+    )
 
     ok, msg, details = save_general_settings(
         output_dir=output_dir,

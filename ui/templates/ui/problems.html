@@ -36,7 +36,7 @@
     <!-- Search Input -->
     <div class="relative min-w-[200px] flex-1">
       <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-400">
-        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        {% lucide "search" class="h-4 w-4" %}
       </div>
       <input
         type="search"
@@ -61,7 +61,7 @@
       class="h-9 inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50/50 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-200 dark:hover:bg-zinc-800 transition-colors shadow-xs cursor-pointer"
       title="Toggle filter panel"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      {% lucide "funnel" class="h-3.5 w-3.5" %}
       <span>Filters</span>
       <span id="filter-count-badge">
         {% if active_filter_count > 0 %}
@@ -70,7 +70,7 @@
         </span>
         {% endif %}
       </span>
-      <svg id="filter-chevron" class="h-3.5 w-3.5 text-zinc-400 transition-transform duration-200 rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      {% lucide "chevron-down" id="filter-chevron" class="h-3.5 w-3.5 text-zinc-400 transition-transform duration-200 rotate-180" %}
     </button>
 
     <!-- Reset Filters Button Container -->
@@ -82,7 +82,7 @@
         class="h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-3 text-sm font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors shadow-xs cursor-pointer"
         title="Reset all filters"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        {% lucide "rotate-ccw" class="h-3.5 w-3.5" %}
         Reset
       </button>
       {% endif %}
@@ -121,9 +121,7 @@
         id="all-matching-selected-badge"
         class="hidden items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-800 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
       >
-        <svg class="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
-        </svg>
+        {% lucide "check" class="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" %}
         <span>All <strong id="all-selected-total-count">0</strong> problems matching filters selected</span>
       </span>
 
@@ -146,8 +144,8 @@
         class="inline-flex h-9 items-center gap-2 rounded-lg bg-zinc-900 px-3.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 cursor-pointer"
         title="Sync selected problems (fetches pending and retries failed parts)"
       >
-        <svg id="sync-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
-        <svg id="sync-spinner" class="hidden h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        {% lucide "refresh-cw" id="sync-icon" class="h-3.5 w-3.5" %}
+        {% lucide "loader-circle" id="sync-spinner" class="hidden h-3.5 w-3.5 animate-spin" %}
         <span id="sync-label">Sync Selected</span>
       </button>
 
@@ -160,9 +158,9 @@
           class="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
           title="Mark selected parts for re-fetching"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          {% lucide "rotate-ccw" class="h-3.5 w-3.5" %}
           <span>Refetch</span>
-          <svg class="h-3.5 w-3.5 text-zinc-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          {% lucide "chevron-down" class="h-3.5 w-3.5 text-zinc-400" %}
         </button>
 
         <div
@@ -175,7 +173,7 @@
             class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer group"
           >
             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:group-hover:bg-zinc-700">
-              <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              {% lucide "file-text" class="h-5 w-5" %}
             </div>
             <div>
               <div class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Refetch & Sync Content & Images</div>
@@ -188,7 +186,7 @@
             class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer group"
           >
             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:group-hover:bg-zinc-700">
-              <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              {% lucide "code" class="h-5 w-5" %}
             </div>
             <div>
               <div class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Refetch & Sync Submissions</div>
@@ -202,7 +200,7 @@
             class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-amber-900 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40 transition-colors cursor-pointer group"
           >
             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 group-hover:bg-amber-200 dark:bg-amber-950/80 dark:text-amber-400 dark:group-hover:bg-amber-900">
-              <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              {% lucide "rotate-ccw" class="h-5 w-5" %}
             </div>
             <div>
               <div class="text-sm font-semibold">Refetch & Sync All</div>
@@ -232,10 +230,7 @@
     <div class="relative z-10 w-full max-w-lg sm:max-w-xl transform overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 sm:p-7 text-left shadow-2xl transition-all dark:border-zinc-800 dark:bg-zinc-900">
       <div class="flex items-start gap-4 sm:gap-5">
         <div class="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-400">
-          <svg class="h-6 w-6 sm:h-7 sm:w-7" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-            <path d="M3 3v5h5"/>
-          </svg>
+          {% lucide "rotate-ccw" class="h-6 w-6 sm:h-7 sm:w-7" %}
         </div>
         <div class="flex-1">
           <h3 id="refetch-modal-title" class="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
@@ -246,7 +241,7 @@
           </p>
           <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 sm:p-4 text-xs sm:text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
             <div class="font-semibold flex items-center gap-2 text-amber-800 dark:text-amber-200 text-sm">
-              <svg class="h-4.5 w-4.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {% lucide "circle-alert" class="h-4.5 w-4.5 shrink-0" %}
               <span id="refetch-modal-part-label">Content & Images</span>
             </div>
             <div class="mt-1.5 opacity-90 leading-relaxed" id="refetch-modal-part-hint">
@@ -271,10 +266,7 @@
           onclick="confirmAndExecuteRefetch()"
           class="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 sm:px-5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-600/50 dark:bg-amber-500 dark:text-zinc-950 dark:hover:bg-amber-400 cursor-pointer transition-colors"
         >
-          <svg id="refetch-spinner" class="hidden h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+          {% lucide "loader-circle" id="refetch-spinner" class="hidden h-4 w-4 animate-spin" %}
           <span id="refetch-confirm-btn-label">Confirm & Sync</span>
         </button>
       </div>
@@ -293,13 +285,26 @@
       class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors p-1"
       title="Dismiss"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      {% lucide "x" class="h-3.5 w-3.5" %}
     </button>
   </div>
 
   <!-- The Table Partial Container -->
   {% include "ui/partials/problems_table.html" %}
 </div>
+
+<template id="notif-icon-success">
+  {% lucide "circle-check" class="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" %}
+</template>
+<template id="notif-icon-warning">
+  {% lucide "triangle-alert" class="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" %}
+</template>
+<template id="notif-icon-error">
+  {% lucide "circle-alert" class="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" %}
+</template>
+<template id="notif-icon-info">
+  {% lucide "info" class="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" %}
+</template>
 
 <script>
   const selectedProblemIds = new Set();
@@ -542,21 +547,19 @@
     if (!container || !msgEl) return;
 
     container.className = 'flex items-center justify-between gap-3 rounded-xl border p-3 text-sm shadow-sm transition-all duration-200';
-    let iconHtml = '';
 
     if (type === 'success') {
       container.classList.add('border-emerald-200', 'bg-emerald-50/80', 'text-emerald-900', 'dark:border-emerald-900/60', 'dark:bg-emerald-950/40', 'dark:text-emerald-300');
-      iconHtml = '<svg class="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>';
     } else if (type === 'warning') {
       container.classList.add('border-amber-200', 'bg-amber-50/80', 'text-amber-900', 'dark:border-amber-900/60', 'dark:bg-amber-950/40', 'dark:text-amber-300');
-      iconHtml = '<svg class="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
     } else if (type === 'error') {
       container.classList.add('border-rose-200', 'bg-rose-50/80', 'text-rose-900', 'dark:border-rose-900/60', 'dark:bg-rose-950/40', 'dark:text-rose-300');
-      iconHtml = '<svg class="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
     } else {
       container.classList.add('border-blue-200', 'bg-blue-50/80', 'text-blue-900', 'dark:border-blue-900/60', 'dark:bg-blue-950/40', 'dark:text-blue-300');
-      iconHtml = '<svg class="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
     }
+
+    const iconTpl = document.getElementById('notif-icon-' + type) || document.getElementById('notif-icon-info');
+    const iconHtml = iconTpl ? iconTpl.innerHTML : '';
 
     msgEl.innerHTML = iconHtml + '<span class="font-medium">' + message + '</span>';
     container.classList.remove('hidden');

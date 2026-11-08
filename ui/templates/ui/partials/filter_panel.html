@@ -7,7 +7,7 @@
   <div class="mb-4 flex flex-wrap items-center justify-between gap-2.5 border-b border-zinc-100 pb-3 dark:border-zinc-800/80">
     <div class="flex flex-wrap items-center gap-2">
       <span class="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-500"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        {% lucide "funnel" class="h-3.5 w-3.5 text-zinc-500" %}
         Filters
       </span>
       {% if active_filter_count > 0 %}
@@ -25,7 +25,7 @@
         title="Remove Difficulty filter"
       >
         <span>Difficulty: {{ difficulty }}</span>
-        <svg class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        {% lucide "x" class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" %}
       </button>
       {% endif %}
 
@@ -37,7 +37,7 @@
         title="Remove Status filter"
       >
         <span>Status: {% if status == 'solved' %}Solved{% else %}Unsolved{% endif %}</span>
-        <svg class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        {% lucide "x" class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" %}
       </button>
       {% endif %}
 
@@ -49,7 +49,7 @@
         title="Remove Paid filter"
       >
         <span>Paid: {% if paid_filter == 'paid' %}Paid (PRO){% else %}Free{% endif %}</span>
-        <svg class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        {% lucide "x" class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" %}
       </button>
       {% endif %}
 
@@ -61,7 +61,7 @@
         title="Remove Sync filter"
       >
         <span>Sync: {% if sync_filter == 'synced' %}Synced{% elif sync_filter == 'pending' %}Needs Sync{% elif sync_filter == 'failed' %}Failed{% else %}Not Synced{% endif %}</span>
-        <svg class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        {% lucide "x" class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" %}
       </button>
       {% endif %}
 
@@ -73,7 +73,7 @@
         title="Remove Notes filter"
       >
         <span>Notes: {% if notes_filter == 'has_note' %}Saved{% elif notes_filter == 'has_draft' %}Draft{% else %}None{% endif %}</span>
-        <svg class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        {% lucide "x" class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" %}
       </button>
       {% endif %}
 
@@ -85,7 +85,7 @@
         title="Remove Category filter"
       >
         <span>Category: {{ category }}</span>
-        <svg class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        {% lucide "x" class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" %}
       </button>
       {% endif %}
     </div>
@@ -194,7 +194,11 @@
           class="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors cursor-pointer {% if status == 'solved' %}bg-emerald-600 font-bold text-white dark:bg-emerald-500 dark:text-zinc-950 shadow-sm{% else %}text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-50{% endif %}"
         >
           <span class="flex items-center gap-2">
-            <svg class="h-3.5 w-3.5 {% if status == 'solved' %}text-white dark:text-zinc-950{% else %}text-emerald-600 dark:text-emerald-400{% endif %}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            {% if status == 'solved' %}
+              {% lucide "check" class="h-3.5 w-3.5 text-white dark:text-zinc-950" %}
+            {% else %}
+              {% lucide "check" class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" %}
+            {% endif %}
             <span class="font-medium">Solved</span>
           </span>
           <span class="rounded-md px-2 py-0.5 text-xs font-bold {% if status == 'solved' %}bg-emerald-700 text-white dark:bg-emerald-400 dark:text-zinc-950{% else %}bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60{% endif %}">
@@ -259,7 +263,11 @@
           class="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors cursor-pointer {% if paid_filter == 'paid' %}bg-amber-600 font-bold text-white dark:bg-amber-500 dark:text-zinc-950 shadow-sm{% else %}text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-50{% endif %}"
         >
           <span class="flex items-center gap-2">
-            <svg class="h-3.5 w-3.5 {% if paid_filter == 'paid' %}text-white dark:text-zinc-950{% else %}text-amber-500{% endif %}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            {% if paid_filter == 'paid' %}
+              {% lucide "lock" class="h-3.5 w-3.5 text-white dark:text-zinc-950" %}
+            {% else %}
+              {% lucide "lock" class="h-3.5 w-3.5 text-amber-500" %}
+            {% endif %}
             <span class="font-medium">Paid</span>
           </span>
           <span class="rounded-md px-2 py-0.5 text-xs font-bold {% if paid_filter == 'paid' %}bg-amber-700 text-white dark:bg-amber-400 dark:text-zinc-950{% else %}bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60{% endif %}">

@@ -56,12 +56,12 @@
         hx-swap="outerHTML"
         hx-push-url="true"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        {% lucide "chevron-left" class="h-3.5 w-3.5" %}
         Previous
       </button>
       {% else %}
       <button type="button" class="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-400 opacity-50 cursor-not-allowed dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-600" disabled>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        {% lucide "chevron-left" class="h-3.5 w-3.5" %}
         Previous
       </button>
       {% endif %}
@@ -81,12 +81,12 @@
         hx-push-url="true"
       >
         Next
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        {% lucide "chevron-right" class="h-3.5 w-3.5" %}
       </button>
       {% else %}
       <button type="button" class="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-400 opacity-50 cursor-not-allowed dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-600" disabled>
         Next
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        {% lucide "chevron-right" class="h-3.5 w-3.5" %}
       </button>
       {% endif %}
     </div>
@@ -150,7 +150,7 @@
                 class="text-zinc-400 transition-colors hover:text-zinc-700 dark:hover:text-zinc-200"
                 title="Open on LeetCode"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                {% lucide "external-link" class="h-3.5 w-3.5" %}
               </a>
               {% endif %}
             </div>
@@ -177,7 +177,7 @@
           <td class="px-4 py-3">
             {% if problem.paid_only %}
             <span class="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-400" title="LeetCode Premium only">
-              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              {% lucide "lock" class="h-3 w-3" %}
               Paid
             </span>
             {% else %}
@@ -189,7 +189,7 @@
           <td class="px-4 py-3">
             {% if problem.solved %}
             <span class="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-400">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              {% lucide "check" class="h-3 w-3" %}
               Solved
             </span>
             {% else %}
@@ -204,7 +204,7 @@
             </span>
             {% elif problem.failed_sync_count > 0 %}
             <span class="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-400" title="Failed parts: {{ problem.failed_sync_parts|join:', ' }}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {% lucide "circle-alert" class="h-3 w-3" %}
               Failed ({{ problem.failed_sync_count }})
             </span>
             {% elif problem.pending_sync_count > 0 %}
@@ -214,7 +214,7 @@
             </span>
             {% else %}
             <span class="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-400" title="Fully synced">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              {% lucide "check" class="h-3 w-3" %}
               Synced
             </span>
             {% endif %}
@@ -223,12 +223,12 @@
           <td class="px-4 py-3">
             {% if problem.has_note %}
             <span class="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-400" title="Markdown note saved to disk">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+              {% lucide "file-text" class="h-3 w-3" %}
               Saved on Disk
             </span>
             {% elif problem.has_draft %}
             <span class="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:border-purple-800/60 dark:bg-purple-950/40 dark:text-purple-400" title="AI draft generated (waiting to save or review)">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+              {% lucide "sparkles" class="h-3 w-3" %}
               AI Draft Ready
             </span>
             {% else %}
@@ -246,9 +246,7 @@
         <tr>
           <td colspan="9" class="py-16 text-center text-zinc-500 dark:text-zinc-400">
             <div class="mx-auto flex max-w-xs flex-col items-center justify-center">
-              <svg class="h-8 w-8 text-zinc-400 dark:text-zinc-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-              </svg>
+              {% lucide "search" class="h-8 w-8 text-zinc-400 dark:text-zinc-600 mb-2" %}
               <p class="text-sm font-medium">No problems found</p>
               <p class="text-xs text-zinc-400 mt-1">Try adjusting your search query or filters.</p>
             </div>
@@ -310,12 +308,12 @@
         hx-swap="outerHTML"
         hx-push-url="true"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        {% lucide "chevron-left" class="h-3.5 w-3.5" %}
         Previous
       </button>
       {% else %}
       <button type="button" class="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-400 opacity-50 cursor-not-allowed dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-600" disabled>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        {% lucide "chevron-left" class="h-3.5 w-3.5" %}
         Previous
       </button>
       {% endif %}
@@ -335,12 +333,12 @@
         hx-push-url="true"
       >
         Next
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        {% lucide "chevron-right" class="h-3.5 w-3.5" %}
       </button>
       {% else %}
       <button type="button" class="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-400 opacity-50 cursor-not-allowed dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-600" disabled>
         Next
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        {% lucide "chevron-right" class="h-3.5 w-3.5" %}
       </button>
       {% endif %}
     </div>
@@ -366,7 +364,7 @@
       class="h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-3 text-sm font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors shadow-xs cursor-pointer"
       title="Reset all filters"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      {% lucide "rotate-ccw" class="h-3.5 w-3.5" %}
       Reset
     </button>
     {% endif %}

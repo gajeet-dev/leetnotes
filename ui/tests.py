@@ -759,3 +759,84 @@ class SettingsUITests(DataDirDBTestCase):
         self.assertIn("Saved credentials preserved", content)
         self.assertIn('id="configurable-settings"', content)
         self.assertIn('hx-swap-oob="outerHTML:#configurable-settings"', content)
+
+    def test_settings_page_renders_alert_dialog_and_basecoat_dropdowns(self):
+        url = reverse("ui:settings")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+
+        # 1. Alert dialog component for reset confirmation
+        self.assertIn('id="reset-alert-dialog"', content)
+        self.assertIn('class="alert-dialog"', content)
+        self.assertIn("Reset to Defaults?", content)
+        self.assertIn("Cancel", content)
+        self.assertNotIn("hx-confirm=", content)
+
+        # 2. No default HTML select tags
+        self.assertNotIn("<select", content)
+
+        # 3. Fetch problems/minute label and non-empty default of 5
+        self.assertIn("Fetch problems/minute", content)
+        self.assertIn('name="problems_per_minute"', content)
+        self.assertIn('value="5"', content)
+
+        # 4. Timezone dropdown with explicit UTC option
+        self.assertIn('id="timezone-dropdown"', content)
+        self.assertIn('data-tz="UTC"', content)
+        self.assertIn("UTC (Coordinated Universal Time)", content)
+
+        # 5. Provider dropdown with manual as default
+        self.assertIn('id="provider-dropdown"', content)
+        self.assertIn('data-provider="manual"', content)
+        self.assertIn("manual (paste reply in browser)", content)
+
+    def test_independent_form_saves_do_not_override_other_preferences(self):
+        # Set initial preferences
+        update_config(
+            {
+                "output_dirs": ["/tmp/initial_vault"],
+                "create_directory": True,
+                "problems_per_minute": 10.0,
+                "review_before_writing": False,
+            }
+        )
+
+        url = reverse("ui:save_general_settings")
+
+        # Save Card 2 (Storage & Timezone) only - does not pass problems_per_minute or review_before_writing
+        response2 = self.client.post(
+            url,
+            {
+                "output_dir": "/tmp/new_test_vault",
+                "create_directory": "true",
+                "time_zone": "Europe/London",
+            },
+        )
+        self.assertEqual(response2.status_code, 200)
+        cfg2 = load_config()
+        self.assertEqual(cfg2.output_dirs, ["/tmp/new_test_vault"])
+        self.assertEqual(cfg2.time_zone, "Europe/London")
+        self.assertTrue(cfg2.create_directory)
+        # Card 3 preferences are preserved!
+        self.assertEqual(cfg2.problems_per_minute, 10.0)
+        self.assertFalse(cfg2.review_before_writing)
+
+        # Save Card 3 (Sync & AI) only - does not pass output_dir or create_directory
+        response3 = self.client.post(
+            url,
+            {
+                "problems_per_minute": "12.0",
+                "default_provider": "claude",
+                "review_before_writing": "true",
+            },
+        )
+        self.assertEqual(response3.status_code, 200)
+        cfg3 = load_config()
+        self.assertEqual(cfg3.problems_per_minute, 12.0)
+        self.assertEqual(cfg3.default_provider, "claude")
+        self.assertTrue(cfg3.review_before_writing)
+        # Card 2 preferences are preserved!
+        self.assertEqual(cfg3.output_dirs, ["/tmp/new_test_vault"])
+        self.assertEqual(cfg3.time_zone, "Europe/London")
+        self.assertTrue(cfg3.create_directory)

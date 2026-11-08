@@ -50,6 +50,11 @@ def get_settings_context() -> dict:
         "Asia/Singapore",
         "Australia/Sydney",
     ]
+    if current_tz and current_tz not in common_timezones:
+        common_timezones.append(current_tz)
+
+    effective_ppm = effective.problems_per_minute()
+    ppm_display = int(effective_ppm) if effective_ppm.is_integer() else effective_ppm
 
     return {
         "active": "settings",
@@ -63,10 +68,10 @@ def get_settings_context() -> dict:
         "output_dir_exists": output_dir_exists,
         "create_directory": config.create_directory,
         "time_zone": current_tz,
-        "is_time_zone_saved": current_tz != "UTC",
+        "is_time_zone_saved": config.time_zone is not None,
         "local_time_display": local_time_display,
         "common_timezones": common_timezones,
-        "problems_per_minute": config.problems_per_minute,
+        "problems_per_minute": ppm_display,
         "review_before_writing": config.review_before_writing,
         "default_provider": default_provider_name(),
         "available_providers": provider_names(),
@@ -124,15 +129,16 @@ def test_leetcode_connection() -> dict:
 def save_general_settings(
     *,
     output_dir: str | None = None,
-    create_directory: bool = False,
+    create_directory: bool | None = None,
     time_zone: str | None = None,
     problems_per_minute: float | None = None,
     default_provider: str | None = None,
-    review_before_writing: bool = True,
+    review_before_writing: bool | None = None,
 ) -> tuple[bool, str, dict]:
     """Validate and persist notes storage, timezone, sync pacing, and directory creation preferences."""
     changes: dict = {}
-    changes["create_directory"] = bool(create_directory)
+    if create_directory is not None:
+        changes["create_directory"] = bool(create_directory)
 
     target_path = None
     cleaned_dir = None
@@ -157,7 +163,7 @@ def save_general_settings(
                         {
                             "output_dir": cleaned_dir,
                             "output_dir_exists": False,
-                            "create_directory": create_directory,
+                            "create_directory": bool(create_directory),
                             "dir_created": False,
                             "status": "error",
                         },
@@ -181,7 +187,7 @@ def save_general_settings(
                     {
                         "output_dir": cleaned_dir,
                         "output_dir_exists": dir_exists,
-                        "create_directory": create_directory,
+                        "create_directory": bool(create_directory),
                         "dir_created": dir_created,
                         "status": "error",
                     },
@@ -197,7 +203,7 @@ def save_general_settings(
                 {
                     "output_dir": cleaned_dir,
                     "output_dir_exists": dir_exists,
-                    "create_directory": create_directory,
+                    "create_directory": bool(create_directory),
                     "dir_created": dir_created,
                     "status": "error",
                 },
@@ -209,7 +215,8 @@ def save_general_settings(
         if cleaned_provider in provider_names():
             changes["default_provider"] = cleaned_provider
 
-    changes["review_before_writing"] = bool(review_before_writing)
+    if review_before_writing is not None:
+        changes["review_before_writing"] = bool(review_before_writing)
 
     try:
         update_config(changes)
