@@ -41,6 +41,8 @@ def problems_list(request):
     base_qs = get_problem_base_queryset()
     facets = compute_facets(base_qs, **filters)
 
+    # Fetch problems matching active search and filters, ordered by leetcode_id,
+    # with sync_tasks prefetched in a single batch to avoid N+1 queries for task badges.
     qs = (
         filter_problems(base_qs, **filters)
         .distinct()
@@ -88,6 +90,7 @@ def matching_problem_ids(request):
     base_qs = get_problem_base_queryset()
     qs = filter_problems(base_qs, **filters)
 
+    # Fetch only primary keys ('id') of matching problems as a flat list
     ids = list(qs.values_list("id", flat=True))
     return JsonResponse({"ids": ids, "count": len(ids)})
 
@@ -109,6 +112,8 @@ def sync_selected_problems(request):
 
     statuses = [SyncTask.Status.PENDING, SyncTask.Status.FAILED]
 
+    # Query the SyncTask table for the selected problems to find which ones actually
+    # have pending or failed tasks that need to be processed (filters out already completed problems).
     runnable = list(
         SyncTask.objects.filter(problem_id__in=problem_ids, status__in=statuses)
         .values_list("problem_id", flat=True)
@@ -162,21 +167,30 @@ def refetch_selected_problems(request):
             {"status": "error", "message": "No problems selected."}, status=400
         )
 
-    valid_parts = {
-        "content": SyncTask.Part.CONTENT,
-        "content_images": SyncTask.Part.CONTENT,
-        "submissions": SyncTask.Part.SUBMISSIONS,
-        "images": SyncTask.Part.CONTENT,
+    # Map requested refetch action to the list of SyncTask parts to reset.
+    # Note on cascade:
+    # Resetting CONTENT automatically cascades to reset IMAGES as well (via REFETCH_CASCADE),
+    # because new HTML invalidates all locally downloaded images.
+    # Therefore, "all" only needs [CONTENT, SUBMISSIONS] to reset all 3 parts (content, images, submissions).
+    PART_MAP: dict[str, list[SyncTask.Part]] = {
+        "content_images": [
+            SyncTask.Part.CONTENT
+        ],  # Resets content + images (via cascade)
+        "content": [SyncTask.Part.CONTENT],  # Alias for content + images
+        "images": [SyncTask.Part.CONTENT],  # Images require re-scraping content first
+        "submissions": [SyncTask.Part.SUBMISSIONS],  # Resets solution code task
+        "all": [
+            SyncTask.Part.CONTENT,
+            SyncTask.Part.SUBMISSIONS,
+        ],  # Resets content + images + submissions
     }
 
-    if part_str == "all":
-        parts_to_run = [SyncTask.Part.CONTENT, SyncTask.Part.SUBMISSIONS]
-    elif part_str in valid_parts:
-        parts_to_run = [valid_parts[part_str]]
-    else:
+    if part_str not in PART_MAP:
         return JsonResponse(
             {"status": "error", "message": f"Invalid part '{part_str}'."}, status=400
         )
+
+    parts_to_run = PART_MAP[part_str]
 
     total_reset = 0
     total_pinned = 0
