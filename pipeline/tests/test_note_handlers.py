@@ -1,6 +1,7 @@
 import json
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase
@@ -190,7 +191,7 @@ class SaveNotesHandlerTests(TestCase):
         self.assertIn("replaced 1", self.save(replace_edited=True).detail)
 
     def test_a_missing_output_folder_fails_the_stage(self):
-        with self.assertRaisesMessage(StageError, "/no/such/folder"):
+        with self.assertRaisesMessage(StageError, "Notes output directory does not exist: /no/such/folder"):
             self.save(output_dirs=["/no/such/folder"])
 
     def test_a_note_that_cannot_be_made_fails_the_stage(self):

@@ -1,9 +1,16 @@
 import json
+import tempfile
+from pathlib import Path
+from unittest import mock
 from unittest.mock import patch
-from django.test import TestCase, Client
+
+from django.test import Client, TestCase
 from django.urls import reverse
 
-from problems.models import Problem, SyncTask, Submission
+from problems.models import Problem, SyncTask
+from userconfig.credentials import load_credentials
+from userconfig.store import load_config
+from userconfig.tests.helpers import DataDirDBTestCase
 
 
 class ProblemsUITests(TestCase):
@@ -547,3 +554,151 @@ class ProblemsUITests(TestCase):
         self.assertContains(response, 'data-total-count="4"')
         # Duplicate table header banner is not rendered
         self.assertNotContains(response, 'id="select-all-page-banner"')
+
+
+class SettingsUITests(DataDirDBTestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = Client()
+
+    def test_settings_page_get(self):
+        url = reverse("ui:settings")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Settings")
+        self.assertContains(response, "LeetCode Credentials")
+        self.assertContains(response, "Storage & Timezone")
+        self.assertContains(response, "Sync & AI Preferences")
+        self.assertContains(response, 'id="toast-container"')
+
+    @patch("ui.helpers.settings.check_connection")
+    def test_save_credentials_and_auto_sets_username(self, mock_conn):
+        mock_conn.return_value = mock.MagicMock(
+            ok=True,
+            state=mock.MagicMock(value="connected"),
+            username="auto_detected_coder",
+            is_premium=True,
+            message="Connected as auto_detected_coder.",
+        )
+        url = reverse("ui:save_credentials")
+        response = self.client.post(
+            url,
+            {"session": "valid_session_token_12345", "csrf_token": "valid_csrf_token_67890"},
+        )
+        self.assertEqual(response.status_code, 200)
+        creds = load_credentials()
+        self.assertEqual(creds.session, "valid_session_token_12345")
+        self.assertEqual(creds.csrf_token, "valid_csrf_token_67890")
+        config = load_config()
+        self.assertEqual(config.leetcode_username, "auto_detected_coder")
+
+    @patch("ui.helpers.settings.check_connection")
+    def test_test_connection_endpoint(self, mock_conn):
+        mock_conn.return_value = mock.MagicMock(
+            ok=True,
+            state=mock.MagicMock(value="connected"),
+            username="test_user",
+            is_premium=False,
+            message="Connected as test_user.",
+        )
+        url = reverse("ui:test_connection")
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(
+            response.content,
+            {
+                "ok": True,
+                "state": "connected",
+                "message": "Connected as test_user.",
+                "username": "test_user",
+                "is_premium": False,
+            },
+        )
+
+    def test_save_general_settings(self):
+        url = reverse("ui:save_general_settings")
+        response = self.client.post(
+            url,
+            {
+                "output_dir": "/tmp/my_vault",
+                "time_zone": "America/New_York",
+                "problems_per_minute": "10.0",
+                "review_before_writing": "true",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        config = load_config()
+        self.assertEqual(config.output_dirs, ["/tmp/my_vault"])
+        self.assertEqual(config.time_zone, "America/New_York")
+        self.assertEqual(config.problems_per_minute, 10.0)
+        self.assertTrue(config.review_before_writing)
+
+    def test_auto_set_timezone_once(self):
+        url = reverse("ui:set_timezone")
+        response = self.client.post(
+            url,
+            json.dumps({"timezone": "Asia/Kolkata"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(load_config().time_zone, "Asia/Kolkata")
+
+        # Second call does not overwrite already saved timezone
+        response2 = self.client.post(
+            url,
+            json.dumps({"timezone": "Europe/London"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response2.status_code, 200)
+        self.assertEqual(load_config().time_zone, "Asia/Kolkata")
+
+    def test_save_existing_directory_shows_success_and_exists_badge(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            url = reverse("ui:save_general_settings")
+            response = self.client.post(
+                url,
+                {"output_dir": tmp_dir},
+                HTTP_HX_REQUEST="true",
+            )
+            self.assertEqual(response.status_code, 200)
+            content = response.content.decode("utf-8")
+            self.assertIn("Settings saved successfully.", content)
+            self.assertIn("toast-notification", content)
+            self.assertIn("Directory exists on disk", content)
+            self.assertIn('id="output-dir-status-badge"', content)
+            self.assertIn('hx-swap-oob="outerHTML"', content)
+
+    def test_save_missing_directory_without_toggle_shows_warning_badge(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            missing_dir = Path(tmp_dir) / "does_not_exist"
+            url = reverse("ui:save_general_settings")
+            response = self.client.post(
+                url,
+                {"output_dir": str(missing_dir)},
+                HTTP_HX_REQUEST="true",
+            )
+            self.assertEqual(response.status_code, 200)
+            content = response.content.decode("utf-8")
+            self.assertIn("does not exist on disk", content)
+            self.assertIn("Directory does not exist", content)
+            self.assertIn('id="output-dir-status-badge"', content)
+            self.assertIn('hx-swap-oob="outerHTML"', content)
+            self.assertFalse(missing_dir.exists())
+
+    def test_save_missing_directory_with_create_toggle_creates_directory(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            new_dir = Path(tmp_dir) / "subfolder" / "notes_vault"
+            self.assertFalse(new_dir.exists())
+            url = reverse("ui:save_general_settings")
+            response = self.client.post(
+                url,
+                {"output_dir": str(new_dir), "create_directory": "true"},
+                HTTP_HX_REQUEST="true",
+            )
+            self.assertEqual(response.status_code, 200)
+            content = response.content.decode("utf-8")
+            self.assertIn("Created directory", content)
+            self.assertIn("Directory exists on disk", content)
+            self.assertTrue(new_dir.is_dir())
+            config = load_config()
+            self.assertTrue(config.create_directory)

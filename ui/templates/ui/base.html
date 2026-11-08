@@ -34,5 +34,64 @@
       </button>
       {% block content %}{% endblock %}
     </main>
+
+    <!-- Global Toast Notifications Container -->
+    <div
+      id="toast-container"
+      class="fixed top-5 right-5 z-50 flex flex-col gap-2.5 pointer-events-none w-full max-w-sm px-4 sm:px-0"
+    ></div>
+
+    <script>
+      function dismissToast(el) {
+        if (!el || el.dataset.dismissing) return;
+        el.dataset.dismissing = 'true';
+        el.classList.add('opacity-0', '-translate-y-2');
+        setTimeout(function() {
+          el.remove();
+        }, 250);
+      }
+
+      function initToast(el) {
+        if (!el || el.dataset.toastInit) return;
+        el.dataset.toastInit = 'true';
+        setTimeout(function() {
+          dismissToast(el);
+        }, 4000);
+      }
+
+      document.addEventListener('htmx:load', function(evt) {
+        var target = evt.detail.elt;
+        if (!target) return;
+        if (target.classList && target.classList.contains('toast-notification')) {
+          initToast(target);
+        }
+        if (target.querySelectorAll) {
+          target.querySelectorAll('.toast-notification').forEach(initToast);
+        }
+      });
+
+      // Auto-detect and sync browser device timezone on first app load
+      (function() {
+        if (!localStorage.getItem('tz_synced')) {
+          try {
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (tz) {
+              fetch("{% url 'ui:set_timezone' %}", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-CSRFToken": "{{ csrf_token }}"
+                },
+                body: JSON.stringify({ timezone: tz })
+              }).then(function(res) {
+                if (res.ok) {
+                  localStorage.setItem('tz_synced', 'true');
+                }
+              }).catch(function() {});
+            }
+          } catch (e) {}
+        }
+      })();
+    </script>
   </body>
 </html>

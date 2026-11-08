@@ -152,6 +152,7 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "assets"]
 TAILWIND_CLI_SRC_CSS = BASE_DIR / "theme" / "source.css"
+TAILWIND_CLI_PATH = BASE_DIR / ".django_tailwind_cli" / "tailwindcss-linux-x64-4.3.5"
 
 MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"

@@ -1,0 +1,31 @@
+<div
+  role="status"
+  class="toast-notification pointer-events-auto flex items-center justify-between gap-3 rounded-xl border p-3.5 shadow-lg backdrop-blur-sm transition-all duration-300 ease-out transform translate-y-0 opacity-100 {% if status == 'success' %}border-emerald-200 bg-white/95 text-zinc-900 dark:border-emerald-900/60 dark:bg-zinc-900/95 dark:text-zinc-100{% elif status == 'warning' %}border-amber-200 bg-white/95 text-zinc-900 dark:border-amber-900/60 dark:bg-zinc-900/95 dark:text-zinc-100{% else %}border-rose-200 bg-white/95 text-zinc-900 dark:border-rose-900/60 dark:bg-zinc-900/95 dark:text-zinc-100{% endif %}"
+>
+  <div class="flex items-center gap-2.5 min-w-0">
+    {% if status == 'success' %}
+      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    {% elif status == 'warning' %}
+      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+    {% else %}
+      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+    {% endif %}
+    <p class="text-xs font-medium text-zinc-900 dark:text-zinc-100 leading-snug break-words">
+      {{ message }}
+    </p>
+  </div>
+  <button
+    type="button"
+    onclick="dismissToast(this.closest('.toast-notification'))"
+    class="rounded-md p-1 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 dark:text-zinc-500 dark:hover:text-zinc-300 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+    title="Dismiss"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+</div>

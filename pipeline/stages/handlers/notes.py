@@ -1,5 +1,7 @@
 """The stages that produce and save the notes: prefill, review, save notes."""
 
+from pathlib import Path
+
 from django.core.exceptions import ImproperlyConfigured
 
 from notes.generation import (
@@ -16,6 +18,7 @@ from prefill.models import AIResponse
 from prefill.prompt_builder import PromptInputError
 from prefill.providers.base import Provider, ProviderError, ProviderUnavailable
 from prefill.services import generate_for_problem
+from userconfig import effective
 
 # --- generate prefill ---
 
@@ -115,6 +118,14 @@ def describe_saved(result: ProblemNotesResult) -> str:
 def save_notes(item: TaskItem, settings: TaskSettings, deps: StageDeps) -> StageOutcome:
     if not settings.output_dirs:
         raise PauseTask("No output folder is set. Choose one in Settings.")
+    missing_dirs = [
+        str(d) for d in settings.output_dirs if not Path(d).expanduser().is_dir()
+    ]
+    if missing_dirs:
+        raise StageError(
+            f"Notes output directory does not exist: {', '.join(missing_dirs)}. "
+            "Please create the directory or configure a valid path in Settings."
+        )
     result = generate_notes(
         current_problem(item),
         settings.output_dirs,

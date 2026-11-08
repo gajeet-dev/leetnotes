@@ -15,6 +15,7 @@ class AppConfig(BaseModel):
 
     version: int = CONFIG_VERSION
     output_dirs: list[str] | None = None
+    create_directory: bool = False
     leetcode_username: str | None = None
     time_zone: str | None = None
     review_before_writing: bool = True

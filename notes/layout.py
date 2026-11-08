@@ -38,7 +38,7 @@ def ensure_layout(output_dir: Path) -> NotesLayout:
     error, not something to quietly create.
     """
     if not output_dir.is_dir():
-        raise FileNotFoundError(f"output folder does not exist: {output_dir}")
+        raise FileNotFoundError(f"Notes output directory does not exist: {output_dir}")
     layout = layout_for(output_dir)
     layout.problems_dir.mkdir(parents=True, exist_ok=True)
     layout.solutions_dir.mkdir(parents=True, exist_ok=True)

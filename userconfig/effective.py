@@ -14,6 +14,10 @@ def output_dirs() -> list[Path]:
     return [Path(folder).expanduser() for folder in folders]
 
 
+def create_directory() -> bool:
+    return load_config().create_directory
+
+
 def leetcode_username() -> str:
     return load_config().leetcode_username or settings.LEETCODE_USERNAME
 

@@ -2,7 +2,7 @@ import json
 
 import structlog
 from django.core.paginator import Paginator
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET, require_POST
 
@@ -18,6 +18,13 @@ from .helpers.problems import (
     parse_per_page,
     parse_problem_filters,
 )
+from .helpers.settings import (
+    auto_set_timezone,
+    get_settings_context,
+    save_general_settings,
+    save_leetcode_credentials,
+    test_leetcode_connection,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -27,7 +34,12 @@ __all__ = [
     "matching_problem_ids",
     "problems_list",
     "refetch_selected_problems",
+    "save_credentials_view",
+    "save_general_settings_view",
+    "set_timezone_view",
+    "settings_view",
     "sync_selected_problems",
+    "test_connection_view",
 ]
 
 
@@ -235,3 +247,127 @@ def refetch_selected_problems(request):
             "sync_started": sync_started,
         }
     )
+
+
+# --- Settings Page Views ---
+
+
+@require_GET
+def settings_view(request):
+    """Render the application settings page."""
+    context = get_settings_context()
+    return render(request, "ui/settings.html", context)
+
+
+@require_POST
+def save_credentials_view(request):
+    """Handle storing LeetCode session and csrf cookies, then auto-syncing account status."""
+    session = request.POST.get("session", "").strip() or None
+    csrf_token = request.POST.get("csrf_token", "").strip() or None
+
+    ok, msg, details = save_leetcode_credentials(session=session, csrf_token=csrf_token)
+
+    if request.headers.get("HX-Request"):
+        toast_html = render(
+            request,
+            "ui/partials/toast.html",
+            {"status": "success" if ok else "error", "message": msg},
+        ).content.decode("utf-8")
+
+        status_panel_html = render(
+            request,
+            "ui/partials/connection_status.html",
+            {
+                "conn": details,
+                "credentials_configured": True,
+                "leetcode_username": details.get("username"),
+            },
+        ).content.decode("utf-8")
+
+        # Render floating toast and simultaneously update the connection status panel OOB
+        return HttpResponse(
+            toast_html
+            + f'<div id="connection-status-panel" hx-swap-oob="outerHTML">{status_panel_html}</div>'
+        )
+
+    return JsonResponse({"ok": ok, "message": msg, "details": details})
+
+
+@require_POST
+def test_connection_view(request):
+    """Check connectivity to LeetCode with the currently saved cookies."""
+    res = test_leetcode_connection()
+    if request.headers.get("HX-Request"):
+        return render(request, "ui/partials/connection_status.html", {"conn": res})
+    return JsonResponse(res)
+
+
+@require_POST
+def save_general_settings_view(request):
+    """Save notes output directory, timezone, sync pacing, and AI preferences."""
+    output_dir = request.POST.get("output_dir")
+    create_directory = (
+        request.POST.get("create_directory") == "true"
+        or "create_directory" in request.POST
+    )
+    time_zone = request.POST.get("time_zone")
+
+    raw_ppm = request.POST.get("problems_per_minute")
+    try:
+        ppm = float(raw_ppm) if raw_ppm else None
+    except (ValueError, TypeError):
+        ppm = None
+
+    provider = request.POST.get("default_provider")
+    review = (
+        request.POST.get("review_before_writing") == "true"
+        or "review_before_writing" in request.POST
+    )
+
+    ok, msg, details = save_general_settings(
+        output_dir=output_dir,
+        create_directory=create_directory,
+        time_zone=time_zone,
+        problems_per_minute=ppm,
+        default_provider=provider,
+        review_before_writing=review,
+    )
+
+    if request.headers.get("HX-Request"):
+        alert_status = details.get("status", "success" if ok else "error")
+        toast_html = render(
+            request,
+            "ui/partials/toast.html",
+            {"status": alert_status, "message": msg},
+        ).content.decode("utf-8")
+
+        badge_html = render(
+            request,
+            "ui/partials/output_dir_badge.html",
+            {
+                "output_dir": details.get("output_dir", output_dir),
+                "output_dir_exists": details.get("output_dir_exists", False),
+                "oob": True,
+            },
+        ).content.decode("utf-8")
+
+        # Render floating toast and simultaneously update the directory existence badge OOB
+        return HttpResponse(toast_html + badge_html)
+
+    return JsonResponse({"ok": ok, "message": msg, "details": details})
+
+
+@require_POST
+def set_timezone_view(request):
+    """Auto-detect and store the client device timezone on first load."""
+    try:
+        data = json.loads(request.body)
+        tz_name = data.get("timezone", "").strip()
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
+
+    if not tz_name:
+        return JsonResponse({"status": "error", "message": "Missing timezone"}, status=400)
+
+    ok, msg = auto_set_timezone(tz_name)
+    return JsonResponse({"status": "ok" if ok else "skipped", "message": msg})
