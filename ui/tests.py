@@ -98,7 +98,9 @@ class ProblemsUITests(TestCase):
         self.assertContains(response, 'hx-push-url="true"')
         self.assertContains(response, 'autocomplete="off"')
 
-    def test_full_page_reload_with_filter_renders_filtered_data_and_selected_state(self):
+    def test_full_page_reload_with_filter_renders_filtered_data_and_selected_state(
+        self,
+    ):
         """Simulates browser refresh (full GET, not HX-Request) when filters are in URL."""
         url = reverse("ui:problems")
         response = self.client.get(url, {"sync": "pending", "difficulty": "Medium"})
@@ -114,8 +116,8 @@ class ProblemsUITests(TestCase):
         html = response.content.decode()
         self.assertIn('<input type="hidden" name="sync" value="pending" />', html)
         self.assertIn('<input type="hidden" name="difficulty" value="Medium" />', html)
-        self.assertIn('Sync: Needs Sync', html)
-        self.assertIn('Difficulty: Medium', html)
+        self.assertIn("Sync: Needs Sync", html)
+        self.assertIn("Difficulty: Medium", html)
         # Ensure unfiltered data like Two Sum (Easy, Synced) is NOT in the filtered rows
         self.assertNotIn("Two Sum", html)
 
@@ -245,7 +247,9 @@ class ProblemsUITests(TestCase):
         self.assertTrue(data["sync_started"])
         mock_start.assert_called_once_with([self.p_synced.id], retry_failed=True)
 
-        task = SyncTask.objects.get(problem=self.p_synced, part=SyncTask.Part.SUBMISSIONS)
+        task = SyncTask.objects.get(
+            problem=self.p_synced, part=SyncTask.Part.SUBMISSIONS
+        )
         self.assertEqual(task.status, SyncTask.Status.PENDING)
 
     @patch("ui.views.start_background_sync")
@@ -380,14 +384,16 @@ class ProblemsUITests(TestCase):
         self.assertEqual(response_clean.status_code, 200)
         content_clean = response_clean.content.decode()
         self.assertIn('id="filter-reset-container"', content_clean)
-        self.assertNotIn('Reset all filters', content_clean)
+        self.assertNotIn("Reset all filters", content_clean)
 
         # HTMX request with active filter: reset container includes Reset button
-        response_filtered = self.client.get(url, {"difficulty": "Easy"}, HTTP_HX_REQUEST="true")
+        response_filtered = self.client.get(
+            url, {"difficulty": "Easy"}, HTTP_HX_REQUEST="true"
+        )
         self.assertEqual(response_filtered.status_code, 200)
         content_filtered = response_filtered.content.decode()
         self.assertIn('id="filter-reset-container"', content_filtered)
-        self.assertIn('Reset all filters', content_filtered)
+        self.assertIn("Reset all filters", content_filtered)
 
     def test_problem_status_column_only_solved_unsolved(self):
         url = reverse("ui:problems")
@@ -472,7 +478,9 @@ class ProblemsUITests(TestCase):
     def test_reactive_faceted_counts_when_combined_filters_applied(self):
         """When status=solved AND difficulty=Easy are both active, cross facets react accordingly."""
         url = reverse("ui:problems")
-        response = self.client.get(url, {"status": "solved", "difficulty": "Easy"}, HTTP_HX_REQUEST="true")
+        response = self.client.get(
+            url, {"status": "solved", "difficulty": "Easy"}, HTTP_HX_REQUEST="true"
+        )
         self.assertEqual(response.status_code, 200)
 
         facets = response.context["facets"]
@@ -585,7 +593,10 @@ class SettingsUITests(DataDirDBTestCase):
         url = reverse("ui:save_credentials")
         response = self.client.post(
             url,
-            {"session": "valid_session_token_12345", "csrf_token": "valid_csrf_token_67890"},
+            {
+                "session": "valid_session_token_12345",
+                "csrf_token": "valid_csrf_token_67890",
+            },
         )
         self.assertEqual(response.status_code, 200)
         creds = load_credentials()
@@ -595,8 +606,12 @@ class SettingsUITests(DataDirDBTestCase):
         self.assertEqual(config.leetcode_username, "auto_detected_coder")
 
     @patch("ui.helpers.settings.check_tokens_connection")
-    def test_save_invalid_credentials_preserves_old_working_credentials(self, mock_check):
-        update_credentials(session="original_good_session", csrf_token="original_good_csrf")
+    def test_save_invalid_credentials_preserves_old_working_credentials(
+        self, mock_check
+    ):
+        update_credentials(
+            session="original_good_session", csrf_token="original_good_csrf"
+        )
 
         def side_effect(session, csrf):
             if session == "mistaken_bad_session":
@@ -623,7 +638,9 @@ class SettingsUITests(DataDirDBTestCase):
         )
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
-        self.assertIn("Your previous working credentials for safe_coder were kept", content)
+        self.assertIn(
+            "Your previous working credentials for safe_coder were kept", content
+        )
         self.assertIn("toast-notification", content)
         self.assertIn('data-persistent="true"', content)
         self.assertEqual(
@@ -684,7 +701,9 @@ class SettingsUITests(DataDirDBTestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
         self.assertIn("Connection Failed", content)
-        self.assertIn("Copy fresh ones from your browser and update them in Settings.", content)
+        self.assertIn(
+            "Copy fresh ones from your browser and update them in Settings.", content
+        )
         self.assertIn("break-words", content)
 
     @patch("ui.helpers.settings.check_connection")
@@ -826,7 +845,9 @@ class SettingsUITests(DataDirDBTestCase):
 
         # 3. Assert config in data/config.json is reset to defaults
         cfg_after = load_config()
-        self.assertIsNone(cfg_after.output_dirs)  # None in config.json means default notes_output
+        self.assertIsNone(
+            cfg_after.output_dirs
+        )  # None in config.json means default notes_output
         self.assertIsNone(cfg_after.time_zone)
         self.assertIsNone(cfg_after.problems_per_minute)
         self.assertIsNone(cfg_after.default_provider)

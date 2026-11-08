@@ -335,13 +335,17 @@ def save_general_settings_view(request):
     raw_ppm = request.POST.get("problems_per_minute")
     try:
         ppm = float(raw_ppm) if raw_ppm else None
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         ppm = None
 
     provider = request.POST.get("default_provider")
     review = (
         request.POST.get("review_before_writing") in ("true", "on", "1")
-        if ("default_provider" in request.POST or "problems_per_minute" in request.POST or "review_before_writing" in request.POST)
+        if (
+            "default_provider" in request.POST
+            or "problems_per_minute" in request.POST
+            or "review_before_writing" in request.POST
+        )
         else None
     )
 
@@ -384,11 +388,13 @@ def set_timezone_view(request):
     try:
         data = json.loads(request.body)
         tz_name = data.get("timezone", "").strip()
-    except (ValueError, TypeError, json.JSONDecodeError):
+    except ValueError, TypeError, json.JSONDecodeError:
         return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
 
     if not tz_name:
-        return JsonResponse({"status": "error", "message": "Missing timezone"}, status=400)
+        return JsonResponse(
+            {"status": "error", "message": "Missing timezone"}, status=400
+        )
 
     ok, msg = auto_set_timezone(tz_name)
     return JsonResponse({"status": "ok" if ok else "skipped", "message": msg})
