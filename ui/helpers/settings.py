@@ -1,18 +1,39 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from leetcode.bootstrap import reset_client
-from leetcode.connection import check_connection
+from django.conf import settings
+
+from leetcode.bootstrap import ClientSettings, build_client, reset_client
+from leetcode.connection import ConnectionResult, check_connection
 from prefill.providers.config import default_provider_name, provider_names
 from userconfig import effective
 from userconfig.credentials import (
+    CSRF_COOKIE,
+    SESSION_COOKIE,
+    LeetCodeCredentials,
+    clean_cookie_value,
     load_credentials,
     mask_secret,
+    save_credentials,
     update_credentials,
 )
 from userconfig.errors import ConfigError
 from userconfig.store import load_config, update_config
+
+
+def check_tokens_connection(session: str, csrf_token: str) -> ConnectionResult:
+    """Test connectivity for an explicit pair of session and csrf tokens."""
+    config = ClientSettings(
+        session=session,
+        csrf_token=csrf_token,
+        base_url=settings.LEETCODE_BASE_URL,
+        requests_per_second=effective.requests_per_second(),
+        requests_per_minute=effective.requests_per_minute(),
+        username=effective.leetcode_username(),
+    )
+    client = build_client(config)
+    return check_connection(client_factory=lambda: client)
 
 
 def get_settings_context() -> dict:
@@ -81,31 +102,168 @@ def get_settings_context() -> dict:
 def save_leetcode_credentials(
     session: str | None = None, csrf_token: str | None = None
 ) -> tuple[bool, str, dict]:
-    """Validate and store LeetCode cookies, then test connection and auto-set username."""
-    try:
-        update_credentials(session=session, csrf_token=csrf_token)
-    except ConfigError as exc:
-        return False, str(exc), {}
+    """Validate and store LeetCode cookies, then test connection and auto-set username.
 
+    If editing existing working credentials results in a connection failure, the previous
+    working credentials are preserved intact. If the existing credentials were already expired
+    or invalid, the new credentials are saved even if connection fails.
+    """
+    old_creds = load_credentials()
+    old_session = old_creds.session
+    old_csrf = old_creds.csrf_token
+    has_old = bool(old_session and old_csrf)
+
+    # Clean candidate cookie values
+    try:
+        candidate_session = (
+            clean_cookie_value(session, SESSION_COOKIE)
+            if (session and session.strip())
+            else old_session
+        )
+    except ValueError as exc:
+        if has_old:
+            old_conn = check_tokens_connection(old_session, old_csrf)
+            if old_conn.ok:
+                known_username = (
+                    old_conn.username
+                    or effective.leetcode_username()
+                    or load_config().leetcode_username
+                    or ""
+                )
+                user_suffix = f" for {known_username}" if known_username else ""
+                return (
+                    False,
+                    f"Invalid session cookie format: {exc}. Your previous working credentials{user_suffix} were kept.",
+                    {
+                        "ok": True,
+                        "state": old_conn.state.value,
+                        "username": known_username,
+                        "is_premium": old_conn.is_premium,
+                        "preserved_previous": True,
+                        "rejected_error": str(exc),
+                    },
+                )
+        return (
+            False,
+            f"Invalid session cookie: {exc}",
+            {"ok": False, "state": "invalid", "message": str(exc)},
+        )
+
+    try:
+        candidate_csrf = (
+            clean_cookie_value(csrf_token, CSRF_COOKIE)
+            if (csrf_token and csrf_token.strip())
+            else old_csrf
+        )
+    except ValueError as exc:
+        if has_old:
+            old_conn = check_tokens_connection(old_session, old_csrf)
+            if old_conn.ok:
+                known_username = (
+                    old_conn.username
+                    or effective.leetcode_username()
+                    or load_config().leetcode_username
+                    or ""
+                )
+                user_suffix = f" for {known_username}" if known_username else ""
+                return (
+                    False,
+                    f"Invalid CSRF token format: {exc}. Your previous working credentials{user_suffix} were kept.",
+                    {
+                        "ok": True,
+                        "state": old_conn.state.value,
+                        "username": known_username,
+                        "is_premium": old_conn.is_premium,
+                        "preserved_previous": True,
+                        "rejected_error": str(exc),
+                    },
+                )
+        return (
+            False,
+            f"Invalid CSRF token: {exc}",
+            {"ok": False, "state": "invalid", "message": str(exc)},
+        )
+
+    if not (candidate_session and candidate_csrf):
+        return (
+            False,
+            "Please provide both session cookie and CSRF token.",
+            {"ok": False, "state": "not_configured", "message": "Incomplete credentials"},
+        )
+
+    # Test candidate credentials with LeetCode
+    candidate_conn = check_tokens_connection(candidate_session, candidate_csrf)
+
+    if candidate_conn.ok:
+        # Candidate credentials work! Save them to secrets.json
+        new_creds = LeetCodeCredentials(
+            session=candidate_session,
+            csrf_token=candidate_csrf,
+            updated_at=datetime.now(timezone.utc),
+        )
+        save_credentials(new_creds)
+        reset_client()
+        if candidate_conn.username:
+            update_config({"leetcode_username": candidate_conn.username})
+
+        details = {
+            "ok": True,
+            "state": candidate_conn.state.value,
+            "username": candidate_conn.username,
+            "is_premium": candidate_conn.is_premium,
+        }
+        return True, f"Credentials saved and verified! Connected as {candidate_conn.username}.", details
+
+    # Candidate credentials failed! Check if previous credentials were valid
+    tokens_changed = (candidate_session != old_session) or (candidate_csrf != old_csrf)
+    if tokens_changed and has_old:
+        old_conn = check_tokens_connection(old_session, old_csrf)
+        if old_conn.ok:
+            # Previous credentials were valid and working! Keep them and reject the broken ones.
+            reset_client()
+            known_username = (
+                old_conn.username
+                or effective.leetcode_username()
+                or load_config().leetcode_username
+                or ""
+            )
+            user_suffix = f" for {known_username}" if known_username else ""
+            err_detail = (candidate_conn.message or "cookies were rejected").rstrip(".")
+            details = {
+                "ok": True,
+                "state": old_conn.state.value,
+                "username": known_username,
+                "is_premium": old_conn.is_premium,
+                "preserved_previous": True,
+                "rejected_error": candidate_conn.message,
+            }
+            msg = (
+                f"New cookies failed connection: {err_detail}. "
+                f"Your previous working credentials{user_suffix} were kept."
+            )
+            return False, msg, details
+
+    # If old credentials were also invalid (or didn't exist, or same credentials), save candidate
+    new_creds = LeetCodeCredentials(
+        session=candidate_session,
+        csrf_token=candidate_csrf,
+        updated_at=datetime.now(timezone.utc),
+    )
+    save_credentials(new_creds)
     reset_client()
-    conn = check_connection()
 
     details = {
-        "ok": conn.ok,
-        "state": conn.state.value,
-        "username": conn.username,
-        "is_premium": conn.is_premium,
+        "ok": False,
+        "state": candidate_conn.state.value,
+        "message": candidate_conn.message,
+        "username": "",
+        "is_premium": False,
     }
-
-    if conn.ok and conn.username:
-        # Automatically set the detected username in config.json
-        update_config({"leetcode_username": conn.username})
-        return True, f"Credentials saved and verified! Connected as {conn.username}.", details
-
-    if conn.state.value == "signed_out":
-        return False, "Cookies saved, but LeetCode reported signed out. Please verify your tokens.", details
-
-    return False, f"Cookies saved, but connection check failed: {conn.message}", details
+    if candidate_conn.state.value == "signed_out":
+        msg = f"Cookies saved, but LeetCode reported signed out. Please verify your tokens."
+    else:
+        msg = f"Cookies saved, but connection check failed: {candidate_conn.message}"
+    return False, msg, details
 
 
 def test_leetcode_connection() -> dict:

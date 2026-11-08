@@ -1,7 +1,7 @@
 <div id="configurable-settings" class="flex flex-col gap-8" {% if oob %}hx-swap-oob="outerHTML:#configurable-settings"{% endif %}>
   <!-- Card 2: Notes Storage & Timezone -->
-  <div class="relative z-20 rounded-xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-950">
-    <div class="rounded-t-xl border-b border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+  <div class="relative z-20 rounded-xl border border-zinc-200/90 bg-white shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900">
+    <div class="rounded-t-xl border-b border-zinc-200/70 bg-zinc-50/70 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950/40">
       <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Storage & Timezone</h2>
       <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
         Location for generated Markdown problem notes and local timezone formatting.
@@ -32,7 +32,7 @@
               id="output-dir-input"
               value="{{ output_dir }}"
               placeholder="e.g. /home/user/Obsidian/LeetCodeNotes"
-              class="h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm font-mono text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-100 dark:focus:ring-zinc-100 shadow-2xs transition-colors"
+              class="h-9 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm font-mono text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-200 dark:focus:ring-zinc-200 shadow-2xs transition-colors"
             />
           </div>
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
@@ -79,7 +79,7 @@
             <button
               type="button"
               id="timezone-trigger-btn"
-              class="h-9 w-full inline-flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-100 shadow-2xs transition-colors cursor-pointer"
+              class="h-9 w-full inline-flex items-center justify-between rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-100 dark:focus:border-zinc-200 shadow-2xs transition-colors cursor-pointer"
               aria-expanded="false"
             >
               <span id="timezone-selected-label" class="font-mono text-sm truncate">
@@ -89,7 +89,7 @@
             </button>
             <input type="hidden" name="time_zone" id="timezone-input" value="{{ time_zone }}" />
 
-            <div data-popover aria-hidden="true" class="absolute top-full left-0 mt-1 w-full max-h-72 overflow-y-auto z-50 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+            <div data-popover aria-hidden="true" class="absolute top-full left-0 mt-1 w-full max-h-72 overflow-y-auto z-50 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
               <div role="menu" class="w-full flex flex-col gap-0.5">
                 <div role="heading" class="px-2.5 py-1 text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
                   Standard Option
@@ -148,7 +148,7 @@
       </div>
 
       <!-- Card Footer -->
-      <div class="rounded-b-xl flex items-center justify-between border-t border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+      <div class="rounded-b-xl flex items-center justify-between border-t border-zinc-200/70 bg-zinc-50/70 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950/40">
         <span class="text-xs text-zinc-500 dark:text-zinc-400">
           Saved to <code class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">data/config.json</code>
         </span>
@@ -164,8 +164,8 @@
   </div>
 
   <!-- Card 3: Sync & AI Preferences -->
-  <div class="relative z-10 rounded-xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-950">
-    <div class="rounded-t-xl border-b border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+  <div class="relative z-10 rounded-xl border border-zinc-200/90 bg-white shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900">
+    <div class="rounded-t-xl border-b border-zinc-200/70 bg-zinc-50/70 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950/40">
       <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Sync & AI Preferences</h2>
       <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
         Tune background sync rate limits and automated AI solution generation.
@@ -196,7 +196,7 @@
               id="pacing-input"
               value="{{ problems_per_minute }}"
               placeholder="5"
-              class="h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-100 shadow-2xs transition-colors"
+              class="h-9 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-100 dark:focus:border-zinc-200 shadow-2xs transition-colors"
             />
             <p class="text-xs text-zinc-500 dark:text-zinc-400">
               Problems per minute (default: 5.0) to prevent rate limits.
@@ -214,7 +214,7 @@
               <button
                 type="button"
                 id="provider-trigger-btn"
-                class="h-9 w-full inline-flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-100 shadow-2xs transition-colors cursor-pointer"
+                class="h-9 w-full inline-flex items-center justify-between rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-100 dark:focus:border-zinc-200 shadow-2xs transition-colors cursor-pointer"
                 aria-expanded="false"
               >
                 <span id="provider-selected-label" class="font-normal text-left truncate">
@@ -224,7 +224,7 @@
               </button>
               <input type="hidden" name="default_provider" id="default-provider-input" value="{{ default_provider }}" />
 
-              <div data-popover aria-hidden="true" class="absolute top-full left-0 mt-1 w-full z-50 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+              <div data-popover aria-hidden="true" class="absolute top-full left-0 mt-1 w-full z-50 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
                 <div role="menu" class="w-full flex flex-col gap-0.5">
                   {% for provider in available_providers %}
                     <div
@@ -255,7 +255,7 @@
         <div class="border-t border-zinc-100 dark:border-zinc-800/80"></div>
 
         <!-- Review Before Writing Checkbox -->
-        <label class="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50/50 p-4 hover:bg-zinc-100/60 dark:border-zinc-800 dark:bg-zinc-900/30 dark:hover:bg-zinc-900/50 transition-colors cursor-pointer select-none">
+        <label class="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50/70 p-4 hover:bg-zinc-100/70 dark:border-zinc-700/80 dark:bg-zinc-950/50 dark:hover:bg-zinc-950/70 transition-colors cursor-pointer select-none">
           <input
             type="checkbox"
             name="review_before_writing"
@@ -274,7 +274,7 @@
       </div>
 
       <!-- Card Footer -->
-      <div class="rounded-b-xl flex items-center justify-between border-t border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+      <div class="rounded-b-xl flex items-center justify-between border-t border-zinc-200/70 bg-zinc-50/70 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950/40">
         <span class="text-xs text-zinc-500 dark:text-zinc-400">
           Sync settings apply to all background pipeline runners
         </span>

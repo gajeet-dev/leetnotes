@@ -1,5 +1,6 @@
 <div
   role="status"
+  {% if persistent %}data-persistent="true"{% endif %}
   class="toast-notification pointer-events-auto flex items-center justify-between gap-3 rounded-xl border p-3.5 shadow-lg backdrop-blur-sm transition-all duration-300 ease-out transform translate-y-0 opacity-100 {% if status == 'success' %}border-emerald-200 bg-white/95 text-zinc-900 dark:border-emerald-900/60 dark:bg-zinc-900/95 dark:text-zinc-100{% elif status == 'warning' %}border-amber-200 bg-white/95 text-zinc-900 dark:border-amber-900/60 dark:bg-zinc-900/95 dark:text-zinc-100{% else %}border-rose-200 bg-white/95 text-zinc-900 dark:border-rose-900/60 dark:bg-zinc-900/95 dark:text-zinc-100{% endif %}"
 >
   <div class="flex items-center gap-2.5 min-w-0">

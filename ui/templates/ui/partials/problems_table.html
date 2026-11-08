@@ -3,10 +3,10 @@
   data-total-count="{{ total_count }}"
   data-page-count="{{ page_obj|length }}"
   data-per-page="{{ per_page|default:25 }}"
-  class="flex flex-col rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+  class="flex flex-col rounded-xl border border-zinc-200/90 bg-white shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900"
 >
   <!-- Top Pagination Header (Always Visible!) -->
-  <div class="flex flex-col items-center justify-between gap-3 border-b border-zinc-200 bg-zinc-50/70 px-4 py-2.5 sm:flex-row dark:border-zinc-800 dark:bg-zinc-900/60 rounded-t-xl">
+  <div class="flex flex-col items-center justify-between gap-3 border-b border-zinc-200 bg-zinc-50/70 px-4 py-2.5 sm:flex-row dark:border-zinc-800 dark:bg-zinc-950/40 rounded-t-xl">
     <div class="flex flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
       <div>
         Showing <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ page_obj.start_index|default:0 }}</span>
@@ -95,7 +95,7 @@
   <!-- Scrollable Table Viewport with Sticky Header -->
   <div class="relative overflow-x-auto overflow-y-auto max-h-[calc(100vh-270px)] min-h-[400px]">
     <table class="table w-full text-left text-sm">
-      <thead class="sticky top-0 z-10 border-b border-zinc-200 bg-zinc-50/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
+      <thead class="sticky top-0 z-10 border-b border-zinc-200 bg-zinc-50/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
         <tr>
           <th class="w-12 px-4 py-3 text-center">
             <input
@@ -119,7 +119,7 @@
       </thead>
       <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
         {% for problem in page_obj %}
-        <tr class="transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40">
+        <tr class="transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/60">
           <td class="px-4 py-3 text-center">
             <input
               type="checkbox"
@@ -258,7 +258,7 @@
   </div>
 
   <!-- Docked Pagination Footer (Always Visible!) -->
-  <div class="flex flex-col items-center justify-between gap-3 border-t border-zinc-200 bg-zinc-50/70 px-4 py-3 sm:flex-row dark:border-zinc-800 dark:bg-zinc-900/60 rounded-b-xl">
+  <div class="flex flex-col items-center justify-between gap-3 border-t border-zinc-200 bg-zinc-50/70 px-4 py-3 sm:flex-row dark:border-zinc-800 dark:bg-zinc-950/40 rounded-b-xl">
     <div class="flex flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
       <div>
         Showing <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ page_obj.start_index|default:0 }}</span>

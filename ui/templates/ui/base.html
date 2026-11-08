@@ -22,7 +22,7 @@
     <script src="{% static 'ui/vendor/basecoat-all.min.js' %}" defer></script>
     <script src="{% static 'ui/sidebar-responsive.js' %}" defer></script>
   </head>
-  <body class="bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <body class="bg-zinc-100 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     {% include "ui/partials/sidebar.html" %}
     <main class="p-6">
       <button
@@ -54,6 +54,7 @@
       function initToast(el) {
         if (!el || el.dataset.toastInit) return;
         el.dataset.toastInit = 'true';
+        if (el.dataset.persistent === 'true') return;
         setTimeout(function() {
           dismissToast(el);
         }, 4000);

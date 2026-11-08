@@ -14,16 +14,16 @@
     <button
       type="button"
       onclick="document.getElementById('reset-alert-dialog').showModal()"
-      class="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 shadow-2xs transition-colors cursor-pointer"
+      class="h-9 inline-flex items-center gap-2 self-start sm:self-auto rounded-lg border border-amber-300 bg-white px-3.5 text-sm font-medium text-amber-700 shadow-2xs hover:bg-amber-50 hover:border-amber-400 hover:text-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-500/30 dark:border-amber-700/70 dark:bg-zinc-900 dark:text-amber-400 dark:hover:bg-amber-950/30 dark:hover:border-amber-600 dark:hover:text-amber-300 transition-colors cursor-pointer shrink-0"
     >
-      {% lucide "rotate-cw" class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" size=14 %}
+      {% lucide "rotate-cw" class="h-4 w-4 text-amber-600 dark:text-amber-400" size=16 %}
       <span>Reset to Defaults</span>
     </button>
   </div>
 
   <!-- Card 1: LeetCode Account & Authentication -->
-  <div class="relative z-30 rounded-xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-950">
-    <div class="rounded-t-xl border-b border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+  <div class="relative z-30 rounded-xl border border-zinc-200/90 bg-white shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900">
+    <div class="rounded-t-xl border-b border-zinc-200/70 bg-zinc-50/70 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950/40">
       <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">LeetCode Credentials</h2>
       <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
         Session authentication used for pulling problem submissions, descriptions, and account info.
@@ -57,7 +57,7 @@
               id="session-input"
               autocomplete="off"
               placeholder="{% if session_hint %}{{ session_hint }} (saved — leave blank to keep){% else %}Paste your LEETCODE_SESSION cookie here...{% endif %}"
-              class="h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 pr-9 text-sm font-mono text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-100 dark:focus:ring-zinc-100 shadow-2xs transition-colors"
+              class="h-9 w-full rounded-lg border border-zinc-300 bg-white px-3 pr-9 text-sm font-mono text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-200 dark:focus:ring-zinc-200 shadow-2xs transition-colors"
             />
             <button
               type="button"
@@ -89,7 +89,7 @@
               id="csrf-input"
               autocomplete="off"
               placeholder="{% if csrf_hint %}{{ csrf_hint }} (saved — leave blank to keep){% else %}Paste your csrftoken cookie here...{% endif %}"
-              class="h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 pr-9 text-sm font-mono text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-100 dark:focus:ring-zinc-100 shadow-2xs transition-colors"
+              class="h-9 w-full rounded-lg border border-zinc-300 bg-white px-3 pr-9 text-sm font-mono text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-200 dark:focus:ring-zinc-200 shadow-2xs transition-colors"
             />
             <button
               type="button"
@@ -107,7 +107,7 @@
         </div>
 
         <!-- How to find cookies disclosure -->
-        <details class="group rounded-lg border border-zinc-200/80 bg-zinc-50/60 p-3.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-400">
+        <details class="group rounded-lg border border-zinc-200 bg-zinc-50/70 p-3.5 text-xs text-zinc-600 dark:border-zinc-700/80 dark:bg-zinc-950/50 dark:text-zinc-400">
           <summary class="flex items-center justify-between font-medium text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100 cursor-pointer select-none">
             <span class="flex items-center gap-2">
               {% lucide "info" class="h-3.5 w-3.5" %}
@@ -115,7 +115,7 @@
             </span>
             {% lucide "chevron-down" class="h-3.5 w-3.5 text-zinc-400 transition-transform group-open:rotate-180" %}
           </summary>
-          <div class="mt-3 flex flex-col gap-1.5 border-t border-zinc-200/60 pt-3 dark:border-zinc-800">
+          <div class="mt-3 flex flex-col gap-1.5 border-t border-zinc-200/80 pt-3 dark:border-zinc-800">
             <p>1. Open <a href="https://leetcode.com" target="_blank" rel="noopener" class="font-medium underline text-zinc-900 dark:text-zinc-100">leetcode.com</a> and sign in to your account.</p>
             <p>2. Open Developer Tools (<kbd class="rounded border border-zinc-300 bg-white px-1.5 py-0.5 font-mono text-[10px] text-zinc-700 shadow-2xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">F12</kbd> or <kbd class="rounded border border-zinc-300 bg-white px-1.5 py-0.5 font-mono text-[10px] text-zinc-700 shadow-2xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">Ctrl+Shift+I</kbd> / <kbd class="rounded border border-zinc-300 bg-white px-1.5 py-0.5 font-mono text-[10px] text-zinc-700 shadow-2xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">Cmd+Option+I</kbd>).</p>
             <p>3. Navigate to <strong>Application</strong> (Chrome) or <strong>Storage</strong> (Firefox) &rarr; <strong>Cookies</strong> &rarr; <code>https://leetcode.com</code>.</p>
@@ -125,7 +125,7 @@
       </div>
 
       <!-- Card Footer -->
-      <div class="rounded-b-xl flex items-center justify-between border-t border-zinc-100 bg-zinc-50/50 px-6 py-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+      <div class="rounded-b-xl flex items-center justify-between border-t border-zinc-200/70 bg-zinc-50/70 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950/40">
         <span class="text-xs text-zinc-500 dark:text-zinc-400">
           Stored in <code class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">data/secrets.json</code> (0600)
         </span>
@@ -332,6 +332,14 @@
     if (badge && badge.textContent.includes('Auto-detected')) {
       detectAndSetTimezone(false);
     }
+  });
+
+  // Clear session and CSRF inputs when candidate edit fails and previous working credentials are kept
+  document.body.addEventListener('clearCredentialsInputs', function() {
+    const sessionInput = document.getElementById('session-input');
+    const csrfInput = document.getElementById('csrf-input');
+    if (sessionInput) sessionInput.value = '';
+    if (csrfInput) csrfInput.value = '';
   });
 </script>
 {% endblock %}

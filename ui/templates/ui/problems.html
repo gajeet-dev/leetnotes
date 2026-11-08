@@ -22,7 +22,7 @@
     hx-push-url="true"
     hx-trigger="submit"
     autocomplete="off"
-    class="flex flex-wrap items-center gap-2.5 rounded-xl border border-zinc-200 bg-white p-2.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+    class="flex flex-wrap items-center gap-2.5 rounded-xl border border-zinc-200/90 bg-white p-2.5 shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900"
   >
     <!-- Hidden Inputs for Active Filters -->
     <input type="hidden" name="per_page" id="filter-per-page" value="{{ per_page|default:25 }}" />
@@ -43,7 +43,7 @@
         name="q"
         value="{{ query }}"
         placeholder="Search by ID, title, or slug..."
-        class="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50/50 pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-100 dark:focus:bg-zinc-900 dark:focus:ring-zinc-100"
+        class="h-9 w-full rounded-lg border border-zinc-300 bg-white pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-200 dark:focus:bg-zinc-950 dark:focus:ring-zinc-200"
         hx-get="{% url 'ui:problems' %}"
         hx-target="#problems-table-container"
         hx-swap="outerHTML"
@@ -58,7 +58,7 @@
       type="button"
       id="btn-toggle-filters"
       onclick="toggleFilterPanel()"
-      class="h-9 inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50/50 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-200 dark:hover:bg-zinc-800 transition-colors shadow-xs cursor-pointer"
+      class="h-9 inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-950 transition-colors shadow-xs cursor-pointer"
       title="Toggle filter panel"
     >
       {% lucide "funnel" class="h-3.5 w-3.5" %}
@@ -95,7 +95,7 @@
   <!-- Options Bar (Revealed below search & filter bar when problems are selected) -->
   <div
     id="selection-options-bar"
-    class="hidden flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 transition-all duration-200"
+    class="hidden flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white p-3 shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900 transition-all duration-200"
   >
     <!-- Left: Selected Count, Select All Remaining, & Deselect Button -->
     <div class="flex flex-wrap items-center gap-2.5 sm:gap-3.5">
@@ -155,7 +155,7 @@
           type="button"
           id="refetch-menu-btn"
           onclick="toggleRefetchDropdown(event)"
-          class="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
+          class="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3.5 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-950 cursor-pointer"
           title="Mark selected parts for re-fetching"
         >
           {% lucide "rotate-ccw" class="h-3.5 w-3.5" %}
@@ -165,7 +165,7 @@
 
         <div
           id="refetch-dropdown"
-          class="hidden absolute right-0 z-30 mt-1.5 w-72 sm:w-80 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
+          class="hidden absolute right-0 z-30 mt-1.5 w-72 sm:w-80 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
         >
           <button
             type="button"
@@ -227,7 +227,7 @@
     ></div>
 
     <!-- Modal Card -->
-    <div class="relative z-10 w-full max-w-lg sm:max-w-xl transform overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 sm:p-7 text-left shadow-2xl transition-all dark:border-zinc-800 dark:bg-zinc-900">
+    <div class="relative z-10 w-full max-w-lg sm:max-w-xl transform overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 sm:p-7 text-left shadow-2xl transition-all dark:border-zinc-700 dark:bg-zinc-900">
       <div class="flex items-start gap-4 sm:gap-5">
         <div class="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-400">
           {% lucide "rotate-ccw" class="h-6 w-6 sm:h-7 sm:w-7" %}

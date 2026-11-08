@@ -269,10 +269,25 @@ def save_credentials_view(request):
     ok, msg, details = save_leetcode_credentials(session=session, csrf_token=csrf_token)
 
     if request.headers.get("HX-Request"):
+        preserved = details.get("preserved_previous", False)
+        if ok:
+            toast_status = "success"
+        elif preserved:
+            toast_status = "warning"
+        else:
+            toast_status = "error"
+
+        # Stay until closed for preserved credentials warning or error
+        is_persistent = bool(preserved or not ok)
+
         toast_html = render(
             request,
             "ui/partials/toast.html",
-            {"status": "success" if ok else "error", "message": msg},
+            {
+                "status": toast_status,
+                "message": msg,
+                "persistent": is_persistent,
+            },
         ).content.decode("utf-8")
 
         status_panel_html = render(
@@ -286,10 +301,13 @@ def save_credentials_view(request):
         ).content.decode("utf-8")
 
         # Render floating toast and simultaneously update the connection status panel OOB
-        return HttpResponse(
+        response = HttpResponse(
             toast_html
             + f'<div id="connection-status-panel" hx-swap-oob="outerHTML">{status_panel_html}</div>'
         )
+        if preserved:
+            response["HX-Trigger"] = json.dumps({"clearCredentialsInputs": True})
+        return response
 
     return JsonResponse({"ok": ok, "message": msg, "details": details})
 

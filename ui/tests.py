@@ -594,6 +594,99 @@ class SettingsUITests(DataDirDBTestCase):
         config = load_config()
         self.assertEqual(config.leetcode_username, "auto_detected_coder")
 
+    @patch("ui.helpers.settings.check_tokens_connection")
+    def test_save_invalid_credentials_preserves_old_working_credentials(self, mock_check):
+        update_credentials(session="original_good_session", csrf_token="original_good_csrf")
+
+        def side_effect(session, csrf):
+            if session == "mistaken_bad_session":
+                return mock.MagicMock(
+                    ok=False,
+                    state=mock.MagicMock(value="signed_out"),
+                    message="LeetCode doesn't accept these cookies: they have probably expired.",
+                )
+            return mock.MagicMock(
+                ok=True,
+                state=mock.MagicMock(value="connected"),
+                username="safe_coder",
+                is_premium=False,
+                message="Connected as safe_coder.",
+            )
+
+        mock_check.side_effect = side_effect
+
+        url = reverse("ui:save_credentials")
+        response = self.client.post(
+            url,
+            {"session": "mistaken_bad_session", "csrf_token": "original_good_csrf"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("Your previous working credentials for safe_coder were kept", content)
+        self.assertIn("toast-notification", content)
+        self.assertIn('data-persistent="true"', content)
+        self.assertEqual(
+            response.headers.get("HX-Trigger"),
+            json.dumps({"clearCredentialsInputs": True}),
+        )
+
+        # Secrets file must still have original good session
+        creds = load_credentials()
+        self.assertEqual(creds.session, "original_good_session")
+
+    @patch("ui.helpers.settings.check_tokens_connection")
+    def test_save_invalid_credentials_when_old_were_expired_saves_new(self, mock_check):
+        update_credentials(session="expired_old_session", csrf_token="expired_old_csrf")
+
+        # Both new and old fail connection
+        mock_check.return_value = mock.MagicMock(
+            ok=False,
+            state=mock.MagicMock(value="signed_out"),
+            message="Cookies rejected.",
+        )
+
+        url = reverse("ui:save_credentials")
+        response = self.client.post(
+            url,
+            {"session": "new_attempt_session", "csrf_token": "new_attempt_csrf"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("Connection Failed", content)
+        self.assertIn("Cookies rejected", content)
+
+        # Since old was also invalid, the new attempt is stored
+        creds = load_credentials()
+        self.assertEqual(creds.session, "new_attempt_session")
+        self.assertEqual(creds.csrf_token, "new_attempt_csrf")
+
+    def test_settings_page_auto_checks_connection_when_configured(self):
+        update_credentials(session="configured_session", csrf_token="configured_csrf")
+        url = reverse("ui:settings")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'hx-trigger="load"')
+        self.assertContains(response, reverse("ui:test_connection"))
+        self.assertContains(response, "Checking connection...")
+
+    @patch("ui.helpers.settings.check_connection")
+    def test_connection_failed_renders_full_message_without_truncate(self, mock_conn):
+        full_error = "LeetCode doesn't accept these cookies: they have probably expired. Copy fresh ones from your browser and update them in Settings."
+        mock_conn.return_value = mock.MagicMock(
+            ok=False,
+            state=mock.MagicMock(value="signed_out"),
+            message=full_error,
+        )
+        url = reverse("ui:test_connection")
+        response = self.client.post(url, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("Connection Failed", content)
+        self.assertIn("Copy fresh ones from your browser and update them in Settings.", content)
+        self.assertIn("break-words", content)
+
     @patch("ui.helpers.settings.check_connection")
     def test_test_connection_endpoint(self, mock_conn):
         mock_conn.return_value = mock.MagicMock(
