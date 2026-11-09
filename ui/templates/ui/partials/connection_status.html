@@ -22,7 +22,7 @@
             hx-post="{% url 'ui:test_connection' %}"
             hx-target="#connection-status-panel"
             hx-swap="outerHTML"
-            hx-indicator="#conn-spinner-test"
+            hx-indicator="this"
             class="group h-8 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white/90 px-3 text-xs font-medium text-emerald-800 shadow-2xs hover:bg-white dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
             title="Re-verify LeetCode session"
           >
@@ -52,7 +52,7 @@
           hx-post="{% url 'ui:test_connection' %}"
           hx-target="#connection-status-panel"
           hx-swap="outerHTML"
-          hx-indicator="#conn-spinner-retry"
+          hx-indicator="this"
           class="group h-8 inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white/90 px-3 text-xs font-medium text-rose-800 shadow-2xs hover:bg-white dark:border-rose-800 dark:bg-rose-900/40 dark:text-rose-200 dark:hover:bg-rose-900/60 transition-colors cursor-pointer shrink-0 self-start whitespace-nowrap"
         >
           <span class="relative flex items-center justify-center h-3.5 w-3.5">
