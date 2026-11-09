@@ -7,6 +7,11 @@ from django.conf import settings
 from leetcode.bootstrap import ClientSettings, build_client, reset_client
 from leetcode.connection import ConnectionResult, check_connection
 from prefill.providers.config import default_provider_name, provider_names
+from prefill.providers.discovery import (
+    CLAUDE_PRESET_MODELS,
+    EFFORT_LEVELS,
+    get_agy_models,
+)
 from userconfig import effective
 from userconfig.credentials import (
     CSRF_COOKIE,
@@ -77,6 +82,21 @@ def get_settings_context() -> dict:
     effective_ppm = effective.problems_per_minute()
     ppm_display = int(effective_ppm) if effective_ppm.is_integer() else effective_ppm
 
+    saved_providers = config.providers or {}
+    claude_saved = saved_providers.get("claude", {})
+    agy_saved = saved_providers.get("agy", {})
+
+    claude_model = claude_saved.get("model", "sonnet")
+    claude_effort = claude_saved.get("effort", "")
+    claude_preset_ids = {m["id"] for m in CLAUDE_PRESET_MODELS}
+    claude_is_custom = bool(claude_model and claude_model not in claude_preset_ids)
+
+    agy_model = agy_saved.get("model", "")
+    agy_effort = agy_saved.get("effort", "")
+    agy_models = get_agy_models()
+    agy_known_ids = {m["id"] for m in agy_models}
+    agy_is_custom = bool(agy_model and agy_model not in agy_known_ids)
+
     return {
         "active": "settings",
         "session_hint": mask_secret(raw_session),
@@ -96,6 +116,16 @@ def get_settings_context() -> dict:
         "review_before_writing": config.review_before_writing,
         "default_provider": default_provider_name(),
         "available_providers": provider_names(),
+        "claude_model": claude_model,
+        "claude_effort": claude_effort,
+        "claude_is_custom": claude_is_custom,
+        "claude_preset_models": CLAUDE_PRESET_MODELS,
+        "claude_effort_levels": EFFORT_LEVELS,
+        "agy_model": agy_model,
+        "agy_effort": agy_effort,
+        "agy_is_custom": agy_is_custom,
+        "agy_models": agy_models,
+        "agy_effort_levels": EFFORT_LEVELS,
     }
 
 
@@ -292,9 +322,14 @@ def save_general_settings(
     problems_per_minute: float | None = None,
     default_provider: str | None = None,
     review_before_writing: bool | None = None,
+    claude_model: str | None = None,
+    claude_effort: str | None = None,
+    agy_model: str | None = None,
+    agy_effort: str | None = None,
 ) -> tuple[bool, str, dict]:
     """Validate and persist notes storage, timezone, sync pacing, and directory creation preferences."""
     changes: dict = {}
+    config = load_config()
     if create_directory is not None:
         changes["create_directory"] = bool(create_directory)
 
@@ -375,6 +410,27 @@ def save_general_settings(
 
     if review_before_writing is not None:
         changes["review_before_writing"] = bool(review_before_writing)
+
+    if any(v is not None for v in (claude_model, claude_effort, agy_model, agy_effort)):
+        current_providers = dict(config.providers or {})
+
+        if claude_model is not None or claude_effort is not None:
+            claude_entry = dict(current_providers.get("claude", {}))
+            if claude_model is not None:
+                claude_entry["model"] = claude_model.strip()
+            if claude_effort is not None:
+                claude_entry["effort"] = claude_effort.strip()
+            current_providers["claude"] = claude_entry
+
+        if agy_model is not None or agy_effort is not None:
+            agy_entry = dict(current_providers.get("agy", {}))
+            if agy_model is not None:
+                agy_entry["model"] = agy_model.strip()
+            if agy_effort is not None:
+                agy_entry["effort"] = agy_effort.strip()
+            current_providers["agy"] = agy_entry
+
+        changes["providers"] = current_providers
 
     try:
         update_config(changes)

@@ -23,6 +23,7 @@ class CliProvider(Provider):
         *,
         command: list[str],
         model: str = "",
+        effort: str = "",
         prompt_via: str = "stdin",
         system_prompt_flag: str | None = None,
         envelope_key: str | None = None,
@@ -31,6 +32,7 @@ class CliProvider(Provider):
     ):
         super().__init__(name, model)
         self.command = command
+        self.effort = (effort or "").strip()
         self.prompt_via = prompt_via
         self.system_prompt_flag = system_prompt_flag
         self.envelope_key = envelope_key
@@ -85,7 +87,12 @@ class CliProvider(Provider):
 
     def build_command(self, prompt: str, extra_args: list[str]) -> list[str]:
         filled = [self.fill_placeholders(part, prompt) for part in self.command]
-        return filled + extra_args
+        cli_args: list[str] = []
+        if self.model and not any(MODEL_PLACEHOLDER in part for part in self.command):
+            cli_args.extend(["--model", self.model])
+        if self.effort:
+            cli_args.extend(["--effort", self.effort])
+        return filled + cli_args + extra_args
 
     def fill_placeholders(self, part: str, prompt: str) -> str:
         if part == PROMPT_PLACEHOLDER:

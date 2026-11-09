@@ -954,3 +954,36 @@ class SettingsUITests(DataDirDBTestCase):
         self.assertEqual(cfg3.output_dirs, ["/tmp/new_test_vault"])
         self.assertEqual(cfg3.time_zone, "Europe/London")
         self.assertTrue(cfg3.create_directory)
+
+    def test_save_provider_models_and_efforts(self):
+        url = reverse("ui:save_general_settings")
+        response = self.client.post(
+            url,
+            {
+                "default_provider": "agy",
+                "claude_model_choice": "opus",
+                "claude_effort": "high",
+                "agy_model_choice": "custom",
+                "agy_model_custom": "gemini-3.8-flash-high",
+                "agy_effort": "max",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        cfg = load_config()
+        self.assertEqual(cfg.default_provider, "agy")
+        self.assertIn("claude", cfg.providers)
+        self.assertEqual(cfg.providers["claude"]["model"], "opus")
+        self.assertEqual(cfg.providers["claude"]["effort"], "high")
+        self.assertIn("agy", cfg.providers)
+        self.assertEqual(cfg.providers["agy"]["model"], "gemini-3.8-flash-high")
+        self.assertEqual(cfg.providers["agy"]["effort"], "max")
+
+    def test_refresh_agy_models_endpoint(self):
+        url = reverse("ui:refresh_agy_models")
+        with patch("ui.views.get_agy_models", return_value=[{"id": "test-m", "name": "Test Model"}]):
+            response = self.client.post(url, HTTP_HX_REQUEST="true")
+            self.assertEqual(response.status_code, 200)
+            content = response.content.decode("utf-8")
+            self.assertIn("Retrieved 1 models from Antigravity CLI", content)
+            self.assertIn("test-m", content)

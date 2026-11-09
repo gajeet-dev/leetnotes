@@ -1,0 +1,101 @@
+{% load lucide %}
+<div id="agy-model-dropdown-container" class="flex flex-col gap-1.5" {% if oob %}hx-swap-oob="outerHTML:#agy-model-dropdown-container"{% endif %}>
+  <div class="flex items-center justify-between">
+    <label class="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+      Model
+    </label>
+    <button
+      type="button"
+      hx-post="{% url 'ui:refresh_agy_models' %}"
+      hx-indicator="this"
+      class="group inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+      title="Fetch latest models from Antigravity CLI"
+    >
+      <span class="relative flex items-center justify-center h-3 w-3">
+        <span class="htmx-indicator absolute inset-0 flex items-center justify-center">
+          {% lucide "loader-circle" class="h-3 w-3 animate-spin text-zinc-600 dark:text-zinc-400" %}
+        </span>
+        <span class="group-[.htmx-request]:hidden flex items-center justify-center">
+          {% lucide "rotate-cw" class="h-3 w-3" %}
+        </span>
+      </span>
+      <span>Detect models</span>
+    </button>
+  </div>
+
+  <div class="dropdown-menu w-full relative" id="agy-model-dropdown">
+    <button
+      type="button"
+      id="agy-model-trigger-btn"
+      class="h-9 w-full inline-flex items-center justify-between rounded-lg border border-zinc-300 bg-white px-3 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-100 dark:focus:border-zinc-200 shadow-2xs transition-colors cursor-pointer"
+      aria-expanded="false"
+    >
+      <span id="agy-model-selected-label" class="font-normal text-left truncate">
+        {% if agy_is_custom %}Custom ({{ agy_model }}){% elif not agy_model %}Default (CLI default){% else %}{% for m in agy_models %}{% if m.id == agy_model %}{{ m.name }}{% endif %}{% endfor %}{% endif %}
+      </span>
+      {% lucide "chevron-down" class="h-4 w-4 shrink-0 text-zinc-400" size=16 %}
+    </button>
+    <input type="hidden" name="agy_model_choice" id="agy-model-choice-input" value="{% if agy_is_custom %}custom{% else %}{{ agy_model }}{% endif %}" />
+
+    <div data-popover aria-hidden="true" class="absolute top-full left-0 mt-1 w-full max-h-60 overflow-y-auto z-50 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+      <div role="menu" class="w-full flex flex-col gap-0.5">
+        <div
+          role="menuitemradio"
+          data-model=""
+          aria-checked="{% if not agy_model and not agy_is_custom %}true{% else %}false{% endif %}"
+          class="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer select-none transition-colors"
+          onclick="selectAgyModel('', 'Default (CLI default)')"
+        >
+          <span class="font-medium truncate">Default (CLI default)</span>
+          <span data-indicator>{% lucide "check" class="h-3.5 w-3.5 text-zinc-900 dark:text-zinc-100" size=14 %}</span>
+        </div>
+
+        {% if agy_models %}
+          <div role="separator" class="my-1 border-t border-zinc-100 dark:border-zinc-800"></div>
+          <div class="px-2.5 py-1 text-[10px] font-semibold tracking-wider text-zinc-400 dark:text-zinc-500 uppercase">
+            Discovered Models
+          </div>
+          {% for m in agy_models %}
+            <div
+              role="menuitemradio"
+              data-model="{{ m.id }}"
+              aria-checked="{% if not agy_is_custom and agy_model == m.id %}true{% else %}false{% endif %}"
+              class="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer select-none transition-colors"
+              onclick="selectAgyModel('{{ m.id }}', '{{ m.name }}')"
+            >
+              <div class="flex flex-col truncate pr-2">
+                <span class="font-medium truncate">{{ m.name }}</span>
+                <span class="font-mono text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{{ m.id }}</span>
+              </div>
+              <span data-indicator>{% lucide "check" class="h-3.5 w-3.5 text-zinc-900 dark:text-zinc-100" size=14 %}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+
+        <div role="separator" class="my-1 border-t border-zinc-100 dark:border-zinc-800"></div>
+        <div
+          role="menuitemradio"
+          data-model="custom"
+          aria-checked="{% if agy_is_custom %}true{% else %}false{% endif %}"
+          class="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer select-none transition-colors"
+          onclick="selectAgyModel('custom', 'Custom...')"
+        >
+          <span class="font-medium truncate">Custom...</span>
+          <span data-indicator>{% lucide "check" class="h-3.5 w-3.5 text-zinc-900 dark:text-zinc-100" size=14 %}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Model Text Input for AGY -->
+  <div id="agy-custom-model-wrapper" class="{% if not agy_is_custom %}hidden{% endif %} mt-1">
+    <input
+      type="text"
+      name="agy_model_custom"
+      id="agy-custom-model-input"
+      value="{% if agy_is_custom %}{{ agy_model }}{% endif %}"
+      placeholder="e.g. gemini-3.8-flash-high or custom model ID"
+      class="h-8 w-full rounded-md border border-zinc-300 bg-white px-2.5 font-mono text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-100 dark:focus:border-zinc-200 shadow-2xs transition-colors"
+    />
+  </div>
+</div>

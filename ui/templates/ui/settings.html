@@ -222,6 +222,123 @@
         item.setAttribute('aria-checked', itemVal === value ? 'true' : 'false');
       });
     }
+    const claudeBadge = document.getElementById('claude-active-badge');
+    if (claudeBadge) claudeBadge.style.display = (value === 'claude') ? 'inline-flex' : 'none';
+    const agyBadge = document.getElementById('agy-active-badge');
+    if (agyBadge) agyBadge.style.display = (value === 'agy') ? 'inline-flex' : 'none';
+
+    const trigger = document.getElementById('provider-trigger-btn');
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'false');
+      const popover = document.querySelector('#provider-dropdown [data-popover]');
+      if (popover) popover.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function selectClaudeModel(value, label) {
+    const input = document.getElementById('claude-model-choice-input');
+    if (input) input.value = value;
+    const labelEl = document.getElementById('claude-model-selected-label');
+    if (labelEl) labelEl.textContent = label;
+
+    const customWrapper = document.getElementById('claude-custom-model-wrapper');
+    if (customWrapper) {
+      customWrapper.classList.toggle('hidden', value !== 'custom');
+      if (value === 'custom') {
+        const customInput = document.getElementById('claude-custom-model-input');
+        customInput?.focus();
+      }
+    }
+
+    const menu = document.querySelector('#claude-model-dropdown [role="menu"]');
+    if (menu) {
+      menu.querySelectorAll('[role="menuitemradio"]').forEach(function(item) {
+        const itemVal = item.getAttribute('data-model');
+        item.setAttribute('aria-checked', itemVal === value ? 'true' : 'false');
+      });
+    }
+
+    const trigger = document.getElementById('claude-model-trigger-btn');
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'false');
+      const popover = document.querySelector('#claude-model-dropdown [data-popover]');
+      if (popover) popover.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function selectClaudeEffort(value, label) {
+    const input = document.getElementById('claude-effort-input');
+    if (input) input.value = value;
+    const labelEl = document.getElementById('claude-effort-selected-label');
+    if (labelEl) labelEl.textContent = label;
+
+    const menu = document.querySelector('#claude-effort-dropdown [role="menu"]');
+    if (menu) {
+      menu.querySelectorAll('[role="menuitemradio"]').forEach(function(item) {
+        const itemVal = item.getAttribute('data-effort');
+        item.setAttribute('aria-checked', itemVal === value ? 'true' : 'false');
+      });
+    }
+
+    const trigger = document.getElementById('claude-effort-trigger-btn');
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'false');
+      const popover = document.querySelector('#claude-effort-dropdown [data-popover]');
+      if (popover) popover.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function selectAgyModel(value, label) {
+    const input = document.getElementById('agy-model-choice-input');
+    if (input) input.value = value;
+    const labelEl = document.getElementById('agy-model-selected-label');
+    if (labelEl) labelEl.textContent = label;
+
+    const customWrapper = document.getElementById('agy-custom-model-wrapper');
+    if (customWrapper) {
+      customWrapper.classList.toggle('hidden', value !== 'custom');
+      if (value === 'custom') {
+        const customInput = document.getElementById('agy-custom-model-input');
+        customInput?.focus();
+      }
+    }
+
+    const menu = document.querySelector('#agy-model-dropdown [role="menu"]');
+    if (menu) {
+      menu.querySelectorAll('[role="menuitemradio"]').forEach(function(item) {
+        const itemVal = item.getAttribute('data-model');
+        item.setAttribute('aria-checked', itemVal === value ? 'true' : 'false');
+      });
+    }
+
+    const trigger = document.getElementById('agy-model-trigger-btn');
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'false');
+      const popover = document.querySelector('#agy-model-dropdown [data-popover]');
+      if (popover) popover.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function selectAgyEffort(value, label) {
+    const input = document.getElementById('agy-effort-input');
+    if (input) input.value = value;
+    const labelEl = document.getElementById('agy-effort-selected-label');
+    if (labelEl) labelEl.textContent = label;
+
+    const menu = document.querySelector('#agy-effort-dropdown [role="menu"]');
+    if (menu) {
+      menu.querySelectorAll('[role="menuitemradio"]').forEach(function(item) {
+        const itemVal = item.getAttribute('data-effort');
+        item.setAttribute('aria-checked', itemVal === value ? 'true' : 'false');
+      });
+    }
+
+    const trigger = document.getElementById('agy-effort-trigger-btn');
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'false');
+      const popover = document.querySelector('#agy-effort-dropdown [data-popover]');
+      if (popover) popover.setAttribute('aria-hidden', 'true');
+    }
   }
 
   function setTimezoneSelection(tz, isAutoDetected = false) {

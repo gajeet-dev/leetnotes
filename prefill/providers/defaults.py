@@ -22,6 +22,7 @@ BUILTIN_PROVIDERS: dict[str, dict] = {
             DISALLOWED_TOOLS,
         ],
         "model": "sonnet",
+        "effort": "",
         "system_prompt_flag": "--system-prompt",
         "prompt_via": "stdin",
         "envelope_key": "result",
@@ -30,6 +31,8 @@ BUILTIN_PROVIDERS: dict[str, dict] = {
     "agy": {  # Antigravity CLI
         "type": "cli",
         "command": ["agy", "-p", "{prompt}", "--print-timeout", "5m"],
+        "model": "",
+        "effort": "",
         "prompt_via": "arg",  # no system-prompt flag: system and user prompts go in as one text
         "timeout": 330,  # a little longer than agy's own 5m limit
     },

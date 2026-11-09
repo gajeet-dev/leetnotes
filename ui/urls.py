@@ -14,5 +14,6 @@ urlpatterns = [
     path("settings/test-connection/", views.test_connection_view, name="test_connection"),
     path("settings/general/", views.save_general_settings_view, name="save_general_settings"),
     path("settings/timezone/", views.set_timezone_view, name="set_timezone"),
+    path("settings/providers/agy/refresh-models/", views.refresh_agy_models_view, name="refresh_agy_models"),
     path("settings/reset/", views.reset_settings_view, name="reset_settings"),
 ]

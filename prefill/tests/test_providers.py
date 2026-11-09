@@ -88,6 +88,25 @@ class CliProviderTests(SimpleTestCase):
         with self.assertRaises(ValueError):
             CliProvider("p", command=["x"], prompt_via="arg")
 
+    def test_effort_and_dynamic_model_flags(self):
+        # 1. Claude style: command has {model}, effort is added
+        provider = CliProvider("claude", command=["fcc-claude", "-p", "--model", "{model}"], model="opus", effort="high")
+        cmd = provider.build_command("test prompt", [])
+        self.assertIn("--model", cmd)
+        self.assertIn("opus", cmd)
+        self.assertIn("--effort", cmd)
+        self.assertIn("high", cmd)
+
+        # 2. AGY style: command has no {model}, model and effort are appended
+        agy = CliProvider("agy", command=["agy", "-p", "{prompt}"], model="gemini-3.8-flash-high", effort="medium", prompt_via="arg")
+        cmd_agy = agy.build_command("test prompt", [])
+        self.assertEqual(cmd_agy, ["agy", "-p", "test prompt", "--model", "gemini-3.8-flash-high", "--effort", "medium"])
+
+        # 3. AGY default: empty model and effort are omitted
+        agy_def = CliProvider("agy", command=["agy", "-p", "{prompt}"], model="", effort="", prompt_via="arg")
+        cmd_def = agy_def.build_command("test prompt", [])
+        self.assertEqual(cmd_def, ["agy", "-p", "test prompt"])
+
 
 class FakeProvider:
     name = "fake"

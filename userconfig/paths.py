@@ -20,6 +20,10 @@ def secrets_path() -> Path:
     return data_dir() / "secrets.json"
 
 
+def agy_models_cache_path() -> Path:
+    return data_dir() / "agy_models.json"
+
+
 def ensure_data_dir() -> Path:
     folder = data_dir()
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)

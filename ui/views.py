@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET, require_POST
 from problems.models import Problem, SyncTask
 from problems.services.runner import start_background_sync
 from problems.services.sync import mark_for_refetch
+from prefill.providers.discovery import get_agy_models
 from userconfig import AppConfig, load_config, save_config
 
 from .helpers.problems import (
@@ -349,6 +350,26 @@ def save_general_settings_view(request):
         else None
     )
 
+    # Claude Code settings
+    claude_model_choice = request.POST.get("claude_model_choice")
+    if claude_model_choice == "custom":
+        claude_model = request.POST.get("claude_model_custom", "").strip() or "sonnet"
+    elif claude_model_choice is not None:
+        claude_model = claude_model_choice.strip()
+    else:
+        claude_model = None
+    claude_effort = request.POST.get("claude_effort")
+
+    # Antigravity CLI settings
+    agy_model_choice = request.POST.get("agy_model_choice")
+    if agy_model_choice == "custom":
+        agy_model = request.POST.get("agy_model_custom", "").strip()
+    elif agy_model_choice is not None:
+        agy_model = agy_model_choice.strip()
+    else:
+        agy_model = None
+    agy_effort = request.POST.get("agy_effort")
+
     ok, msg, details = save_general_settings(
         output_dir=output_dir,
         create_directory=create_directory,
@@ -356,6 +377,10 @@ def save_general_settings_view(request):
         problems_per_minute=ppm,
         default_provider=provider,
         review_before_writing=review,
+        claude_model=claude_model,
+        claude_effort=claude_effort,
+        agy_model=agy_model,
+        agy_effort=agy_effort,
     )
 
     if request.headers.get("HX-Request"):
@@ -398,6 +423,46 @@ def set_timezone_view(request):
 
     ok, msg = auto_set_timezone(tz_name)
     return JsonResponse({"status": "ok" if ok else "skipped", "message": msg})
+
+
+@require_POST
+def refresh_agy_models_view(request):
+    """Fetch the latest available models from Antigravity CLI and update the models dropdown."""
+    models = get_agy_models(force_refresh=True)
+    config = load_config()
+    saved_agy = (config.providers or {}).get("agy", {})
+    current_model = saved_agy.get("model", "")
+    known_ids = {m["id"] for m in models}
+    is_custom = bool(current_model and current_model not in known_ids)
+
+    if models:
+        status = "success"
+        msg = f"Retrieved {len(models)} models from Antigravity CLI."
+    else:
+        status = "warning"
+        msg = "Could not retrieve models from Antigravity CLI. You can enter a custom model name."
+
+    if request.headers.get("HX-Request"):
+        toast_html = render(
+            request,
+            "ui/partials/toast.html",
+            {"status": status, "message": msg},
+        ).content.decode("utf-8")
+
+        dropdown_html = render(
+            request,
+            "ui/partials/agy_model_dropdown.html",
+            {
+                "agy_models": models,
+                "agy_model": current_model,
+                "agy_is_custom": is_custom,
+                "oob": True,
+            },
+        ).content.decode("utf-8")
+
+        return HttpResponse(toast_html + dropdown_html)
+
+    return redirect("ui:settings")
 
 
 @require_POST
