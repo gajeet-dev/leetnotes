@@ -29,9 +29,11 @@ class CliProvider(Provider):
         envelope_key: str | None = None,
         timeout: float = 300,
         cwd: Path | None = None,
+        description: str = "",
     ):
         super().__init__(name, model)
         self.command = command
+        self.description = description
         self.effort = (effort or "").strip()
         self.prompt_via = prompt_via
         self.system_prompt_flag = system_prompt_flag

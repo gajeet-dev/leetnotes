@@ -4,7 +4,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 from userconfig import AppConfig, ConfigError, load_config
 
-from .defaults import BUILTIN_PROVIDERS, DEFAULT_PROVIDER_NAME
+from .defaults import DEFAULT_PROVIDER_NAME, load_builtin_providers
 
 
 def saved_config() -> AppConfig:
@@ -16,10 +16,11 @@ def saved_config() -> AppConfig:
 
 def merge_providers(saved: dict[str, dict]) -> dict[str, dict]:
     """Every provider by name: its built-in definition with the saved options on top."""
-    custom = [name for name in saved if name not in BUILTIN_PROVIDERS]
+    builtins = load_builtin_providers()
+    custom = [name for name in saved if name not in builtins]
     return {
-        name: {**BUILTIN_PROVIDERS.get(name, {}), **saved.get(name, {})}
-        for name in [*BUILTIN_PROVIDERS, *custom]
+        name: {**builtins.get(name, {}), **saved.get(name, {})}
+        for name in [*builtins, *custom]
     }
 
 

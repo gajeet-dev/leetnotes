@@ -24,6 +24,10 @@ def agy_models_cache_path() -> Path:
     return data_dir() / "agy_models.json"
 
 
+def ai_providers_path() -> Path:
+    return PROJECT_ROOT / "ai_providers.json"
+
+
 def ensure_data_dir() -> Path:
     folder = data_dir()
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)

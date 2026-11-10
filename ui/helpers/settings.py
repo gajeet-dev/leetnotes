@@ -6,7 +6,7 @@ from django.conf import settings
 
 from leetcode.bootstrap import ClientSettings, build_client, reset_client
 from leetcode.connection import ConnectionResult, check_connection
-from prefill.providers.config import default_provider_name, provider_names
+from prefill.providers.config import all_providers, default_provider_name, provider_names
 from prefill.providers.discovery import (
     CLAUDE_PRESET_MODELS,
     EFFORT_LEVELS,
@@ -87,12 +87,14 @@ def get_settings_context() -> dict:
     agy_saved = saved_providers.get("agy", {})
 
     claude_model = claude_saved.get("model", "sonnet")
-    claude_effort = claude_saved.get("effort", "")
+    claude_default_effort = all_providers().get("claude", {}).get("effort", "medium")
+    claude_effort = claude_saved.get("effort") if "effort" in claude_saved else claude_default_effort
     claude_preset_ids = {m["id"] for m in CLAUDE_PRESET_MODELS}
     claude_is_custom = bool(claude_model and claude_model not in claude_preset_ids)
 
     agy_model = agy_saved.get("model", "")
-    agy_effort = agy_saved.get("effort", "")
+    agy_default_effort = all_providers().get("agy", {}).get("effort", "medium")
+    agy_effort = agy_saved.get("effort") if "effort" in agy_saved else agy_default_effort
     agy_models = get_agy_models()
     agy_known_ids = {m["id"] for m in agy_models}
     agy_is_custom = bool(agy_model and agy_model not in agy_known_ids)

@@ -1,41 +1,37 @@
-"""The providers that ship with the app. Your changes live in data/config.json, never here."""
+"""The providers that ship with the app. Defined in ai_providers.json in the project root."""
 
-DISALLOWED_TOOLS = "Bash Read Write Edit Glob Grep WebFetch WebSearch NotebookEdit Task"
+import json
+from pathlib import Path
 
-BUILTIN_PROVIDERS: dict[str, dict] = {
-    "manual": {
-        "type": "manual",
-        "model": "manual",
-        "description": "Manual input: paste AI response from web chat",
-    },
-    "claude": {  # the free Claude Code wrapper
-        "type": "cli",
-        "command": [
-            "fcc-claude",
-            "-p",
-            "--output-format",
-            "json",
-            "--model",
-            "{model}",
-            "--safe-mode",
-            "--disallowedTools",
-            DISALLOWED_TOOLS,
-        ],
-        "model": "sonnet",
-        "effort": "",
-        "system_prompt_flag": "--system-prompt",
-        "prompt_via": "stdin",
-        "envelope_key": "result",
-        "timeout": 300,
-    },
-    "agy": {  # Antigravity CLI
-        "type": "cli",
-        "command": ["agy", "-p", "{prompt}", "--print-timeout", "5m"],
-        "model": "",
-        "effort": "",
-        "prompt_via": "arg",  # no system-prompt flag: system and user prompts go in as one text
-        "timeout": 330,  # a little longer than agy's own 5m limit
-    },
-}
+from django.core.exceptions import ImproperlyConfigured
+import structlog
+
+from userconfig.paths import ai_providers_path
+
+logger = structlog.get_logger(__name__)
+
+
+def load_builtin_providers(path: Path | None = None) -> dict[str, dict]:
+    """Load built-in providers from ai_providers.json (the single source of truth)."""
+    target_path = path or ai_providers_path()
+    if not target_path.is_file():
+        raise ImproperlyConfigured(f"Missing AI providers file: {target_path}")
+
+    try:
+        data = json.loads(target_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ImproperlyConfigured(f"Invalid JSON in {target_path}: {exc}") from exc
+
+    if not isinstance(data, dict):
+        raise ImproperlyConfigured(f"Root of {target_path} must be a JSON object")
+
+    return {
+        key: value
+        for key, value in data.items()
+        if not key.startswith("_") and isinstance(value, dict)
+    }
+
+
+BUILTIN_PROVIDERS: dict[str, dict] = load_builtin_providers()
 
 DEFAULT_PROVIDER_NAME = "manual"

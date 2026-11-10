@@ -1,0 +1,43 @@
+{
+  "manual": {
+    "type": "manual",
+    "model": "manual",
+    "description": "Manual input: paste AI response from web chat"
+  },
+  "claude": {
+    "type": "cli",
+    "description": "Anthropic Claude Code CLI wrapper (fcc-claude)",
+    "command": [
+      "fcc-claude",
+      "-p",
+      "--output-format",
+      "json",
+      "--model",
+      "{model}",
+      "--safe-mode",
+      "--disallowedTools",
+      "Bash Read Write Edit Glob Grep WebFetch WebSearch NotebookEdit Task"
+    ],
+    "model": "sonnet",
+    "effort": "medium",
+    "prompt_via": "stdin",
+    "system_prompt_flag": "--system-prompt",
+    "envelope_key": "result",
+    "timeout": 300
+  },
+  "agy": {
+    "type": "cli",
+    "description": "Google Antigravity CLI (agy)",
+    "command": [
+      "agy",
+      "-p",
+      "{prompt}",
+      "--print-timeout",
+      "5m"
+    ],
+    "model": "",
+    "effort": "medium",
+    "prompt_via": "arg",
+    "timeout": 330
+  }
+}

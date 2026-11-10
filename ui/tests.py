@@ -987,3 +987,9 @@ class SettingsUITests(DataDirDBTestCase):
             content = response.content.decode("utf-8")
             self.assertIn("Retrieved 1 models from Antigravity CLI", content)
             self.assertIn("test-m", content)
+
+    def test_settings_context_defaults_effort_to_medium(self):
+        from ui.helpers.settings import get_settings_context
+        ctx = get_settings_context()
+        self.assertEqual(ctx["claude_effort"], "medium")
+        self.assertEqual(ctx["agy_effort"], "medium")

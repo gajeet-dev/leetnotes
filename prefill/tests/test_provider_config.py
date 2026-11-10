@@ -6,8 +6,9 @@ from prefill.providers.config import (
     provider_entry,
     provider_names,
 )
-from prefill.providers.defaults import BUILTIN_PROVIDERS
+from prefill.providers.defaults import BUILTIN_PROVIDERS, load_builtin_providers
 from userconfig import update_config
+from userconfig.paths import ai_providers_path
 from userconfig.tests.helpers import DataDirTestCase
 
 
@@ -16,6 +17,30 @@ class ProviderConfigTests(DataDirTestCase):
         self.assertEqual(provider_names(), ["manual", "claude", "agy"])
         self.assertEqual(default_provider_name(), "manual")
         self.assertEqual(provider_entry("agy")[1], BUILTIN_PROVIDERS["agy"])
+
+    def test_default_effort_is_medium_for_cli_providers(self):
+        self.assertEqual(BUILTIN_PROVIDERS["claude"]["effort"], "medium")
+        self.assertEqual(BUILTIN_PROVIDERS["agy"]["effort"], "medium")
+
+    def test_load_builtin_providers_from_single_source_of_truth(self):
+        # 1. Loading from root ai_providers.json
+        loaded = load_builtin_providers(ai_providers_path())
+        self.assertIn("claude", loaded)
+        self.assertIn("agy", loaded)
+        self.assertEqual(loaded["claude"]["effort"], "medium")
+        self.assertEqual(loaded["agy"]["effort"], "medium")
+
+        # 2. Loading from non-existent file raises ImproperlyConfigured
+        missing_path = ai_providers_path().parent / "non_existent_file.json"
+        with self.assertRaisesMessage(ImproperlyConfigured, "Missing AI providers file"):
+            load_builtin_providers(missing_path)
+
+        # 3. Loading invalid JSON raises ImproperlyConfigured
+        bad_json_path = self.data_dir / "bad_providers.json"
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        bad_json_path.write_text("{ not json")
+        with self.assertRaisesMessage(ImproperlyConfigured, "Invalid JSON in"):
+            load_builtin_providers(bad_json_path)
 
     def test_saved_options_override_builtin_ones_field_by_field(self):
         update_config({"providers": {"claude": {"model": "opus"}}})
