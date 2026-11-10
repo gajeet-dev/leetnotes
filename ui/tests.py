@@ -571,6 +571,16 @@ class SettingsUITests(DataDirDBTestCase):
         super().setUp()
         self.client = Client()
 
+        def cleanup_test_snapshots():
+            from userconfig.paths import db_snapshots_dir
+            for path in db_snapshots_dir().glob("*test_snap*.tar.gz"):
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+        self.addCleanup(cleanup_test_snapshots)
+
     def test_settings_page_get(self):
         url = reverse("ui:settings")
         response = self.client.get(url)
@@ -993,3 +1003,133 @@ class SettingsUITests(DataDirDBTestCase):
         ctx = get_settings_context()
         self.assertEqual(ctx["claude_effort"], "medium")
         self.assertEqual(ctx["agy_effort"], "medium")
+        self.assertIn("db_counts", ctx)
+        self.assertIn("problems", ctx["db_counts"])
+        self.assertIn("submissions", ctx["db_counts"])
+        self.assertIn("ai_responses", ctx["db_counts"])
+        self.assertIn("note_records", ctx["db_counts"])
+
+    def test_export_snapshot_to_folder(self):
+        # Fetch URL for the export snapshot endpoint
+        url = reverse("ui:export_snapshot")
+        response = self.client.post(
+            url,
+            {
+                "destination": "folder",
+                "filename": "custom_test_snap.tar.gz",
+                "include_submissions": "on",
+                "include_ai_notes": "on",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("Snapshot saved to db_snapshots/custom_test_snap.tar.gz", content)
+        self.assertIn('id="snapshots-list-container"', content)
+        self.assertIn('id="snapshot-dropdown-container"', content)
+        self.assertIn('data-persistent="true"', content)
+
+    def test_export_snapshot_download_file(self):
+        # Fetch URL for the export snapshot endpoint
+        url = reverse("ui:export_snapshot")
+        response = self.client.post(
+            url,
+            {
+                "destination": "download",
+                "filename": "download_test_snap.tar.gz",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/gzip")
+        self.assertIn("download_test_snap.tar.gz", response["Content-Disposition"])
+
+    def test_export_complete_database_option(self):
+        # Fetch URL for the export snapshot endpoint
+        url = reverse("ui:export_snapshot")
+        response = self.client.post(
+            url,
+            {
+                "destination": "folder",
+                "filename": "complete_test_snap.tar.gz",
+                "export_all": "on",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("Snapshot saved to db_snapshots/complete_test_snap.tar.gz", content)
+        self.assertIn('data-persistent="true"', content)
+
+    def test_refresh_snapshots_endpoint(self):
+        # Fetch URL for refreshing snapshots list
+        url = reverse("ui:refresh_snapshots")
+        response = self.client.get(url, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("Refreshed:", content)
+        self.assertIn('id="snapshot-dropdown-container"', content)
+        self.assertIn('id="snapshots-list-container"', content)
+        self.assertIn('data-persistent="true"', content)
+
+    def test_download_database_file_endpoint(self):
+        # Fetch URL for downloading raw SQLite database file
+        url = reverse("ui:download_database_file")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/x-sqlite3")
+
+    def test_import_snapshot_endpoint(self):
+        # First export a snapshot to use as input
+        # Fetch URL for export snapshot
+        export_url = reverse("ui:export_snapshot")
+        self.client.post(
+            export_url,
+            {
+                "destination": "folder",
+                "filename": "import_test_snap.tar.gz",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        # Now import it via the import endpoint
+        # Fetch URL for import snapshot
+        import_url = reverse("ui:import_snapshot")
+        response = self.client.post(
+            import_url,
+            {
+                "source": "snapshot_file",
+                "snapshot_filename": "import_test_snap.tar.gz",
+                "dry_run": "on",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("Dry Run Simulation", content)
+        self.assertIn('data-persistent="true"', content)
+
+    def test_reset_submissions_endpoint(self):
+        # Fetch URL for reset submissions
+        url = reverse("ui:reset_submissions")
+        response = self.client.post(url, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("User submissions reset", content)
+        self.assertIn('data-persistent="true"', content)
+
+    def test_clear_notes_records_endpoint(self):
+        # Fetch URL for clear note records
+        url = reverse("ui:clear_notes_records")
+        response = self.client.post(url, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("note tracking records from the database", content)
+        self.assertIn('data-persistent="true"', content)
+
+    def test_reinit_database_endpoint(self):
+        # Fetch URL for reinitializing database
+        url = reverse("ui:reinit_database")
+        with patch("ui.views.reinit_database", return_value={"success": True}):
+            response = self.client.post(url, HTTP_HX_REQUEST="true")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response["HX-Refresh"], "true")

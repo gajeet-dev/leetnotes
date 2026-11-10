@@ -6,12 +6,16 @@ from django.conf import settings
 
 from leetcode.bootstrap import ClientSettings, build_client, reset_client
 from leetcode.connection import ConnectionResult, check_connection
+from notes.models import NoteRecord
+from prefill.models import AIResponse
 from prefill.providers.config import all_providers, default_provider_name, provider_names
 from prefill.providers.discovery import (
     CLAUDE_PRESET_MODELS,
     EFFORT_LEVELS,
     get_agy_models,
 )
+from problems.models import Problem, Submission
+from problems.services.snapshots import list_snapshots
 from userconfig import effective
 from userconfig.credentials import (
     CSRF_COOKIE,
@@ -99,6 +103,19 @@ def get_settings_context() -> dict:
     agy_known_ids = {m["id"] for m in agy_models}
     agy_is_custom = bool(agy_model and agy_model not in agy_known_ids)
 
+    # Fetch total record counts for problems, user submissions, AI responses, and note tracking records
+    total_problems_count = Problem.objects.count()
+    total_submissions_count = Submission.objects.count()
+    total_ai_responses_count = AIResponse.objects.count()
+    total_note_records_count = NoteRecord.objects.count()
+
+    database_counts = {
+        "problems": total_problems_count,
+        "submissions": total_submissions_count,
+        "ai_responses": total_ai_responses_count,
+        "note_records": total_note_records_count,
+    }
+
     return {
         "active": "settings",
         "session_hint": mask_secret(raw_session),
@@ -128,6 +145,8 @@ def get_settings_context() -> dict:
         "agy_is_custom": agy_is_custom,
         "agy_models": agy_models,
         "agy_effort_levels": EFFORT_LEVELS,
+        "available_snapshots": list_snapshots(),
+        "db_counts": database_counts,
     }
 
 

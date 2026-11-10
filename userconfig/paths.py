@@ -28,6 +28,12 @@ def ai_providers_path() -> Path:
     return PROJECT_ROOT / "ai_providers.json"
 
 
+def db_snapshots_dir() -> Path:
+    folder = PROJECT_ROOT / "db_snapshots"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
 def ensure_data_dir() -> Path:
     folder = data_dir()
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)

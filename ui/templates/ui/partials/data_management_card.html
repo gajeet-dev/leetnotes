@@ -1,0 +1,395 @@
+{% load lucide %}
+
+<!-- Card 4: Database Snapshots & Data Management -->
+<div class="relative z-10 rounded-xl border border-zinc-200/90 bg-white shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900" id="data-management-card">
+  <!-- Card Header -->
+  <div class="rounded-t-xl border-b border-zinc-200/70 bg-zinc-50/70 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950/40">
+    <div class="flex items-center gap-2.5">
+      <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-200/70 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+        {% lucide "database" class="h-4 w-4" size=16 %}
+      </div>
+      <div>
+        <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Database Snapshots & Data Management</h2>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+          Export database bundles, restore snapshots from <code class="font-mono text-[11px] bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded">db_snapshots/</code>, or reset working activity.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="p-6 flex flex-col gap-6">
+
+    <!-- Discovered Snapshots in db_snapshots/ -->
+    {% include "ui/partials/snapshots_list.html" %}
+
+    <div class="border-t border-zinc-200/80 dark:border-zinc-800"></div>
+
+    <!-- Snapshot Import & Export Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- Sub-card: Export Snapshot -->
+      <div class="rounded-lg border border-zinc-200/90 bg-zinc-50/60 p-4 dark:border-zinc-800 dark:bg-zinc-950/40 flex flex-col justify-between gap-4">
+        <div class="flex flex-col gap-3">
+          <div class="flex items-center gap-2">
+            {% lucide "archive" class="h-4 w-4 text-zinc-600 dark:text-zinc-300" size=16 %}
+            <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Export Snapshot</h3>
+          </div>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+            Packages problem definitions, images, content sync tasks, and all AI editorial solution notes into a distributable archive.
+          </p>
+
+          <form id="export-snapshot-form" method="POST" action="{% url 'ui:export_snapshot' %}" class="flex flex-col gap-3 mt-1">
+            {% csrf_token %}
+            <input type="hidden" name="destination" id="export-destination-input" value="folder" />
+
+            <!-- Export Scope Options Box -->
+            <div class="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white/70 p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Export Scope</span>
+                <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    id="export-complete-db-checkbox"
+                    name="export_all"
+                    onchange="toggleCompleteDatabaseExport(this.checked)"
+                    class="h-3.5 w-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 cursor-pointer"
+                  />
+                  <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Complete Database</span>
+                </label>
+              </div>
+
+              <div class="flex flex-col gap-2.5 pt-1.5 border-t border-zinc-100 dark:border-zinc-800/80">
+                <!-- Foundational Problem Data: Always Included & Disabled -->
+                <div class="flex items-start justify-between gap-2 opacity-90">
+                  <label class="flex items-start gap-2 select-none cursor-not-allowed">
+                    <input
+                      type="checkbox"
+                      checked
+                      disabled
+                      class="h-3.5 w-3.5 mt-0.5 rounded border-zinc-300 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 cursor-not-allowed"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                        Problem Data & Media Assets
+                      </span>
+                      <span class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Descriptions, difficulties, tags, and local problem image files
+                      </span>
+                    </div>
+                  </label>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <span class="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                      {{ db_counts.problems|default:0 }} problems
+                    </span>
+                    <span class="inline-flex items-center rounded-md bg-zinc-200/80 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-800/80 dark:text-zinc-400">
+                      Required
+                    </span>
+                  </div>
+                </div>
+
+                <!-- User Submissions (preserves solved status) -->
+                <div class="flex items-start justify-between gap-2">
+                  <label class="flex items-start gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      name="include_submissions"
+                      id="export-include-submissions"
+                      onchange="onOptionalTableCheckboxChanged()"
+                      class="h-3.5 w-3.5 mt-0.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 cursor-pointer"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs font-medium text-zinc-800 dark:text-zinc-200">
+                        User Submissions
+                      </span>
+                      <span class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Accepted solutions (automatically preserves problem solved status)
+                      </span>
+                    </div>
+                  </label>
+                  <span class="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 shrink-0">
+                    {{ db_counts.submissions|default:0 }} submissions
+                  </span>
+                </div>
+
+                <!-- AI Responses -->
+                <div class="flex items-start justify-between gap-2">
+                  <label class="flex items-start gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      name="include_ai_notes"
+                      id="export-include-ai-notes"
+                      onchange="onOptionalTableCheckboxChanged()"
+                      class="h-3.5 w-3.5 mt-0.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 cursor-pointer"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs font-medium text-zinc-800 dark:text-zinc-200">
+                        AI Responses
+                      </span>
+                      <span class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Cached model outputs & solution JSON in DB (leaves vault notes untouched)
+                      </span>
+                    </div>
+                  </label>
+                  <span class="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 shrink-0">
+                    {{ db_counts.ai_responses|default:0 }} responses
+                  </span>
+                </div>
+
+                <!-- Vault Note Records -->
+                <div class="flex items-start justify-between gap-2">
+                  <label class="flex items-start gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      name="include_note_records"
+                      id="export-include-note-records"
+                      onchange="onOptionalTableCheckboxChanged()"
+                      class="h-3.5 w-3.5 mt-0.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 cursor-pointer"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs font-medium text-zinc-800 dark:text-zinc-200">
+                        Vault Note Records (<code class="text-[11px] font-mono">NoteRecord</code>)
+                      </span>
+                      <span class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Obsidian sync & hash tracking in DB (leaves markdown files in vault intact)
+                      </span>
+                    </div>
+                  </label>
+                  <span class="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 shrink-0">
+                    {{ db_counts.note_records|default:0 }} records
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label for="export-filename-input" class="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Custom archive filename (optional)
+              </label>
+              <input
+                type="text"
+                name="filename"
+                id="export-filename-input"
+                placeholder="e.g. starter_bundle.tar.gz"
+                class="h-8 w-full rounded-md border border-zinc-300 bg-white px-2.5 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 font-mono"
+              />
+            </div>
+          </form>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
+          <button
+            type="button"
+            id="export-save-folder-btn"
+            hx-post="{% url 'ui:export_snapshot' %}"
+            hx-include="#export-snapshot-form"
+            hx-target="#toast-container"
+            hx-swap="beforeend"
+            hx-indicator="#export-spinner"
+            hx-disabled-elt="this"
+            onclick="document.getElementById('export-destination-input').value = 'folder'"
+            class="h-8 inline-flex items-center gap-1.5 rounded-md bg-zinc-900 px-3 text-xs font-medium text-white shadow-2xs hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 cursor-pointer transition-colors"
+          >
+            <span id="export-spinner" class="htmx-indicator">
+              {% lucide "loader-circle" class="h-3 w-3 animate-spin" %}
+            </span>
+            {% lucide "save" class="h-3.5 w-3.5" size=14 %}
+            <span>Save to db_snapshots/</span>
+          </button>
+
+          <button
+            type="button"
+            onclick="submitSnapshotDownload()"
+            class="h-8 inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 shadow-2xs hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
+          >
+            {% lucide "download" class="h-3.5 w-3.5 text-zinc-500" size=14 %}
+            <span>Download .tar.gz</span>
+          </button>
+
+          <a
+            href="{% url 'ui:download_database_file' %}"
+            class="h-8 inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 shadow-2xs hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
+            title="Download raw SQLite database file (db.sqlite3) directly"
+          >
+            {% lucide "database" class="h-3.5 w-3.5 text-zinc-500" size=14 %}
+            <span>Download db.sqlite3</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Sub-card: Import Snapshot -->
+      <div class="rounded-lg border border-zinc-200/90 bg-zinc-50/60 p-4 dark:border-zinc-800 dark:bg-zinc-950/40 flex flex-col justify-between gap-4">
+        <div class="flex flex-col gap-3">
+          <div class="flex items-center gap-2">
+            {% lucide "arrow-down-to-dot" class="h-4 w-4 text-zinc-600 dark:text-zinc-300" size=16 %}
+            <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Import Snapshot</h3>
+          </div>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+            Restore problems, images, AI notes, and sync tasks into your database from a local snapshot or uploaded bundle.
+          </p>
+
+          <form
+            id="import-snapshot-form"
+            hx-post="{% url 'ui:import_snapshot' %}"
+            hx-target="#toast-container"
+            hx-swap="beforeend"
+            hx-indicator="#import-spinner"
+            hx-disabled-elt="#import-submit-btn"
+            hx-encoding="multipart/form-data"
+            class="flex flex-col gap-3 mt-1"
+          >
+            {% csrf_token %}
+
+            <!-- Source tabs / selection -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Snapshot Source
+              </label>
+              <div class="grid grid-cols-2 gap-1 rounded-lg border border-zinc-200 bg-zinc-100/80 p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
+                <button
+                  type="button"
+                  id="tab-btn-folder"
+                  onclick="setImportSource('snapshot_file')"
+                  class="rounded-md px-2 py-1 text-xs font-medium bg-white text-zinc-900 shadow-2xs dark:bg-zinc-800 dark:text-zinc-100 cursor-pointer transition-all"
+                >
+                  From db_snapshots/
+                </button>
+                <button
+                  type="button"
+                  id="tab-btn-upload"
+                  onclick="setImportSource('upload')"
+                  class="rounded-md px-2 py-1 text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer transition-all"
+                >
+                  Upload File
+                </button>
+              </div>
+              <input type="hidden" name="source" id="import-source-input" value="snapshot_file" />
+            </div>
+
+            <!-- Choose file from db_snapshots/ -->
+            <div id="import-file-from-folder-section">
+              {% include "ui/partials/snapshot_dropdown.html" %}
+            </div>
+
+            <!-- Upload file from disk -->
+            <div id="import-upload-section" class="flex flex-col gap-1 hidden">
+              <label for="import-bundle-file" class="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Upload .tar.gz bundle archive
+              </label>
+              <input
+                type="file"
+                name="bundle_file"
+                id="import-bundle-file"
+                accept=".tar.gz,.tgz,.zip"
+                class="h-8 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 file:mr-2 file:rounded file:border-0 file:bg-zinc-100 file:px-2 file:py-0.5 file:text-xs file:font-medium file:text-zinc-700 dark:file:bg-zinc-800 dark:file:text-zinc-300 cursor-pointer"
+              />
+            </div>
+
+            <div class="flex items-center gap-2 mt-1">
+              <input
+                type="checkbox"
+                name="dry_run"
+                id="import-dry-run"
+                class="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:ring-zinc-200 cursor-pointer"
+              />
+              <label for="import-dry-run" class="text-xs font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer select-none">
+                Dry run simulation (preview counts without saving)
+              </label>
+            </div>
+          </form>
+        </div>
+
+        <div class="pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
+          <button
+            type="submit"
+            form="import-snapshot-form"
+            id="import-submit-btn"
+            class="h-8 inline-flex items-center gap-1.5 rounded-md bg-zinc-900 px-3 text-xs font-medium text-white shadow-2xs hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 cursor-pointer transition-colors"
+          >
+            <span id="import-spinner" class="htmx-indicator">
+              {% lucide "loader-circle" class="h-3 w-3 animate-spin" %}
+            </span>
+            {% lucide "arrow-down-to-dot" class="h-3.5 w-3.5" size=14 %}
+            <span>Import Snapshot</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="border-t border-zinc-200/80 dark:border-zinc-800"></div>
+
+    <!-- Danger Zone: Reset Operations -->
+    <div class="rounded-lg border border-amber-300/80 bg-amber-50/40 p-4 dark:border-amber-900/50 dark:bg-amber-950/20 flex flex-col gap-4">
+      <div class="flex items-center gap-2">
+        {% lucide "triangle-alert" class="h-4 w-4 text-amber-600 dark:text-amber-400" size=16 %}
+        <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-200">Danger Zone: Activity Reset</h3>
+      </div>
+      <p class="text-xs text-amber-800/80 dark:text-amber-300/70">
+        Granular database cleanup operations for starting fresh without affecting your problem content or Markdown note files.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Action 1: Clear Submissions -->
+        <div class="flex flex-col justify-between gap-3 rounded-lg border border-amber-200/90 bg-white/80 p-3.5 dark:border-amber-900/40 dark:bg-zinc-900/70">
+          <div>
+            <h4 class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Clear User Submissions</h4>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
+              Deletes all accepted submission records and submission sync tasks. <strong>Problem solved status is kept intact.</strong>
+            </p>
+          </div>
+          <button
+            type="button"
+            onclick="document.getElementById('clear-submissions-dialog').showModal()"
+            class="h-8 inline-flex items-center justify-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 text-xs font-medium text-amber-700 shadow-2xs hover:bg-amber-50 hover:text-amber-800 dark:border-amber-700/70 dark:bg-zinc-900 dark:text-amber-400 dark:hover:bg-amber-950/30 cursor-pointer transition-colors self-start"
+          >
+            {% lucide "trash-2" class="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" size=14 %}
+            <span>Clear Submissions</span>
+          </button>
+        </div>
+
+        <!-- Action 2: Clear Note Sync Records -->
+        <div class="flex flex-col justify-between gap-3 rounded-lg border border-amber-200/90 bg-white/80 p-3.5 dark:border-amber-900/40 dark:bg-zinc-900/70">
+          <div>
+            <h4 class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Clear Note Sync Records</h4>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
+              Deletes note tracking rows (<code class="font-mono text-[10px]">NoteRecord</code>) from the database. <strong>Your Markdown files on disk remain safe.</strong>
+            </p>
+          </div>
+          <button
+            type="button"
+            onclick="document.getElementById('clear-notes-dialog').showModal()"
+            class="h-8 inline-flex items-center justify-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 text-xs font-medium text-amber-700 shadow-2xs hover:bg-amber-50 hover:text-amber-800 dark:border-amber-700/70 dark:bg-zinc-900 dark:text-amber-400 dark:hover:bg-amber-950/30 cursor-pointer transition-colors self-start"
+          >
+            {% lucide "file-x" class="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" size=14 %}
+            <span>Clear Note Records</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Super Danger Zone: Reinit Database -->
+    <div class="rounded-lg border border-rose-300/90 bg-rose-50/50 p-4 dark:border-rose-900/60 dark:bg-rose-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-start gap-3">
+        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 mt-0.5">
+          {% lucide "bomb" class="h-4 w-4" size=16 %}
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-rose-900 dark:text-rose-200">Super Danger Zone: Wipe Database & Re-run Migrations</h3>
+          <p class="text-xs text-rose-700/80 dark:text-rose-300/70 mt-0.5 leading-relaxed">
+            Completely deletes <code class="font-mono text-[11px]">db.sqlite3</code> and re-runs all migrations to start with a brand new, empty database. Snapshots in <code class="font-mono text-[11px]">db_snapshots/</code> are kept.
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onclick="document.getElementById('reinit-db-dialog').showModal()"
+        class="h-8 inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-3.5 text-xs font-medium text-white shadow-2xs hover:bg-rose-700 focus:outline-none dark:bg-rose-700 dark:hover:bg-rose-600 cursor-pointer transition-colors shrink-0 self-start sm:self-auto"
+      >
+        {% lucide "refresh-cw" class="h-3.5 w-3.5" size=14 %}
+        <span>Wipe Database & Migrate</span>
+      </button>
+    </div>
+
+  </div>
+</div>

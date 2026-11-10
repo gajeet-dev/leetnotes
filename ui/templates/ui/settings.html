@@ -151,6 +151,9 @@
 
   <!-- Configurable Preferences (Storage, Timezone, Pacing, Providers) -->
   {% include "ui/partials/configurable_settings.html" %}
+
+  <!-- Database Snapshots & Data Management (Card 4) -->
+  {% include "ui/partials/data_management_card.html" %}
 </div>
 
 <!-- Reset Confirmation Alert Dialog -->
@@ -186,6 +189,117 @@
         onclick="document.getElementById('reset-alert-dialog').close()"
       >
         Reset to Defaults
+      </button>
+    </footer>
+  </div>
+</dialog>
+
+<!-- Clear Submissions Alert Dialog -->
+<dialog
+  id="clear-submissions-dialog"
+  class="alert-dialog"
+  data-size="sm"
+  onclick="if (event.target === this) this.close()"
+>
+  <div>
+    <header>
+      <h2 data-title>Clear User Submissions?</h2>
+      <p data-description>
+        This will delete all accepted user submission code and submission sync tasks from the database. <strong>Problem solved status will NOT be changed</strong>, and your problem descriptions and notes remain intact.
+      </p>
+    </header>
+    <footer>
+      <button
+        type="button"
+        class="btn"
+        data-variant="outline"
+        onclick="document.getElementById('clear-submissions-dialog').close()"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="btn"
+        data-variant="destructive"
+        hx-post="{% url 'ui:reset_submissions' %}"
+        hx-target="#toast-container"
+        hx-swap="beforeend"
+        onclick="document.getElementById('clear-submissions-dialog').close()"
+      >
+        Clear Submissions
+      </button>
+    </footer>
+  </div>
+</dialog>
+
+<!-- Clear Note Records Alert Dialog -->
+<dialog
+  id="clear-notes-dialog"
+  class="alert-dialog"
+  data-size="sm"
+  onclick="if (event.target === this) this.close()"
+>
+  <div>
+    <header>
+      <h2 data-title>Clear Note Tracking Records?</h2>
+      <p data-description>
+        This will delete all <code class="font-mono text-xs">NoteRecord</code> rows from the database. <strong>Your Markdown note files in your Obsidian vault or disk directories will NOT be touched.</strong> This lets you re-evaluate or re-write notes from scratch.
+      </p>
+    </header>
+    <footer>
+      <button
+        type="button"
+        class="btn"
+        data-variant="outline"
+        onclick="document.getElementById('clear-notes-dialog').close()"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="btn"
+        data-variant="destructive"
+        hx-post="{% url 'ui:clear_notes_records' %}"
+        hx-target="#toast-container"
+        hx-swap="beforeend"
+        onclick="document.getElementById('clear-notes-dialog').close()"
+      >
+        Clear Note Records
+      </button>
+    </footer>
+  </div>
+</dialog>
+
+<!-- Super Danger Zone: Re-init Database Alert Dialog -->
+<dialog
+  id="reinit-db-dialog"
+  class="alert-dialog"
+  data-size="sm"
+  onclick="if (event.target === this) this.close()"
+>
+  <div>
+    <header>
+      <h2 data-title class="text-rose-600 dark:text-rose-400">Wipe Database & Migrate?</h2>
+      <p data-description>
+        This will completely delete <code class="font-mono text-xs">db.sqlite3</code> and re-run all migrations from scratch. <strong>All problem records, submissions, and database data will be erased.</strong> (Any snapshot files in <code class="font-mono text-xs">db_snapshots/</code> will remain safe). Are you sure?
+      </p>
+    </header>
+    <footer>
+      <button
+        type="button"
+        class="btn"
+        data-variant="outline"
+        onclick="document.getElementById('reinit-db-dialog').close()"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="btn bg-rose-600 hover:bg-rose-700 text-white dark:bg-rose-700 dark:hover:bg-rose-600"
+        hx-post="{% url 'ui:reinit_database' %}"
+        onclick="document.getElementById('reinit-db-dialog').close()"
+      >
+        Yes, Wipe Database & Migrate
       </button>
     </footer>
   </div>
@@ -467,5 +581,78 @@
     if (sessionInput) sessionInput.value = '';
     if (csrfInput) csrfInput.value = '';
   });
+
+  function setImportSource(source) {
+    const input = document.getElementById('import-source-input');
+    if (input) input.value = source;
+    const folderSection = document.getElementById('import-file-from-folder-section');
+    const uploadSection = document.getElementById('import-upload-section');
+    const tabFolder = document.getElementById('tab-btn-folder');
+    const tabUpload = document.getElementById('tab-btn-upload');
+
+    if (source === 'upload') {
+      folderSection?.classList.add('hidden');
+      uploadSection?.classList.remove('hidden');
+      tabUpload?.classList.add('bg-white', 'text-zinc-900', 'shadow-2xs', 'dark:bg-zinc-800', 'dark:text-zinc-100');
+      tabUpload?.classList.remove('text-zinc-600', 'dark:text-zinc-400');
+      tabFolder?.classList.remove('bg-white', 'text-zinc-900', 'shadow-2xs', 'dark:bg-zinc-800', 'dark:text-zinc-100');
+      tabFolder?.classList.add('text-zinc-600', 'dark:text-zinc-400');
+    } else {
+      uploadSection?.classList.add('hidden');
+      folderSection?.classList.remove('hidden');
+      tabFolder?.classList.add('bg-white', 'text-zinc-900', 'shadow-2xs', 'dark:bg-zinc-800', 'dark:text-zinc-100');
+      tabFolder?.classList.remove('text-zinc-600', 'dark:text-zinc-400');
+      tabUpload?.classList.remove('bg-white', 'text-zinc-900', 'shadow-2xs', 'dark:bg-zinc-800', 'dark:text-zinc-100');
+      tabUpload?.classList.add('text-zinc-600', 'dark:text-zinc-400');
+    }
+  }
+
+  function selectSnapshotDropdown(filename) {
+    const input = document.getElementById('import-snapshot-filename');
+    const label = document.getElementById('snapshot-selected-label');
+    if (input) input.value = filename;
+    if (label) label.textContent = filename;
+    const popover = document.querySelector('#snapshot-dropdown [data-popover]');
+    if (popover) popover.setAttribute('aria-hidden', 'true');
+    const trigger = document.getElementById('snapshot-trigger-btn');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  function selectSnapshotForImport(filename) {
+    setImportSource('snapshot_file');
+    selectSnapshotDropdown(filename);
+    const importCard = document.getElementById('import-snapshot-form');
+    if (importCard) {
+      importCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  function toggleCompleteDatabaseExport(isComplete) {
+    const aiNotes = document.getElementById('export-include-ai-notes');
+    const subs = document.getElementById('export-include-submissions');
+    const noteRecs = document.getElementById('export-include-note-records');
+    if (aiNotes) aiNotes.checked = isComplete;
+    if (subs) subs.checked = isComplete;
+    if (noteRecs) noteRecs.checked = isComplete;
+  }
+
+  function onOptionalTableCheckboxChanged() {
+    const master = document.getElementById('export-complete-db-checkbox');
+    const aiNotes = document.getElementById('export-include-ai-notes');
+    const subs = document.getElementById('export-include-submissions');
+    const noteRecs = document.getElementById('export-include-note-records');
+    if (!master) return;
+    const allChecked = Boolean(aiNotes?.checked && subs?.checked && noteRecs?.checked);
+    master.checked = allChecked;
+  }
+
+  function submitSnapshotDownload() {
+    const form = document.getElementById('export-snapshot-form');
+    const destInput = document.getElementById('export-destination-input');
+    if (form && destInput) {
+      destInput.value = 'download';
+      form.submit();
+    }
+  }
 </script>
 {% endblock %}

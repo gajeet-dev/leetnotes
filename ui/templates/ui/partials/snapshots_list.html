@@ -1,0 +1,87 @@
+{% load lucide %}
+
+<div id="snapshots-list-container" {% if oob %}hx-swap-oob="outerHTML:#snapshots-list-container"{% endif %} class="flex flex-col gap-2.5">
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        Discovered Snapshots in <code class="font-mono text-[11px] normal-case bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded">db_snapshots/</code>
+      </h3>
+      <button
+        type="button"
+        hx-get="{% url 'ui:refresh_snapshots' %}"
+        hx-target="#toast-container"
+        hx-swap="beforeend"
+        class="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+        title="Refresh snapshots"
+      >
+        {% lucide "refresh-cw" class="h-3 w-3" size=12 %}
+      </button>
+    </div>
+    <span class="text-xs text-zinc-400 dark:text-zinc-500">
+      {{ available_snapshots|length }} file{% if available_snapshots|length != 1 %}s{% endif %} found
+    </span>
+  </div>
+
+  {% if available_snapshots %}
+    <div class="flex flex-col divide-y divide-zinc-200/80 rounded-lg border border-zinc-200/90 bg-zinc-50/50 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950/30 overflow-hidden">
+      {% for snapshot in available_snapshots %}
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-3">
+          <div class="flex items-start gap-3 min-w-0">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-200/70 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 mt-0.5 sm:mt-0">
+              {% lucide "archive" class="h-4 w-4" size=16 %}
+            </div>
+            <div class="flex flex-col min-w-0">
+              <span class="font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate" title="{{ snapshot.filename }}">
+                {{ snapshot.filename }}
+              </span>
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                <span>{{ snapshot.size_formatted }}</span>
+                <span>&bull;</span>
+                <span>{{ snapshot.created_display }}</span>
+                {% if snapshot.problems_count %}
+                  <span>&bull;</span>
+                  <span class="font-medium text-zinc-700 dark:text-zinc-300">{{ snapshot.problems_count }} problems</span>
+                {% endif %}
+                {% if snapshot.ai_responses_count %}
+                  <span>&bull;</span>
+                  <span class="text-indigo-600 dark:text-indigo-400 font-medium">{{ snapshot.ai_responses_count }} AI notes</span>
+                {% endif %}
+                {% if snapshot.has_submissions %}
+                  <span>&bull;</span>
+                  <span class="text-emerald-600 dark:text-emerald-400 font-medium">{{ snapshot.submissions_count }} submissions</span>
+                {% endif %}
+                {% if snapshot.note_records_count %}
+                  <span>&bull;</span>
+                  <span class="text-amber-600 dark:text-amber-400 font-medium">{{ snapshot.note_records_count }} note records</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 self-end sm:self-center shrink-0">
+            <button
+              type="button"
+              onclick="selectSnapshotForImport('{{ snapshot.filename|escapejs }}')"
+              class="h-7 inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-800 shadow-2xs hover:bg-zinc-100 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
+            >
+              {% lucide "arrow-down-to-dot" class="h-3.5 w-3.5 text-zinc-500" size=14 %}
+              <span>Load for Import</span>
+            </button>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-lg border border-dashed border-zinc-300 p-6 text-center dark:border-zinc-800">
+      <div class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 text-zinc-400 dark:bg-zinc-900 dark:text-zinc-500 mb-2">
+        {% lucide "archive" class="h-4.5 w-4.5" size=18 %}
+      </div>
+      <p class="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        No snapshot bundles found in <code class="font-mono text-[11px] bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded">db_snapshots/</code>
+      </p>
+      <p class="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1">
+        Export a snapshot below or copy an existing <code class="font-mono">.tar.gz</code> bundle into the folder.
+      </p>
+    </div>
+  {% endif %}
+</div>

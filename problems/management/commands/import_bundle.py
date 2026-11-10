@@ -89,6 +89,16 @@ class Command(BaseCommand):
             f"Sync Tasks:  {result.tasks_created} created, {result.tasks_updated} updated, "
             f"{result.tasks_existing} already present"
         )
+        self.stdout.write(
+            f"Submissions: {result.submissions_created} created, {result.submissions_updated} updated"
+        )
+        self.stdout.write(
+            f"AI Notes:    {result.ai_responses_created} created, {result.ai_responses_updated} updated"
+        )
+        if result.note_records_created or result.note_records_updated:
+            self.stdout.write(
+                f"Note Records: {result.note_records_created} created, {result.note_records_updated} updated"
+            )
         if not opts["no_media"]:
             self.stdout.write(
                 f"Media Files: {result.media_extracted} extracted, {result.media_skipped} already up-to-date"

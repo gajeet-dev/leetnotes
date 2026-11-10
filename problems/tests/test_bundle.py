@@ -7,7 +7,10 @@ from pathlib import Path
 
 from django.core.management import call_command
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
+from notes.models import NoteRecord
+from prefill.models import AIResponse
 from problems.models import Problem, ProblemImage, Submission, SyncTask
 from problems.services.bundle import export_bundle, import_bundle
 
@@ -230,3 +233,110 @@ class BundleTests(TestCase):
                 stdout=import_stdout,
             )
             self.assertIn("Dry run completed successfully", import_stdout.getvalue())
+
+    def test_export_and_import_with_submissions(self):
+        # 1. Export with include_submissions=True
+        with override_settings(MEDIA_ROOT=self.media_dir):
+            export_result = export_bundle(self.output_bundle, include_submissions=True, preserve_solved=True)
+
+        self.assertEqual(export_result.submissions_count, 1)
+
+        # 2. Clear database
+        Submission.objects.all().delete()
+        SyncTask.objects.all().delete()
+        Problem.objects.all().delete()
+
+        # 3. Import bundle
+        target_media = Path(self.temp_dir) / "target_media"
+        with override_settings(MEDIA_ROOT=target_media):
+            import_result = import_bundle(self.output_bundle, reset_solved=False)
+
+        self.assertEqual(import_result.submissions_created, 1)
+        imported_sub = Submission.objects.get(problem__slug="two-sum")
+        self.assertEqual(imported_sub.lang, "python3")
+        self.assertEqual(imported_sub.code, "def twoSum(): pass")
+
+        imported_prob = Problem.objects.get(slug="two-sum")
+        self.assertTrue(imported_prob.solved)
+        self.assertTrue(SyncTask.objects.filter(problem=imported_prob, part=SyncTask.Part.SUBMISSIONS).exists())
+
+    def test_export_and_import_with_ai_responses(self):
+        # Create an active AIResponse for problem
+        ai_resp = AIResponse.objects.create(
+            problem=self.problem,
+            source=AIResponse.Source.PROVIDER,
+            provider_name="claude",
+            model_name="sonnet",
+            prompt_version="v1",
+            input_hash="hash123",
+            raw_text="Explanation of Two Sum",
+            parsed={"summary": "Use hash map"},
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+
+        with override_settings(MEDIA_ROOT=self.media_dir):
+            export_result = export_bundle(self.output_bundle, include_submissions=False)
+
+        self.assertEqual(export_result.ai_responses_count, 1)
+
+        # Clear database
+        AIResponse.objects.all().delete()
+        Problem.objects.all().delete()
+
+        target_media = Path(self.temp_dir) / "target_media"
+        with override_settings(MEDIA_ROOT=target_media):
+            import_result = import_bundle(self.output_bundle)
+
+        self.assertEqual(import_result.ai_responses_created, 1)
+        restored_resp = AIResponse.objects.get(problem__slug="two-sum")
+        self.assertEqual(restored_resp.provider_name, "claude")
+        self.assertEqual(restored_resp.raw_text, "Explanation of Two Sum")
+        self.assertEqual(restored_resp.parsed, {"summary": "Use hash map"})
+        self.assertTrue(restored_resp.is_active)
+
+    def test_export_without_ai_notes(self):
+        AIResponse.objects.create(
+            problem=self.problem,
+            source=AIResponse.Source.PROVIDER,
+            provider_name="claude",
+            model_name="sonnet",
+            prompt_version="v1",
+            input_hash="hash_no_ai",
+            raw_text="Will be excluded",
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+
+        with override_settings(MEDIA_ROOT=self.media_dir):
+            export_result = export_bundle(self.output_bundle, include_ai_notes=False)
+
+        self.assertEqual(export_result.ai_responses_count, 0)
+
+    def test_export_and_import_with_note_records(self):
+        NoteRecord.objects.create(
+            problem=self.problem,
+            kind=NoteRecord.Kind.PROBLEM,
+            output_dir="/vault/test",
+            relative_path="Leetcode/problems/0001-two-sum.md",
+            content_hash="dummyhash123",
+            written_at=timezone.now(),
+        )
+
+        with override_settings(MEDIA_ROOT=self.media_dir):
+            export_result = export_bundle(self.output_bundle, include_note_records=True)
+
+        self.assertEqual(export_result.note_records_count, 1)
+
+        # Clear database
+        NoteRecord.objects.all().delete()
+        Problem.objects.all().delete()
+
+        target_media = Path(self.temp_dir) / "target_media"
+        with override_settings(MEDIA_ROOT=target_media):
+            import_result = import_bundle(self.output_bundle)
+
+        self.assertEqual(import_result.note_records_created, 1)
+        restored_nr = NoteRecord.objects.get(problem__slug="two-sum")
+        self.assertEqual(restored_nr.relative_path, "Leetcode/problems/0001-two-sum.md")
+        self.assertEqual(restored_nr.content_hash, "dummyhash123")
