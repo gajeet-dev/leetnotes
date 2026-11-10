@@ -8,7 +8,7 @@
     "type": "cli",
     "description": "Anthropic Claude Code CLI wrapper (fcc-claude)",
     "command": [
-      "fcc-claude",
+      "claude",
       "-p",
       "--output-format",
       "json",
