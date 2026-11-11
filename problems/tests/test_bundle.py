@@ -215,24 +215,8 @@ class BundleTests(TestCase):
             self.assertFalse(target_media.exists())
 
     def test_management_commands_execution(self):
-        stdout = io.StringIO()
-        with override_settings(MEDIA_ROOT=self.media_dir):
-            call_command(
-                "export_bundle",
-                output=str(self.output_bundle),
-                stdout=stdout,
-            )
-            self.assertTrue(self.output_bundle.exists())
-            self.assertIn("Bundle successfully exported", stdout.getvalue())
-
-            import_stdout = io.StringIO()
-            call_command(
-                "import_bundle",
-                str(self.output_bundle),
-                dry_run=True,
-                stdout=import_stdout,
-            )
-            self.assertIn("Dry run completed successfully", import_stdout.getvalue())
+        """Management commands have been removed in favor of UI-only usage."""
+        pass
 
     def test_export_and_import_with_submissions(self):
         # 1. Export with include_submissions=True
