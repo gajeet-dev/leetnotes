@@ -13,13 +13,22 @@ ALL_PROBLEMS_PATH = "/api/problems/all/"
 
 
 class ProblemsResource:
-    def __init__(self, gql: GraphQLClient, http: HttpClient):
+    def __init__(
+        self,
+        gql: GraphQLClient,
+        http: HttpClient,
+        public_gql: GraphQLClient | None = None,
+    ):
         self._gql = gql
         self._http = http
+        # Use public_gql for unauthenticated GraphQL queries (like questionDetail),
+        # falling back to the authenticated gql client if not provided.
+        self._public_gql = public_gql if public_gql is not None else gql
 
     def get(self, slug: str) -> dict[str, Any]:
-        """Return complete metadata for a problem."""
-        data = self._gql.execute(QUESTION_DETAILS_QUERY, {"titleSlug": slug})
+        """Return complete metadata for a problem using unauthenticated public GraphQL."""
+        # Fetch question details (statement html, difficulty, tags) without user session cookies or tokens
+        data = self._public_gql.execute(QUESTION_DETAILS_QUERY, {"titleSlug": slug})
         question = data.get("question")
 
         if not question:

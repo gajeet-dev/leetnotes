@@ -17,7 +17,13 @@ from .resources.problems import ProblemsResource
 from .resources.submissions import SubmissionsResource
 from .transport.graphql import GraphQLClient
 from .transport.http import HttpClient
-from .transport.session import SessionConfig, create_image_session, create_session
+from .transport.session import (
+    SessionConfig,
+    create_adapter,
+    create_image_session,
+    create_public_session,
+    create_session,
+)
 
 NOT_CONFIGURED_MESSAGE = "LeetCode cookies are not set. Add them in Settings."
 
@@ -62,12 +68,32 @@ def build_session(config: ClientSettings) -> requests.Session:
 
 
 def build_client(config: ClientSettings) -> LeetCodeClient:
-    http = HttpClient(build_session(config), config.base_url)
-    gql = GraphQLClient(http)
+    session_config = SessionConfig(
+        session_cookie=config.session,
+        csrf_token=config.csrf_token,
+        base_url=config.base_url,
+        requests_per_second=config.requests_per_second,
+        requests_per_minute=config.requests_per_minute,
+    )
+    # Both authenticated and public sessions share the same rate-limiting adapter
+    shared_adapter = create_adapter(session_config)
+    auth_session = create_session(session_config, adapter=shared_adapter)
+    public_session = create_public_session(session_config, adapter=shared_adapter)
+
+    auth_http = HttpClient(auth_session, config.base_url)
+    auth_gql = GraphQLClient(auth_http)
+
+    public_http = HttpClient(public_session, config.base_url)
+    public_gql = GraphQLClient(public_http)
+
     return LeetCodeClient(
-        problems=ProblemsResource(gql, http),
-        submissions=SubmissionsResource(gql, default_username=config.username),
-        account=AccountResource(gql),
+        problems=ProblemsResource(
+            gql=auth_gql,
+            http=auth_http,
+            public_gql=public_gql,
+        ),
+        submissions=SubmissionsResource(auth_gql, default_username=config.username),
+        account=AccountResource(auth_gql),
     )
 
 

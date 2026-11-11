@@ -19,8 +19,8 @@ USER_AGENT = (
 
 @dataclass(frozen=True)
 class SessionConfig:
-    session_cookie: str
-    csrf_token: str
+    session_cookie: str = ""
+    csrf_token: str = ""
     base_url: str = "https://leetcode.com"
     requests_per_second: float = 1.0
     timeout: float = 30.0
@@ -51,10 +51,7 @@ class JitteredLimiterAdapter(LimiterAdapter):
         return super().send(request, **kwargs)
 
 
-def create_session(config: SessionConfig) -> requests.Session:
-    """Create the HTTP session used by the LeetCode client."""
-    session = requests.Session()
-
+def create_adapter(config: SessionConfig) -> JitteredLimiterAdapter:
     retries = Retry(
         total=config.max_retries,
         backoff_factor=2,
@@ -67,27 +64,39 @@ def create_session(config: SessionConfig) -> requests.Session:
     if config.requests_per_minute:
         limits["per_minute"] = config.requests_per_minute
 
-    adapter = JitteredLimiterAdapter(
+    return JitteredLimiterAdapter(
         **limits,
         max_retries=retries,
         jitter_range=config.jitter_range,
         timeout=config.timeout,
     )
-    session.mount("https://", adapter)
 
-    session.headers.update(
-        {
-            "X-CSRFToken": config.csrf_token,
-            "Content-Type": "application/json",
-            "Referer": config.base_url,
-            "User-Agent": USER_AGENT,
-        }
-    )
 
-    session.cookies.set(
-        "LEETCODE_SESSION", config.session_cookie, domain=".leetcode.com"
-    )
-    session.cookies.set("csrftoken", config.csrf_token, domain=".leetcode.com")
+def create_session(
+    config: SessionConfig, adapter: JitteredLimiterAdapter | None = None
+) -> requests.Session:
+    """Create the HTTP session used by the LeetCode client."""
+    session = requests.Session()
+
+    limiter_adapter = adapter if adapter is not None else create_adapter(config)
+    session.mount("https://", limiter_adapter)
+
+    request_headers = {
+        "Content-Type": "application/json",
+        "Referer": config.base_url,
+        "User-Agent": USER_AGENT,
+    }
+    if config.csrf_token:
+        request_headers["X-CSRFToken"] = config.csrf_token
+
+    session.headers.update(request_headers)
+
+    if config.session_cookie:
+        session.cookies.set(
+            "LEETCODE_SESSION", config.session_cookie, domain=".leetcode.com"
+        )
+    if config.csrf_token:
+        session.cookies.set("csrftoken", config.csrf_token, domain=".leetcode.com")
 
     logger.info(
         "http_session_configured",
@@ -97,6 +106,23 @@ def create_session(config: SessionConfig) -> requests.Session:
         timeout=config.timeout,
     )
     return session
+
+
+def create_public_session(
+    config: SessionConfig, adapter: JitteredLimiterAdapter | None = None
+) -> requests.Session:
+    """Create an unauthenticated session (no cookies, no CSRF token) sharing rate limits."""
+    public_config = SessionConfig(
+        session_cookie="",
+        csrf_token="",
+        base_url=config.base_url,
+        requests_per_second=config.requests_per_second,
+        requests_per_minute=config.requests_per_minute,
+        timeout=config.timeout,
+        max_retries=config.max_retries,
+        jitter_range=config.jitter_range,
+    )
+    return create_session(public_config, adapter=adapter)
 
 
 def create_image_session(base_url: str) -> requests.Session:

@@ -271,7 +271,7 @@ The resource classes organize API calls into domain-specific modules:
 
 #### 2. `ProblemsResource` (`problems.py`)
 
-- `get(slug)`: Calls `QUESTION_DETAILS_QUERY`. Raises `NotFoundError` if the question does not exist. Returns the problem dictionary.
+- `get(slug)`: Calls `QUESTION_DETAILS_QUERY` via an unauthenticated public GraphQL client (no session cookies or CSRF tokens). Raises `NotFoundError` if the question does not exist. Returns the problem dictionary.
 - `list_all()`: Calls LeetCode's REST endpoint `/api/problems/all/`. Returns raw stat-status pairs for every question on LeetCode (including solved status for the logged-in user).
 
 #### 3. `SubmissionsResource` (`submissions.py`)
