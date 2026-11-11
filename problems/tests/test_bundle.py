@@ -5,7 +5,6 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 

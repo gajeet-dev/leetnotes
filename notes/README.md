@@ -24,7 +24,6 @@ The `notes` app is engineered to be **safe, non-destructive, and offline-first**
 6. [State Machine & Overwrite Policy](#6-state-machine--overwrite-policy)
 7. [Architecture & Flowchart](#7-architecture--flowchart)
 8. [File-by-File Guide](#8-file-by-file-guide)
-9. [CLI Usage (`generate_notes`)](#9-cli-usage-generate_notes)
 
 ---
 
@@ -251,38 +250,6 @@ Here is an index of every file in `notes/` and its role:
 | [`services.py`](file:///home/gajeet/Projects/leetnotes/notes/services.py) | Entry point for problem notes: handles prerequisites check and image preparation. |
 | [`solution_notes.py`](file:///home/gajeet/Projects/leetnotes/notes/solution_notes.py) | Entry point for solution notes: checks active AI prefill responses. |
 | [`generation.py`](file:///home/gajeet/Projects/leetnotes/notes/generation.py) | High-level orchestrator generating both notes and aggregating batch run totals. |
-| [`management/commands/generate_notes.py`](file:///home/gajeet/Projects/leetnotes/notes/management/commands/generate_notes.py) | CLI management command exposing note generation to users. |
-
----
-
-## 9. CLI Usage (`generate_notes`)
-
-You can generate notes directly using the Django management command:
-
-```bash
-# Generate notes for all solved problems across your configured output directories
-python manage.py generate_notes
-
-# Generate notes for a specific problem by slug
-python manage.py generate_notes --slug two-sum
-
-# Limit the run to the first 10 solved problems
-python manage.py generate_notes --limit 10
-
-# Write into a custom folder for this run only
-python manage.py generate_notes --output ~/Desktop/TestVault
-
-# Force replacement of notes you edited (automatically creates backups first!)
-python manage.py generate_notes --slug two-sum --replace-edited
-```
-
-### Example Output
-```text
-[1/2] two-sum: problem note: written 1; solution note: written 1
-[2/2] add-two-numbers: problem note: kept_edited 1; solution note: written 1
-Done: 2 problem(s): written 3, kept_edited 1.
-Notes you edited were left alone. To replace one (the old version is backed up first): generate_notes --slug <slug> --replace-edited
-```
 
 ---
 
