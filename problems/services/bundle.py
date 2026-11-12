@@ -15,9 +15,9 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from problems.models import Problem, ProblemImage, Submission, SyncTask
-from prefill.models import AIResponse
 from notes.models import NoteRecord
+from prefill.models import AIResponse
+from problems.models import Problem, ProblemImage, Submission, SyncTask
 
 logger = structlog.get_logger(__name__)
 
