@@ -8,12 +8,19 @@ from leetcode.resources.account import AccountResource
 class MapAccountStatusTests(SimpleTestCase):
     def test_signed_in(self):
         account = map_account_status(
-            {"isSignedIn": True, "username": "ajeet", "isPremium": False}
+            {"isSignedIn": True, "username": "ajeet", "realName": "Ajeet Patel", "isPremium": False}
         )
         self.assertEqual(
-            (account.signed_in, account.username, account.is_premium),
-            (True, "ajeet", False),
+            (account.signed_in, account.username, account.real_name, account.is_premium),
+            (True, "ajeet", "Ajeet Patel", False),
         )
+        self.assertEqual(account.display_name, "Ajeet Patel (ajeet)")
+
+    def test_display_name_falls_back_to_username_when_real_name_empty(self):
+        account = map_account_status(
+            {"isSignedIn": True, "username": "ajeet", "realName": "", "isPremium": False}
+        )
+        self.assertEqual(account.display_name, "ajeet")
 
     def test_signed_out_with_a_null_username(self):
         account = map_account_status(

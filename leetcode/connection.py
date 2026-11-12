@@ -43,6 +43,7 @@ class ConnectionResult:
     state: ConnectionState
     message: str
     username: str = ""
+    real_name: str = ""
     is_premium: bool = False
     username_differs: bool = (
         False  # the saved username isn't the account the cookies belong to
@@ -53,13 +54,23 @@ class ConnectionResult:
     def ok(self) -> bool:
         return self.state is ConnectionState.CONNECTED
 
+    @property
+    def display_name(self) -> str:
+        """Format as '<realName> (<username>)' if real_name exists, otherwise '<username>'."""
+        cleaned_real_name = self.real_name.strip()
+        if cleaned_real_name and self.username:
+            return f"{cleaned_real_name} ({self.username})"
+        if cleaned_real_name:
+            return cleaned_real_name
+        return self.username
+
 
 def same_username(first: str, second: str) -> bool:
     return first.strip().lower() == second.strip().lower()
 
 
 def connected_message(account: AccountStatusDTO, differs: bool) -> str:
-    message = f"Connected as {account.username}."
+    message = f"Connected as {account.display_name}."
     if differs:
         message += (
             f" Your saved username is {effective.leetcode_username()!r}: "
@@ -80,6 +91,7 @@ def result_for_account(account: AccountStatusDTO) -> ConnectionResult:
         ConnectionState.CONNECTED,
         connected_message(account, differs),
         username=account.username,
+        real_name=account.real_name,
         is_premium=account.is_premium,
         username_differs=differs,
     )

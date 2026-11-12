@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest import mock
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -17,6 +18,7 @@ from userconfig.tests.helpers import DataDirDBTestCase
 
 class ProblemsUITests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = Client()
 
         # Problem 1: Fully Synced
@@ -81,6 +83,48 @@ class ProblemsUITests(TestCase):
             paid_only=True,
             solved=False,
         )
+
+    def test_dashboard_page_renders(self):
+        """Verify the dashboard page skeleton, health bar, KPI cards, and generation section."""
+        for url_name in ("ui:dashboard", "ui:dashboard_alias"):
+            url = reverse(url_name)
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200)
+            self.assertTemplateUsed(response, "ui/dashboard.html")
+            self.assertEqual(response.context["active"], "dashboard")
+
+            # Check header
+            self.assertContains(response, "Dashboard")
+            self.assertContains(response, "Your leetcode notes workspace")
+
+            # Section 1: Health bar (stacked individual lines)
+            self.assertTemplateUsed(response, "ui/partials/dashboard_connection_status.html")
+            self.assertContains(response, "LeetCode Connection")
+            self.assertContains(response, 'id="dashboard-leetcode-status"')
+            self.assertContains(response, 'hx-trigger="load"')
+            self.assertContains(response, "Checking connection...")
+            self.assertContains(response, "AI Provider")
+            self.assertContains(response, "Output Directory")
+            self.assertContains(response, 'id="vault-path-text"')
+            self.assertContains(response, 'id="vault-path-inline"')
+            self.assertContains(response, 'id="vault-path-expanded"')
+            self.assertContains(response, 'id="vault-path-toggle-btn"')
+            self.assertContains(response, "view full")
+
+            # Section 2: Library & KPI cards
+            self.assertContains(response, "Your notes library")
+            self.assertContains(response, "An overview of you progress")
+            self.assertContains(response, "Sync Leetcode Data")
+            self.assertContains(response, "Problems Solved")
+            self.assertContains(response, "Difficulty Breakdown")
+            self.assertContains(response, "Notes Created")
+            self.assertContains(response, "AI Prefills Generated")
+            self.assertContains(response, "Needs Attention")
+
+            # Section 3: Notes generation section
+            self.assertContains(response, "Notes Generation")
+            self.assertContains(response, "Generate Notes")
+            self.assertContains(response, "Overall Running Tasks")
 
     def test_problems_list_page_renders(self):
         url = reverse("ui:problems")
@@ -569,6 +613,7 @@ class ProblemsUITests(TestCase):
 class SettingsUITests(DataDirDBTestCase):
     def setUp(self):
         super().setUp()
+        cache.clear()
         self.client = Client()
 
         def cleanup_test_snapshots():
@@ -722,8 +767,10 @@ class SettingsUITests(DataDirDBTestCase):
             ok=True,
             state=mock.MagicMock(value="connected"),
             username="test_user",
+            real_name="Test User",
+            display_name="Test User (test_user)",
             is_premium=False,
-            message="Connected as test_user.",
+            message="Connected as Test User (test_user).",
         )
         url = reverse("ui:test_connection")
         response = self.client.post(url)
@@ -733,11 +780,118 @@ class SettingsUITests(DataDirDBTestCase):
             {
                 "ok": True,
                 "state": "connected",
-                "message": "Connected as test_user.",
+                "message": "Connected as Test User (test_user).",
                 "username": "test_user",
+                "real_name": "Test User",
+                "display_name": "Test User (test_user)",
                 "is_premium": False,
+                "cached": False,
             },
         )
+
+    @patch("ui.helpers.settings.check_connection")
+    def test_connection_debounce_caching(self, mock_conn):
+        """Verify repeated calls within cooldown return cached result without hitting LeetCode."""
+        mock_conn.return_value = mock.MagicMock(
+            ok=True,
+            state=mock.MagicMock(value="connected"),
+            username="test_user",
+            real_name="Test User",
+            display_name="Test User (test_user)",
+            is_premium=False,
+            message="Connected as Test User (test_user).",
+        )
+        url = reverse("ui:test_connection")
+
+        # First call: hits LeetCode, cached=False
+        res1 = self.client.get(url)
+        self.assertEqual(res1.status_code, 200)
+        self.assertFalse(res1.json()["cached"])
+        self.assertEqual(mock_conn.call_count, 1)
+
+        # Second call immediately after: debounced from cache, cached=True
+        res2 = self.client.get(url)
+        self.assertEqual(res2.status_code, 200)
+        self.assertTrue(res2.json()["cached"])
+        self.assertEqual(mock_conn.call_count, 1)  # Still 1! Not hit again!
+
+        # Third call with force=true: bypasses cache, cached=False
+        res3 = self.client.get(url + "?force=true")
+        self.assertEqual(res3.status_code, 200)
+        self.assertFalse(res3.json()["cached"])
+        self.assertEqual(mock_conn.call_count, 2)  # Hit again!
+
+    @patch("ui.helpers.settings.check_connection")
+    def test_connection_failure_never_cached(self, mock_conn):
+        """Verify that connection failures/expired sessions are never cached."""
+        mock_conn.return_value = mock.MagicMock(
+            ok=False,
+            state=mock.MagicMock(value="signed_out"),
+            username="",
+            real_name="",
+            display_name="",
+            is_premium=False,
+            message="Cookies have expired.",
+        )
+        url = reverse("ui:test_connection")
+
+        # First failure check: live call
+        res1 = self.client.get(url)
+        self.assertEqual(res1.status_code, 200)
+        self.assertFalse(res1.json()["cached"])
+        self.assertEqual(mock_conn.call_count, 1)
+
+        # Second failure check immediately after: not cached, calls live again!
+        res2 = self.client.get(url)
+        self.assertEqual(res2.status_code, 200)
+        self.assertFalse(res2.json()["cached"])
+        self.assertEqual(mock_conn.call_count, 2)
+
+    @patch("ui.helpers.settings.check_connection")
+    def test_dashboard_connection_endpoint_success(self, mock_conn):
+        """Verify the dashboard connection returns the partial with display name and no continuous poll."""
+        mock_conn.return_value = mock.MagicMock(
+            ok=True,
+            state=mock.MagicMock(value="connected"),
+            username="ajeet",
+            real_name="Ajeet Patel",
+            display_name="Ajeet Patel (ajeet)",
+            is_premium=True,
+            message="Connected as Ajeet Patel (ajeet).",
+        )
+        url = reverse("ui:test_connection") + "?source=dashboard"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/partials/dashboard_connection_status.html")
+        content = response.content.decode("utf-8")
+        self.assertIn('id="dashboard-leetcode-status"', content)
+        self.assertNotIn('hx-trigger="every 5s"', content)
+        self.assertNotIn('hx-trigger="load"', content)
+        self.assertIn("Connected as Ajeet Patel (ajeet)", content)
+        self.assertIn("Premium", content)
+
+    @patch("ui.helpers.settings.check_connection")
+    def test_dashboard_connection_endpoint_failure(self, mock_conn):
+        """Verify the dashboard connection displays error status when connection fails."""
+        mock_conn.return_value = mock.MagicMock(
+            ok=False,
+            state=mock.MagicMock(value="signed_out"),
+            username="",
+            real_name="",
+            display_name="",
+            is_premium=False,
+            message="Cookies have expired.",
+        )
+        url = reverse("ui:test_connection") + "?source=dashboard"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/partials/dashboard_connection_status.html")
+        content = response.content.decode("utf-8")
+        self.assertIn('id="dashboard-leetcode-status"', content)
+        self.assertNotIn('hx-trigger="every 5s"', content)
+        self.assertNotIn('hx-trigger="load"', content)
+        self.assertIn("Cookies have expired.", content)
+        self.assertIn("Disconnected", content)
 
     def test_save_general_settings(self):
         url = reverse("ui:save_general_settings")

@@ -3,6 +3,7 @@ query globalData {
   userStatus {
     isSignedIn
     username
+    realName
     isPremium
   }
 }

@@ -6,7 +6,18 @@ from pydantic import BaseModel
 class AccountStatusDTO(BaseModel):
     signed_in: bool
     username: str = ""
+    real_name: str = ""
     is_premium: bool = False
+
+    @property
+    def display_name(self) -> str:
+        """Format as '<realName> (<username>)' if real_name exists, otherwise '<username>'."""
+        cleaned_real_name = self.real_name.strip()
+        if cleaned_real_name and self.username:
+            return f"{cleaned_real_name} ({self.username})"
+        if cleaned_real_name:
+            return cleaned_real_name
+        return self.username
 
 
 class TagDTO(BaseModel):

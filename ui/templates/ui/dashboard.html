@@ -1,0 +1,382 @@
+{% extends "ui/base.html" %}
+{% block title %}Dashboard · Leetnotes{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-6xl mx-auto flex flex-col gap-8 pb-16">
+  <!-- Page Header -->
+  <div class="flex flex-col gap-1">
+    <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Dashboard</h1>
+    <p class="text-sm text-zinc-500 dark:text-zinc-400">
+      Your leetcode notes workspace
+    </p>
+  </div>
+
+  <!-- Section 1 - Header & System Health Bar (Status at a Glance) -->
+  <div class="rounded-xl border border-zinc-200/90 bg-white p-3 shadow-xs dark:border-zinc-800 dark:bg-zinc-900/80">
+    <div class="flex flex-col gap-2.5">
+      <!-- Row 1: LeetCode Connection (Tested in background every 5s; no blocking call on page refresh) -->
+      {% include "ui/partials/dashboard_connection_status.html" with conn=None %}
+
+      <!-- Row 2: AI Provider -->
+      <a
+        href="{% url 'ui:settings' %}#preferences-form"
+        class="group flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-lg border border-zinc-200/70 bg-zinc-50/60 px-4 py-3 transition-all hover:bg-zinc-100/80 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/40 dark:hover:bg-zinc-800/60 dark:hover:border-zinc-700"
+        title="View AI Provider in Settings"
+      >
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
+            {% lucide "bot" class="h-4 w-4" %}
+          </div>
+          <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2.5 min-w-0">
+            <span class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">
+              AI Provider
+            </span>
+            <span class="hidden sm:inline text-zinc-300 dark:text-zinc-700">·</span>
+            <div class="flex items-center gap-2 truncate">
+              <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                Antigravity CLI (agy) 3.8
+              </span>
+              <span class="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 shrink-0">
+                effort [medium]
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 text-xs font-medium text-zinc-400 group-hover:text-zinc-700 dark:text-zinc-500 dark:group-hover:text-zinc-200 transition-colors shrink-0 self-end sm:self-auto">
+          <span>Settings</span>
+          {% lucide "arrow-up-right" class="h-3.5 w-3.5" %}
+        </div>
+      </a>
+
+      <!-- Row 3: Output Directory -->
+      <a
+        href="{% url 'ui:settings' %}#general-settings-form"
+        class="group flex flex-col gap-2.5 rounded-lg border border-zinc-200/70 bg-zinc-50/60 p-3.5 transition-all hover:bg-zinc-100/80 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/40 dark:hover:bg-zinc-800/60 dark:hover:border-zinc-700"
+        title="View Output Directory in Settings"
+      >
+        <!-- Main Line (on full screen: all on the same line!) -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 w-full">
+          <div class="flex items-center gap-2.5 min-w-0 flex-1">
+            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+              {% lucide "folder" class="h-4 w-4" %}
+            </div>
+
+            <!-- Header label and badge -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                Output Directory
+              </span>
+              <span class="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                Ready
+              </span>
+            </div>
+
+            <!-- Separator on full screen -->
+            <span class="hidden sm:inline text-zinc-300 dark:text-zinc-700 shrink-0">·</span>
+
+            <!-- Inline Path (shown on same line on full screen when collapsed) -->
+            <div id="vault-path-inline" class="flex items-center gap-1.5 min-w-0 flex-1">
+              <span
+                id="vault-path-text"
+                class="text-sm font-semibold font-mono text-zinc-800 dark:text-zinc-200 truncate cursor-help"
+                title="/home/gajeet/Documents/ObsidianVault/LeetCodeNotes/PersonalVault"
+              >
+                /home/gajeet/Documents/ObsidianVault/LeetCodeNotes/PersonalVault
+              </span>
+              <span class="text-zinc-400 dark:text-zinc-500 font-mono font-bold tracking-wider text-xs shrink-0 select-none">....</span>
+              <button
+                type="button"
+                id="vault-path-toggle-btn"
+                onclick="toggleVaultPath(event)"
+                class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/60 transition-colors shrink-0 cursor-pointer"
+                title="View full path on next line"
+              >
+                view full
+              </button>
+            </div>
+          </div>
+
+          <!-- Desktop Settings Shortcut (right side of same line on sm+) -->
+          <div class="hidden sm:flex items-center gap-1.5 text-xs font-medium text-zinc-400 group-hover:text-zinc-700 dark:text-zinc-500 dark:group-hover:text-zinc-200 transition-colors shrink-0">
+            <span>Settings</span>
+            {% lucide "arrow-up-right" class="h-3.5 w-3.5" %}
+          </div>
+        </div>
+
+        <!-- Next Line Expanded View: Triggered when "view full" is clicked -->
+        <div id="vault-path-expanded" class="hidden flex-col gap-2 w-full pt-1 sm:pl-9.5">
+          <div
+            class="rounded-lg bg-zinc-100/90 dark:bg-zinc-950/70 p-3 border border-zinc-200 dark:border-zinc-800 cursor-help"
+            title="/home/gajeet/Documents/ObsidianVault/LeetCodeNotes/PersonalVault"
+          >
+            <span class="text-sm font-semibold font-mono text-zinc-900 dark:text-zinc-100 break-all select-all">
+              /home/gajeet/Documents/ObsidianVault/LeetCodeNotes/PersonalVault
+            </span>
+          </div>
+          <button
+            type="button"
+            onclick="toggleVaultPath(event)"
+            class="self-start inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/60 transition-colors cursor-pointer"
+          >
+            view less
+          </button>
+        </div>
+
+        <!-- Mobile-only Settings Shortcut: Placed on line below path when screen is small -->
+        <div class="flex sm:hidden items-center justify-end gap-1.5 pt-1 text-xs font-medium text-zinc-400 group-hover:text-zinc-700 dark:text-zinc-500 dark:group-hover:text-zinc-200 transition-colors border-t border-zinc-100/80 dark:border-zinc-800/60 mt-0.5">
+          <span>Settings</span>
+          {% lucide "arrow-up-right" class="h-3.5 w-3.5" %}
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <script>
+    function toggleVaultPath(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const inlineEl = document.getElementById('vault-path-inline');
+      const expandedEl = document.getElementById('vault-path-expanded');
+      if (!inlineEl || !expandedEl) return;
+      const isExpanded = !expandedEl.classList.contains('hidden');
+      if (isExpanded) {
+        expandedEl.classList.add('hidden');
+        expandedEl.classList.remove('flex');
+        inlineEl.classList.remove('hidden');
+        inlineEl.classList.add('flex');
+      } else {
+        expandedEl.classList.remove('hidden');
+        expandedEl.classList.add('flex');
+        inlineEl.classList.add('hidden');
+        inlineEl.classList.remove('flex');
+      }
+    }
+  </script>
+
+  <!-- Section 2 - Grid Boxes to Show Basic Metrics -->
+  <div class="flex flex-col gap-5">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div class="flex flex-col gap-1">
+        <h2 class="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Your notes library</h2>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400">
+          An overview of you progress
+        </p>
+      </div>
+      <button
+        type="button"
+        class="h-9 inline-flex items-center gap-2 self-start sm:self-auto rounded-lg border border-zinc-300 bg-white px-3.5 text-xs font-semibold text-zinc-700 shadow-2xs hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 transition-colors cursor-pointer shrink-0"
+      >
+        {% lucide "refresh-cw" class="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" %}
+        <span>Sync Leetcode Data</span>
+      </button>
+    </div>
+
+    <!-- Reactive Grid of KPI Boxes -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Box 1: Solved Problems (Hover reveals difficulty breakdown) -->
+      <div class="group relative flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs transition-all hover:shadow-md hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 cursor-default">
+        <!-- Floating Tooltip on Hover -->
+        <div class="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-30 w-64 rounded-xl border border-zinc-200 bg-white p-3.5 shadow-xl transition-all duration-200 opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto dark:border-zinc-700 dark:bg-zinc-800">
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-zinc-100 dark:border-zinc-700/60">
+            <span class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Difficulty Breakdown</span>
+            <span class="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">185 Solved</span>
+          </div>
+          <div class="flex flex-col gap-2">
+            <!-- Easy -->
+            <div>
+              <div class="flex items-center justify-between text-xs">
+                <span class="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                  Easy
+                </span>
+                <span class="font-mono text-zinc-700 dark:text-zinc-300">95 / 850</span>
+              </div>
+              <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
+                <div class="h-full rounded-full bg-emerald-500 w-[11.2%]"></div>
+              </div>
+            </div>
+            <!-- Medium -->
+            <div>
+              <div class="flex items-center justify-between text-xs">
+                <span class="flex items-center gap-1.5 font-medium text-amber-600 dark:text-amber-400">
+                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                  Medium
+                </span>
+                <span class="font-mono text-zinc-700 dark:text-zinc-300">75 / 1,750</span>
+              </div>
+              <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
+                <div class="h-full rounded-full bg-amber-500 w-[4.3%]"></div>
+              </div>
+            </div>
+            <!-- Hard -->
+            <div>
+              <div class="flex items-center justify-between text-xs">
+                <span class="flex items-center gap-1.5 font-medium text-rose-600 dark:text-rose-400">
+                  <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                  Hard
+                </span>
+                <span class="font-mono text-zinc-700 dark:text-zinc-300">15 / 800</span>
+              </div>
+              <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
+                <div class="h-full rounded-full bg-rose-500 w-[1.9%]"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Tooltip Arrow -->
+          <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 border-r border-b border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800"></div>
+        </div>
+
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Problems Solved</span>
+              {% lucide "info" class="h-3 w-3 text-zinc-400 dark:text-zinc-500" %}
+            </div>
+            <div class="mt-2 flex items-baseline gap-2">
+              <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">185</span>
+              <span class="text-sm font-medium text-zinc-400 dark:text-zinc-500">/ 4,110</span>
+            </div>
+          </div>
+          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+            {% lucide "circle-check" class="h-5 w-5" %}
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
+          <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
+            <span>Overall Progress</span>
+            <span class="font-mono font-semibold text-zinc-900 dark:text-zinc-100">4.5%</span>
+          </div>
+          <div class="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+            <div class="h-full rounded-full bg-emerald-500 w-[4.5%]"></div>
+          </div>
+          <div class="mt-2 flex items-center justify-between text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+            <span class="text-emerald-600 dark:text-emerald-400 font-medium">95 E</span>
+            <span>·</span>
+            <span class="text-amber-600 dark:text-amber-400 font-medium">75 M</span>
+            <span>·</span>
+            <span class="text-rose-600 dark:text-rose-400 font-medium">15 H</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Box 2: Notes Created -->
+      <div class="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="flex items-start justify-between">
+          <div>
+            <span class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Notes Created</span>
+            <div class="mt-2 flex items-baseline gap-2">
+              <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">142</span>
+              <span class="text-sm font-medium text-zinc-400 dark:text-zinc-500">/ 185 solved</span>
+            </div>
+          </div>
+          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
+            {% lucide "file-text" class="h-5 w-5" %}
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
+          <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
+            <span>Vault Coverage</span>
+            <span class="font-mono font-semibold text-blue-600 dark:text-blue-400">76.8%</span>
+          </div>
+          <div class="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+            <div class="h-full rounded-full bg-blue-500 w-[76.8%]"></div>
+          </div>
+          <p class="mt-2 text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+            43 solved problems pending note synthesis
+          </p>
+        </div>
+      </div>
+
+      <!-- Box 3: AI Prefills Generated -->
+      <div class="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="flex items-start justify-between">
+          <div>
+            <span class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">AI Prefills Generated</span>
+            <div class="mt-2 flex items-baseline gap-2">
+              <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">320</span>
+              <span class="text-xs font-medium text-zinc-400 dark:text-zinc-500">total</span>
+            </div>
+          </div>
+          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-400">
+            {% lucide "sparkles" class="h-5 w-5" %}
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex flex-col gap-1.5">
+          <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+            <span>Multiple candidates cached</span>
+            <span class="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">Active</span>
+          </div>
+          <p class="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+            Includes multiple model attempts per problem
+          </p>
+        </div>
+      </div>
+
+      <!-- Box 4: Needs Attention (Placeholder) -->
+      <div class="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="flex items-start justify-between">
+          <div>
+            <span class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Needs Attention</span>
+            <div class="mt-2 flex items-baseline gap-2">
+              <span class="text-3xl font-bold tracking-tight text-amber-600 dark:text-amber-400">3</span>
+              <span class="text-xs font-medium text-zinc-400 dark:text-zinc-500">items</span>
+            </div>
+          </div>
+          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
+            {% lucide "circle-alert" class="h-5 w-5" %}
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex flex-col gap-1.5">
+          <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+            <span>Action required</span>
+            <span class="inline-flex items-center rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">Review</span>
+          </div>
+          <p class="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+            Placeholder for sync conflicts & review items
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3 - Notes Generation Section -->
+  <div class="rounded-xl border border-zinc-200/90 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+    <div class="border-b border-zinc-200/70 bg-zinc-50/60 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950/40">
+      <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Notes Generation</h2>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+        Batch orchestrate note synthesis and Obsidian filesystem updates.
+      </p>
+    </div>
+
+    <div class="p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+      <div class="flex flex-col gap-2 flex-1 max-w-xl">
+        <div class="flex items-center justify-between text-sm">
+          <span class="font-medium text-zinc-700 dark:text-zinc-300">Overall Running Tasks</span>
+          <span class="font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100">65% (42 / 65)</span>
+        </div>
+        <!-- Dumb Progress Bar -->
+        <div class="h-3 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/60">
+          <div class="h-full rounded-full bg-zinc-900 dark:bg-zinc-100 transition-all w-[65%]"></div>
+        </div>
+        <span class="text-xs text-zinc-400 dark:text-zinc-500">
+          Sync and pipeline processing progress (placeholder progress bar)
+        </span>
+      </div>
+
+      <button
+        type="button"
+        class="h-10 inline-flex items-center justify-center gap-2 self-start sm:self-auto rounded-lg bg-zinc-900 px-5 text-sm font-semibold text-white shadow-xs hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors cursor-pointer shrink-0"
+      >
+        {% lucide "play" class="h-4 w-4" %}
+        <span>Generate Notes</span>
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}

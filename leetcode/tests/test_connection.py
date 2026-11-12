@@ -36,6 +36,16 @@ class CheckConnectionTests(DataDirTestCase):
         self.assertEqual((result.username, result.is_premium), ("ajeet", True))
         self.assertIn("Connected as ajeet", result.message)
 
+    def test_connected_with_real_name(self):
+        user_with_name = AccountStatusDTO(
+            signed_in=True, username="ajeet", real_name="Ajeet Patel", is_premium=True
+        )
+        result = self.check(user_with_name)
+        self.assertTrue(result.ok)
+        self.assertEqual(result.real_name, "Ajeet Patel")
+        self.assertEqual(result.display_name, "Ajeet Patel (ajeet)")
+        self.assertEqual(result.message, "Connected as Ajeet Patel (ajeet).")
+
     def test_signed_out_when_leetcode_says_so(self):
         result = self.check(AccountStatusDTO(signed_in=False))
         self.assertEqual(result.state, ConnectionState.SIGNED_OUT)

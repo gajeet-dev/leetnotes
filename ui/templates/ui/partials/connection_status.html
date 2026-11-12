@@ -9,17 +9,17 @@
           </span>
           <div class="flex flex-wrap items-center gap-1.5 text-xs sm:text-sm truncate">
             <span class="font-semibold text-emerald-900 dark:text-emerald-100">Connected to LeetCode</span>
-            <span class="text-emerald-700 dark:text-emerald-300">as <strong class="font-semibold text-emerald-950 dark:text-white">{{ conn.username }}</strong></span>
+            <span class="text-emerald-700 dark:text-emerald-300">as <strong class="font-semibold text-emerald-950 dark:text-white">{{ conn.display_name|default:conn.username }}</strong></span>
             {% if conn.is_premium %}
               <span class="inline-flex items-center rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 shrink-0">PREMIUM</span>
             {% endif %}
           </div>
         </div>
         <div class="flex items-center gap-2.5 shrink-0">
-          <span class="text-xs text-emerald-600 dark:text-emerald-400 whitespace-nowrap hidden sm:inline">Verified just now ✓</span>
+          <span class="text-xs text-emerald-600 dark:text-emerald-400 whitespace-nowrap hidden sm:inline">{% if conn.cached %}Verified recently ✓{% else %}Verified just now ✓{% endif %}</span>
           <button
             type="button"
-            hx-post="{% url 'ui:test_connection' %}"
+            hx-post="{% url 'ui:test_connection' %}?force=true"
             hx-target="#connection-status-panel"
             hx-swap="outerHTML"
             hx-indicator="this"
@@ -49,7 +49,7 @@
         </div>
         <button
           type="button"
-          hx-post="{% url 'ui:test_connection' %}"
+          hx-post="{% url 'ui:test_connection' %}?force=true"
           hx-target="#connection-status-panel"
           hx-swap="outerHTML"
           hx-indicator="this"

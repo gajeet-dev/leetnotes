@@ -9,7 +9,11 @@ from django.core.paginator import Paginator
 from django.db import connection
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import (
+    require_GET,
+    require_POST,
+    require_http_methods,
+)
 
 from problems.models import Problem, SyncTask
 from problems.services.bundle import export_bundle, import_bundle
@@ -45,6 +49,7 @@ logger = structlog.get_logger(__name__)
 
 __all__ = [
     "compute_facets",
+    "dashboard_view",
     "filter_problems",
     "matching_problem_ids",
     "problems_list",
@@ -56,6 +61,18 @@ __all__ = [
     "sync_selected_problems",
     "test_connection_view",
 ]
+
+
+@require_GET
+def dashboard_view(request):
+    """Render the dashboard workspace page with overview KPIs and health metrics."""
+    return render(
+        request,
+        "ui/dashboard.html",
+        {
+            "active": "dashboard",
+        },
+    )
 
 
 @require_GET
@@ -326,10 +343,21 @@ def save_credentials_view(request):
     return JsonResponse({"ok": ok, "message": msg, "details": details})
 
 
-@require_POST
+@require_http_methods(["GET", "POST"])
 def test_connection_view(request):
     """Check connectivity to LeetCode with the currently saved cookies."""
-    res = test_leetcode_connection()
+    force = (
+        request.GET.get("force") in ("true", "1")
+        or request.POST.get("force") in ("true", "1")
+    )
+    res = test_leetcode_connection(force=force)
+    source = request.GET.get("source") or request.POST.get("source")
+    if source == "dashboard":
+        return render(
+            request,
+            "ui/partials/dashboard_connection_status.html",
+            {"conn": res},
+        )
     if request.headers.get("HX-Request"):
         return render(request, "ui/partials/connection_status.html", {"conn": res})
     return JsonResponse(res)

@@ -3,12 +3,17 @@ from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
+from django.core.cache import cache
 
 from leetcode.bootstrap import ClientSettings, build_client, reset_client
 from leetcode.connection import ConnectionResult, check_connection
 from notes.models import NoteRecord
 from prefill.models import AIResponse
-from prefill.providers.config import all_providers, default_provider_name, provider_names
+from prefill.providers.config import (
+    all_providers,
+    default_provider_name,
+    provider_names,
+)
 from prefill.providers.discovery import (
     CLAUDE_PRESET_MODELS,
     EFFORT_LEVELS,
@@ -29,6 +34,14 @@ from userconfig.credentials import (
 )
 from userconfig.errors import ConfigError
 from userconfig.store import load_config, update_config
+
+CONNECTION_CACHE_KEY = "leetcode_connection_status"
+CONNECTION_COOLDOWN_SECONDS = 15
+
+
+def clear_leetcode_connection_cache() -> None:
+    """Clear the cached connection result so the next check queries LeetCode live."""
+    cache.delete(CONNECTION_CACHE_KEY)
 
 
 def check_tokens_connection(session: str, csrf_token: str) -> ConnectionResult:
@@ -55,14 +68,16 @@ def get_settings_context() -> dict:
 
     dirs = effective.output_dirs()
     output_dir_str = str(dirs[0]) if dirs else ""
-    output_dir_exists = Path(output_dir_str).expanduser().is_dir() if output_dir_str else False
+    output_dir_exists = (
+        Path(output_dir_str).expanduser().is_dir() if output_dir_str else False
+    )
 
     current_tz = config.time_zone or "UTC"
 
     try:
         tz_obj = ZoneInfo(current_tz)
         local_time_display = datetime.now(tz_obj).strftime("%I:%M %p (%a, %b %d)")
-    except (ZoneInfoNotFoundError, ValueError, TypeError, KeyError):
+    except ZoneInfoNotFoundError, ValueError, TypeError, KeyError:
         local_time_display = ""
 
     common_timezones = [
@@ -92,13 +107,19 @@ def get_settings_context() -> dict:
 
     claude_model = claude_saved.get("model", "sonnet")
     claude_default_effort = all_providers().get("claude", {}).get("effort", "medium")
-    claude_effort = claude_saved.get("effort") if "effort" in claude_saved else claude_default_effort
+    claude_effort = (
+        claude_saved.get("effort")
+        if "effort" in claude_saved
+        else claude_default_effort
+    )
     claude_preset_ids = {m["id"] for m in CLAUDE_PRESET_MODELS}
     claude_is_custom = bool(claude_model and claude_model not in claude_preset_ids)
 
     agy_model = agy_saved.get("model", "")
     agy_default_effort = all_providers().get("agy", {}).get("effort", "medium")
-    agy_effort = agy_saved.get("effort") if "effort" in agy_saved else agy_default_effort
+    agy_effort = (
+        agy_saved.get("effort") if "effort" in agy_saved else agy_default_effort
+    )
     agy_models = get_agy_models()
     agy_known_ids = {m["id"] for m in agy_models}
     agy_is_custom = bool(agy_model and agy_model not in agy_known_ids)
@@ -239,7 +260,11 @@ def save_leetcode_credentials(
         return (
             False,
             "Please provide both session cookie and CSRF token.",
-            {"ok": False, "state": "not_configured", "message": "Incomplete credentials"},
+            {
+                "ok": False,
+                "state": "not_configured",
+                "message": "Incomplete credentials",
+            },
         )
 
     # Test candidate credentials with LeetCode
@@ -254,16 +279,45 @@ def save_leetcode_credentials(
         )
         save_credentials(new_creds)
         reset_client()
+        clear_leetcode_connection_cache()
         if candidate_conn.username:
             update_config({"leetcode_username": candidate_conn.username})
 
+        cand_real_name = (
+            candidate_conn.real_name
+            if isinstance(getattr(candidate_conn, "real_name", None), str)
+            else ""
+        )
+        cand_display_name = (
+            candidate_conn.display_name
+            if isinstance(getattr(candidate_conn, "display_name", None), str)
+            else (
+                candidate_conn.username
+                if isinstance(getattr(candidate_conn, "username", None), str)
+                else ""
+            )
+        )
         details = {
             "ok": True,
-            "state": candidate_conn.state.value,
-            "username": candidate_conn.username,
-            "is_premium": candidate_conn.is_premium,
+            "state": (
+                candidate_conn.state.value
+                if hasattr(candidate_conn.state, "value")
+                else str(candidate_conn.state)
+            ),
+            "username": (
+                candidate_conn.username
+                if isinstance(getattr(candidate_conn, "username", None), str)
+                else ""
+            ),
+            "real_name": cand_real_name,
+            "display_name": cand_display_name,
+            "is_premium": bool(getattr(candidate_conn, "is_premium", False)),
         }
-        return True, f"Credentials saved and verified! Connected as {candidate_conn.username}.", details
+        return (
+            True,
+            f"Credentials saved and verified! Connected as {cand_display_name}.",
+            details,
+        )
 
     # Candidate credentials failed! Check if previous credentials were valid
     tokens_changed = (candidate_session != old_session) or (candidate_csrf != old_csrf)
@@ -280,11 +334,27 @@ def save_leetcode_credentials(
             )
             user_suffix = f" for {known_username}" if known_username else ""
             err_detail = (candidate_conn.message or "cookies were rejected").rstrip(".")
+            old_real_name = (
+                old_conn.real_name
+                if isinstance(getattr(old_conn, "real_name", None), str)
+                else ""
+            )
+            old_display_name = (
+                old_conn.display_name
+                if isinstance(getattr(old_conn, "display_name", None), str)
+                else (known_username if isinstance(known_username, str) else "")
+            )
             details = {
                 "ok": True,
-                "state": old_conn.state.value,
+                "state": (
+                    old_conn.state.value
+                    if hasattr(old_conn.state, "value")
+                    else str(old_conn.state)
+                ),
                 "username": known_username,
-                "is_premium": old_conn.is_premium,
+                "real_name": old_real_name,
+                "display_name": old_display_name,
+                "is_premium": bool(getattr(old_conn, "is_premium", False)),
                 "preserved_previous": True,
                 "rejected_error": candidate_conn.message,
             }
@@ -302,12 +372,19 @@ def save_leetcode_credentials(
     )
     save_credentials(new_creds)
     reset_client()
+    clear_leetcode_connection_cache()
 
     details = {
         "ok": False,
-        "state": candidate_conn.state.value,
+        "state": (
+            candidate_conn.state.value
+            if hasattr(candidate_conn.state, "value")
+            else str(candidate_conn.state)
+        ),
         "message": candidate_conn.message,
         "username": "",
+        "real_name": "",
+        "display_name": "",
         "is_premium": False,
     }
     if candidate_conn.state.value == "signed_out":
@@ -317,8 +394,19 @@ def save_leetcode_credentials(
     return False, msg, details
 
 
-def test_leetcode_connection() -> dict:
-    """Check connectivity to LeetCode with the currently saved cookies."""
+def test_leetcode_connection(force: bool = False) -> dict:
+    """Check connectivity to LeetCode with the currently saved cookies.
+
+    Debounced server-side: returns cached result if verified successfully within
+    CONNECTION_COOLDOWN_SECONDS, unless force=True.
+    Only successful connections are cached; failures/expired cookies are never cached
+    so that subsequent attempts always verify live against LeetCode.
+    """
+    if not force:
+        cached = cache.get(CONNECTION_CACHE_KEY)
+        if cached is not None and cached.get("ok"):
+            return cached
+
     reset_client()
     conn = check_connection()
 
@@ -326,13 +414,39 @@ def test_leetcode_connection() -> dict:
         # Keep username up to date in config
         update_config({"leetcode_username": conn.username})
 
-    return {
+    real_name = (
+        conn.real_name if isinstance(getattr(conn, "real_name", None), str) else ""
+    )
+    display_name = (
+        conn.display_name
+        if isinstance(getattr(conn, "display_name", None), str)
+        else (conn.username if isinstance(getattr(conn, "username", None), str) else "")
+    )
+
+    result = {
         "ok": conn.ok,
-        "state": conn.state.value,
+        "state": conn.state.value if hasattr(conn.state, "value") else str(conn.state),
         "message": conn.message,
-        "username": conn.username,
-        "is_premium": conn.is_premium,
+        "username": conn.username
+        if isinstance(getattr(conn, "username", None), str)
+        else "",
+        "real_name": real_name,
+        "display_name": display_name,
+        "is_premium": bool(getattr(conn, "is_premium", False)),
+        "cached": False,
     }
+
+    if conn.ok:
+        cache.set(
+            CONNECTION_CACHE_KEY,
+            {**result, "cached": True},
+            timeout=CONNECTION_COOLDOWN_SECONDS,
+        )
+    else:
+        # Never cache failures or expired sessions: ensure cache is purged so next check is live
+        cache.delete(CONNECTION_CACHE_KEY)
+
+    return result
 
 
 def save_general_settings(
@@ -394,7 +508,7 @@ def save_general_settings(
             try:
                 ZoneInfo(tz_str)
                 changes["time_zone"] = tz_str
-            except (ZoneInfoNotFoundError, ValueError):
+            except ZoneInfoNotFoundError, ValueError:
                 return (
                     False,
                     f"Unknown timezone '{tz_str}'. Please use a standard IANA timezone name.",
@@ -473,7 +587,9 @@ def save_general_settings(
         msg = f"Settings saved. Created directory: {cleaned_dir}"
         status = "success"
     elif target_path and not dir_exists:
-        msg = f"Settings saved, but the directory '{cleaned_dir}' does not exist on disk."
+        msg = (
+            f"Settings saved, but the directory '{cleaned_dir}' does not exist on disk."
+        )
         status = "warning"
     else:
         msg = "Settings saved successfully."
@@ -501,5 +617,5 @@ def auto_set_timezone(timezone_name: str) -> tuple[bool, str]:
         ZoneInfo(tz_str)
         update_config({"time_zone": tz_str})
         return True, f"Auto-detected timezone set to {tz_str}."
-    except (ZoneInfoNotFoundError, ValueError):
+    except ZoneInfoNotFoundError, ValueError:
         return False, f"Invalid timezone '{tz_str}'."

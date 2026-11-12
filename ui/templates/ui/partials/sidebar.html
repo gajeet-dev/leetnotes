@@ -8,7 +8,7 @@
         <h3 id="nav-main-label">Menu</h3>
         <ul>
           <li>
-            <a href="#">
+            <a href="{% url 'ui:dashboard' %}" {% if active == 'dashboard' %}aria-current="page"{% endif %}>
               {% lucide "layout-dashboard" %}
               <span>Dashboard</span>
             </a>
