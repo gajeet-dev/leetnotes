@@ -9,6 +9,8 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from notes.models import NoteRecord
+from prefill.models import AIResponse
 from problems.models import Problem, Submission, SyncTask
 from userconfig import effective, update_config, update_credentials
 from userconfig.credentials import load_credentials
@@ -113,6 +115,10 @@ class ProblemsUITests(TestCase):
             self.assertContains(response, "view full")
 
             # Section 2: Library & KPI cards
+            self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_solved.html")
+            self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_notes.html")
+            self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_prefills.html")
+            self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_attention.html")
             self.assertContains(response, "Your notes library")
             self.assertContains(response, "An overview of you progress")
             self.assertContains(response, "Sync Leetcode Data")
@@ -121,7 +127,10 @@ class ProblemsUITests(TestCase):
             self.assertContains(response, 'id="kpi-solved-problems"')
             self.assertContains(response, "Difficulty Breakdown")
             self.assertContains(response, "Notes Created")
+            self.assertContains(response, 'id="kpi-notes-created"')
+            self.assertContains(response, "Vault Coverage")
             self.assertContains(response, "AI Prefills Generated")
+            self.assertContains(response, 'id="kpi-ai-prefills"')
             self.assertContains(response, "Needs Attention")
             self.assertContains(response, 'id="kpi-needs-attention"')
 
@@ -249,6 +258,7 @@ class ProblemsUITests(TestCase):
         self.assertTemplateUsed(response, "ui/partials/sync_leetcode_button.html")
         self.assertTemplateUsed(response, "ui/partials/sync_stats_strip.html")
         self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_solved.html")
+        self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_notes.html")
         self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_attention.html")
 
         # Verify inline message strip & pills
@@ -265,6 +275,7 @@ class ProblemsUITests(TestCase):
 
         # Verify OOB KPI updates
         self.assertContains(response, 'id="kpi-solved-problems" hx-swap-oob="outerHTML"')
+        self.assertContains(response, 'id="kpi-notes-created" hx-swap-oob="outerHTML"')
         self.assertContains(response, 'id="kpi-needs-attention" hx-swap-oob="outerHTML"')
 
         # Verify NO toast notification is included for success
@@ -360,6 +371,181 @@ class ProblemsUITests(TestCase):
         metrics = get_dashboard_metrics()
         self.assertEqual(metrics["solved"]["total_solved"], 2)
         self.assertEqual(metrics["attention"]["total"], 1)
+
+    def test_dashboard_notes_created_and_prefills_helpers(self):
+        """Test calculation of Notes Created (with disk inspection) and AI Prefills in dashboard helpers."""
+        from notes.hashing import content_hash
+        from notes.models import NoteRecord
+        from notes.state import dir_key
+        from prefill.models import AIResponse
+        from ui.helpers.dashboard import (
+            get_ai_prefills_metrics,
+            get_dashboard_metrics,
+            get_notes_created_metrics,
+        )
+
+        # Clear existing models
+        NoteRecord.objects.all().delete()
+        AIResponse.objects.all().delete()
+        Problem.objects.all().delete()
+
+        p1 = Problem.objects.create(
+            slug="two-sum",
+            leetcode_id=1,
+            difficulty=Problem.Difficulty.EASY,
+            solved=True,
+        )
+        p2 = Problem.objects.create(
+            slug="add-two-numbers",
+            leetcode_id=2,
+            difficulty=Problem.Difficulty.MEDIUM,
+            solved=True,
+        )
+        p3 = Problem.objects.create(
+            slug="longest-substring",
+            leetcode_id=3,
+            difficulty=Problem.Difficulty.MEDIUM,
+            solved=False,
+        )
+
+        # 1. Output directory not configured
+        with patch("userconfig.effective.output_dirs", return_value=[]):
+            notes_metrics = get_notes_created_metrics()
+            self.assertEqual(notes_metrics["notes_created"], 0)
+            self.assertEqual(notes_metrics["total_solved"], 2)
+            self.assertEqual(notes_metrics["coverage_pct"], 0.0)
+            self.assertEqual(notes_metrics["pending_count"], 2)
+            self.assertFalse(notes_metrics["output_dir_configured"])
+
+        # 2. Output directory configured with temp directory
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_path = Path(tmp_dir)
+            canonical = dir_key(out_path)
+
+            with patch("userconfig.effective.output_dirs", return_value=[out_path]):
+                # No files written yet
+                notes_metrics = get_notes_created_metrics()
+                self.assertEqual(notes_metrics["notes_created"], 0)
+                self.assertEqual(notes_metrics["pending_count"], 2)
+
+                # Write files on disk:
+                # p1 has both problem note and solution note
+                p1_prob_file = out_path / "Leetcode" / "problems" / "0001-two-sum.md"
+                p1_sol_file = out_path / "Leetcode" / "solutions" / "0001-two-sum-solution.md"
+                p1_prob_file.parent.mkdir(parents=True, exist_ok=True)
+                p1_sol_file.parent.mkdir(parents=True, exist_ok=True)
+                p1_prob_file.write_text("# Two Sum", encoding="utf-8")
+                p1_sol_file.write_text("# Two Sum Solution", encoding="utf-8")
+
+                now = timezone.now()
+                NoteRecord.objects.create(
+                    problem=p1,
+                    kind=NoteRecord.Kind.PROBLEM,
+                    output_dir=canonical,
+                    relative_path="Leetcode/problems/0001-two-sum.md",
+                    content_hash=content_hash("# Two Sum"),
+                    written_at=now,
+                )
+                NoteRecord.objects.create(
+                    problem=p1,
+                    kind=NoteRecord.Kind.SOLUTION,
+                    output_dir=canonical,
+                    relative_path="Leetcode/solutions/0001-two-sum-solution.md",
+                    content_hash=content_hash("# Two Sum Solution"),
+                    written_at=now,
+                )
+
+                # p2 (solved) has solution note only
+                p2_sol_file = out_path / "Leetcode" / "solutions" / "0002-add-two-numbers-solution.md"
+                p2_sol_file.write_text("# Add Two Numbers Solution", encoding="utf-8")
+                NoteRecord.objects.create(
+                    problem=p2,
+                    kind=NoteRecord.Kind.SOLUTION,
+                    output_dir=canonical,
+                    relative_path="Leetcode/solutions/0002-add-two-numbers-solution.md",
+                    content_hash=content_hash("# Add Two Numbers Solution"),
+                    written_at=now,
+                )
+
+                # p3 (unsolved) has problem note only
+                p3_prob_file = out_path / "Leetcode" / "problems" / "0003-longest-substring.md"
+                p3_prob_file.write_text("# Longest Substring", encoding="utf-8")
+                NoteRecord.objects.create(
+                    problem=p3,
+                    kind=NoteRecord.Kind.PROBLEM,
+                    output_dir=canonical,
+                    relative_path="Leetcode/problems/0003-longest-substring.md",
+                    content_hash=content_hash("# Longest Substring"),
+                    written_at=now,
+                )
+
+                # p1 has 2 notes but counts +1. p2 is solved and counts +1. p3 is unsolved and does not count toward solved notes.
+                notes_metrics = get_notes_created_metrics()
+                self.assertEqual(notes_metrics["notes_created"], 2)
+                self.assertEqual(notes_metrics["total_solved"], 2)
+                self.assertEqual(notes_metrics["coverage_pct"], 100.0)
+                self.assertEqual(notes_metrics["pending_count"], 0)
+                self.assertTrue(notes_metrics["output_dir_configured"])
+
+                # 3. Simulate user deleting p2's note file on disk -> classified as MISSING
+                p2_sol_file.unlink()
+                notes_metrics = get_notes_created_metrics()
+                self.assertEqual(notes_metrics["notes_created"], 1)
+                self.assertEqual(notes_metrics["pending_count"], 1)
+                self.assertEqual(notes_metrics["coverage_pct"], 50.0)
+
+            # 4. User changes output directory to a different folder
+            with tempfile.TemporaryDirectory() as other_dir:
+                with patch("userconfig.effective.output_dirs", return_value=[Path(other_dir)]):
+                    notes_metrics = get_notes_created_metrics()
+                    self.assertEqual(notes_metrics["notes_created"], 0)
+                    self.assertEqual(notes_metrics["pending_count"], 2)
+                    self.assertEqual(notes_metrics["coverage_pct"], 0.0)
+
+        # 5. AI Prefills metrics test
+        AIResponse.objects.create(
+            problem=p1,
+            source=AIResponse.Source.PROVIDER,
+            provider_name="claude",
+            model_name="claude-3-5-sonnet",
+            prompt_version="v1",
+            input_hash="hash1",
+            raw_text="solution 1",
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+        AIResponse.objects.create(
+            problem=p1,
+            source=AIResponse.Source.PROVIDER,
+            provider_name="agy",
+            model_name="gemini-2.5-flash",
+            prompt_version="v1",
+            input_hash="hash2",
+            raw_text="solution 2 candidate",
+            status=AIResponse.Status.VALID,
+            is_active=False,
+        )
+        AIResponse.objects.create(
+            problem=p2,
+            source=AIResponse.Source.MANUAL,
+            provider_name="manual",
+            prompt_version="v1",
+            input_hash="hash3",
+            raw_text="manual solution",
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+
+        prefills_metrics = get_ai_prefills_metrics()
+        self.assertEqual(prefills_metrics["total"], 3)
+        self.assertEqual(prefills_metrics["active"], 2)
+        self.assertEqual(prefills_metrics["problems_covered"], 2)
+
+        # 6. Aggregated dashboard metrics
+        dashboard_metrics = get_dashboard_metrics()
+        self.assertIn("notes", dashboard_metrics)
+        self.assertIn("prefills", dashboard_metrics)
+        self.assertEqual(dashboard_metrics["prefills"]["total"], 3)
 
     @patch("ui.views.effective.leetcode_session", return_value="fake_session")
     @patch("ui.views.effective.leetcode_csrf_token", return_value="fake_csrf")

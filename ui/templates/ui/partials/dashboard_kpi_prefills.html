@@ -1,0 +1,31 @@
+<div
+  id="kpi-ai-prefills"
+  class="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
+>
+  <div class="flex items-start justify-between">
+    <div>
+      <span class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">AI Prefills Generated</span>
+      <div class="mt-2 flex items-baseline gap-2">
+        <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+          {{ kpi_metrics.prefills.total }}
+        </span>
+        <span class="text-xs font-medium text-zinc-400 dark:text-zinc-500">total</span>
+      </div>
+    </div>
+    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-400">
+      {% lucide "sparkles" class="h-5 w-5" %}
+    </div>
+  </div>
+
+  <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex flex-col gap-1.5">
+    <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+      <span>Multiple candidates cached</span>
+      <span class="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
+        {{ kpi_metrics.prefills.active }} Active
+      </span>
+    </div>
+    <p class="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+      Across {{ kpi_metrics.prefills.problems_covered }} problem{{ kpi_metrics.prefills.problems_covered|pluralize }} with prefills
+    </p>
+  </div>
+</div>

@@ -157,6 +157,11 @@ def sync_leetcode_data_view(request):
         "ui/partials/dashboard_kpi_solved.html",
         {"kpi_metrics": kpi_metrics},
     ).content.decode("utf-8")
+    notes_kpi_html = render(
+        request,
+        "ui/partials/dashboard_kpi_notes.html",
+        {"kpi_metrics": kpi_metrics},
+    ).content.decode("utf-8")
     attention_kpi_html = render(
         request,
         "ui/partials/dashboard_kpi_attention.html",
@@ -167,6 +172,7 @@ def sync_leetcode_data_view(request):
         btn_html
         + f'<div id="sync-stats-container" hx-swap-oob="innerHTML">{strip_html}</div>'
         + f'<div id="kpi-solved-problems" hx-swap-oob="outerHTML">{solved_kpi_html}</div>'
+        + f'<div id="kpi-notes-created" hx-swap-oob="outerHTML">{notes_kpi_html}</div>'
         + f'<div id="kpi-needs-attention" hx-swap-oob="outerHTML">{attention_kpi_html}</div>'
     )
     return HttpResponse(response_body)

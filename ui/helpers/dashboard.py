@@ -1,4 +1,8 @@
+from notes.models import NoteRecord
+from notes.state import NoteState, classify_note, dir_key
+from prefill.models import AIResponse
 from problems.models import Problem, Submission
+from userconfig import effective
 
 
 def get_solved_problems_metrics() -> dict:
@@ -62,6 +66,60 @@ def get_solved_problems_metrics() -> dict:
     }
 
 
+def get_notes_created_metrics() -> dict:
+    """Calculate live notes count in the active vault output directory for Dashboard Box 2."""
+    dirs = effective.output_dirs()
+    output_dir_str = str(dirs[0]) if dirs else ""
+    total_solved = Problem.objects.filter(solved=True).count()
+
+    if not output_dir_str:
+        return {
+            "notes_created": 0,
+            "total_solved": total_solved,
+            "coverage_pct": 0.0,
+            "pending_count": total_solved,
+            "output_dir_configured": False,
+        }
+
+    canonical_dir = dir_key(output_dir_str)
+    records = NoteRecord.objects.filter(
+        output_dir=canonical_dir
+    ).select_related("problem")
+
+    problems_with_notes = set()
+    for record in records:
+        state = classify_note(record.content_hash, record.full_path)
+        if state != NoteState.MISSING and record.problem.solved:
+            problems_with_notes.add(record.problem_id)
+
+    notes_created = len(problems_with_notes)
+    coverage_pct = (
+        round((notes_created / total_solved) * 100, 1) if total_solved > 0 else 0.0
+    )
+    pending_count = max(0, total_solved - notes_created)
+
+    return {
+        "notes_created": notes_created,
+        "total_solved": total_solved,
+        "coverage_pct": coverage_pct,
+        "pending_count": pending_count,
+        "output_dir_configured": True,
+    }
+
+
+def get_ai_prefills_metrics() -> dict:
+    """Calculate live AI prefill response counts for Dashboard Box 3."""
+    total = AIResponse.objects.count()
+    active = AIResponse.objects.filter(is_active=True).count()
+    problems_covered = AIResponse.objects.values("problem_id").distinct().count()
+
+    return {
+        "total": total,
+        "active": active,
+        "problems_covered": problems_covered,
+    }
+
+
 def get_needs_attention_metrics() -> dict:
     """Gather action items and categories that require user review for Dashboard Box 4."""
     categories = []
@@ -94,5 +152,7 @@ def get_dashboard_metrics() -> dict:
     """Aggregate all dynamic KPI metrics for Dashboard workspace."""
     return {
         "solved": get_solved_problems_metrics(),
+        "notes": get_notes_created_metrics(),
+        "prefills": get_ai_prefills_metrics(),
         "attention": get_needs_attention_metrics(),
     }
