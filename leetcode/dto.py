@@ -43,6 +43,7 @@ class SubmissionSummaryDTO(BaseModel):
 
 
 class RecentAcDTO(BaseModel):
+    id: int | None = None
     slug: str
     title: str
     timestamp: datetime

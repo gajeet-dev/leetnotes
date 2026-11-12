@@ -1,0 +1,20 @@
+<button
+  type="button"
+  id="sync-leetcode-btn"
+  hx-post="{% url 'ui:sync_leetcode_data' %}"
+  hx-swap="outerHTML"
+  hx-disabled-elt="this"
+  class="group h-9 inline-flex items-center gap-2 self-start sm:self-auto rounded-lg border border-zinc-300 bg-white px-3.5 text-xs font-semibold text-zinc-700 shadow-2xs hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 transition-colors cursor-pointer shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+  title="Discover new problems and check for newer submissions"
+>
+  <span class="relative flex items-center justify-center h-3.5 w-3.5">
+    <span class="htmx-indicator absolute inset-0 flex items-center justify-center">
+      {% lucide "loader-circle" class="h-3.5 w-3.5 animate-spin text-zinc-500 dark:text-zinc-400" %}
+    </span>
+    <span class="group-[.htmx-request]:hidden flex items-center justify-center">
+      {% lucide "refresh-cw" class="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" %}
+    </span>
+  </span>
+  <span class="group-[.htmx-request]:hidden">Sync Leetcode Data</span>
+  <span class="group-[.htmx-request]:inline hidden">Syncing...</span>
+</button>

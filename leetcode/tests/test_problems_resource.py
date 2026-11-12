@@ -131,3 +131,19 @@ class PublicSessionTests(SimpleTestCase):
             "user-csrf",
         )
         self.assertEqual(auth_session.headers.get("X-CSRFToken"), "user-csrf")
+
+    def test_map_recent_ac_parses_id_and_fields(self):
+        from datetime import datetime, timezone
+        from leetcode.mappers.submission import map_recent_ac
+
+        raw = {
+            "id": "2190544218",
+            "title": "Two Sum",
+            "titleSlug": "two-sum",
+            "timestamp": "1708453200",
+        }
+        dto = map_recent_ac(raw)
+        self.assertEqual(dto.id, 2190544218)
+        self.assertEqual(dto.slug, "two-sum")
+        self.assertEqual(dto.title, "Two Sum")
+        self.assertEqual(dto.timestamp, datetime.fromtimestamp(1708453200, tz=timezone.utc))

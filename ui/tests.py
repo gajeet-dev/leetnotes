@@ -7,8 +7,9 @@ from unittest.mock import patch
 from django.core.cache import cache
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
-from problems.models import Problem, SyncTask
+from problems.models import Problem, Submission, SyncTask
 from userconfig import effective, update_config, update_credentials
 from userconfig.credentials import load_credentials
 from userconfig.paths import PROJECT_ROOT
@@ -115,16 +116,264 @@ class ProblemsUITests(TestCase):
             self.assertContains(response, "Your notes library")
             self.assertContains(response, "An overview of you progress")
             self.assertContains(response, "Sync Leetcode Data")
+            self.assertContains(response, 'id="sync-stats-container"')
             self.assertContains(response, "Problems Solved")
+            self.assertContains(response, 'id="kpi-solved-problems"')
             self.assertContains(response, "Difficulty Breakdown")
             self.assertContains(response, "Notes Created")
             self.assertContains(response, "AI Prefills Generated")
             self.assertContains(response, "Needs Attention")
+            self.assertContains(response, 'id="kpi-needs-attention"')
 
             # Section 3: Notes generation section
             self.assertContains(response, "Notes Generation")
             self.assertContains(response, "Generate Notes")
             self.assertContains(response, "Overall Running Tasks")
+
+    def test_dashboard_ai_provider_display_manual(self):
+        """When manual is selected, show 'Manual input AI prefill' with no effort badge."""
+        update_config({"default_provider": "manual"})
+        response = self.client.get(reverse("ui:dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Manual input AI prefill")
+        self.assertNotContains(response, "effort [")
+
+    def test_dashboard_ai_provider_display_claude(self):
+        """When claude is selected, show model and effort."""
+        update_config({
+            "default_provider": "claude",
+            "providers": {
+                "claude": {
+                    "model": "sonnet",
+                    "effort": "high",
+                }
+            }
+        })
+        response = self.client.get(reverse("ui:dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Claude Code · Claude Sonnet")
+        self.assertContains(response, "effort [high]")
+
+    def test_dashboard_ai_provider_display_agy(self):
+        """When agy is selected, show model and effort."""
+        update_config({
+            "default_provider": "agy",
+            "providers": {
+                "agy": {
+                    "model": "antigravity-3.8-thinking",
+                    "effort": "medium",
+                }
+            }
+        })
+        response = self.client.get(reverse("ui:dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Antigravity CLI (agy) · antigravity-3.8-thinking")
+        self.assertContains(response, "effort [medium]")
+
+    def test_dashboard_ai_provider_display_agy_default(self):
+        """When agy is selected without explicit model, show Default (CLI default)."""
+        update_config({
+            "default_provider": "agy",
+            "providers": {
+                "agy": {
+                    "model": "",
+                    "effort": "low",
+                }
+            }
+        })
+        response = self.client.get(reverse("ui:dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Antigravity CLI (agy) · Default (CLI default)")
+        self.assertContains(response, "effort [low]")
+
+    def test_dashboard_output_dir_display_exists(self):
+        """When output directory exists on disk, show 'Ready' badge and path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            update_config({"output_dirs": [tmpdir]})
+            try:
+                response = self.client.get(reverse("ui:dashboard"))
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, tmpdir)
+                self.assertContains(response, "Ready")
+                self.assertContains(response, "view full")
+            finally:
+                update_config({"output_dirs": None})
+
+    def test_dashboard_output_dir_display_missing(self):
+        """When output directory does not exist on disk, show 'Missing' badge and path."""
+        missing_path = "/nonexistent/test/path/leetnotes_vault"
+        update_config({"output_dirs": [missing_path]})
+        try:
+            response = self.client.get(reverse("ui:dashboard"))
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, missing_path)
+            self.assertContains(response, "Missing")
+            self.assertContains(response, "view full")
+        finally:
+            update_config({"output_dirs": None})
+
+    @patch("userconfig.effective.output_dirs", return_value=[])
+    def test_dashboard_output_dir_display_not_configured(self, mock_dirs):
+        """When output directory is empty, show 'Not Configured' badge and fallback text."""
+        response = self.client.get(reverse("ui:dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Not Configured")
+        self.assertContains(response, "No directory configured yet")
+
+    @patch("ui.views.effective.leetcode_session", return_value="")
+    @patch("ui.views.effective.leetcode_csrf_token", return_value="")
+    def test_sync_leetcode_data_view_unauthenticated(self, mock_csrf, mock_session):
+        url = reverse("ui:sync_leetcode_data")
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/partials/sync_leetcode_button.html")
+        self.assertContains(response, "LeetCode credentials not configured")
+        self.assertContains(response, 'id="toast-container"')
+
+    @patch("ui.views.effective.leetcode_session", return_value="fake_session")
+    @patch("ui.views.effective.leetcode_csrf_token", return_value="fake_csrf")
+    @patch("ui.views.get_client")
+    @patch("ui.views.sync_leetcode_overview")
+    def test_sync_leetcode_data_view_success(self, mock_sync, mock_client, mock_csrf, mock_session):
+        from problems.services.sync import SyncOverviewResult
+        mock_sync.return_value = SyncOverviewResult(
+            total_catalog=100,
+            new_problems=3,
+            newly_solved=1,
+            stale_detected=2,
+            pinned_with_updates=1,
+        )
+        url = reverse("ui:sync_leetcode_data")
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/partials/sync_leetcode_button.html")
+        self.assertTemplateUsed(response, "ui/partials/sync_stats_strip.html")
+        self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_solved.html")
+        self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_attention.html")
+
+        # Verify inline message strip & pills
+        self.assertContains(response, 'id="sync-stats-container" hx-swap-oob="innerHTML"')
+        self.assertContains(response, 'id="sync-stats-strip"')
+        self.assertContains(response, "+3")
+        self.assertContains(response, "new discovered")
+        self.assertContains(response, "+1")
+        self.assertContains(response, "newly solved")
+        self.assertContains(response, "2")
+        self.assertContains(response, "stale submissions")
+        self.assertContains(response, "100")
+        self.assertContains(response, "in catalog")
+
+        # Verify OOB KPI updates
+        self.assertContains(response, 'id="kpi-solved-problems" hx-swap-oob="outerHTML"')
+        self.assertContains(response, 'id="kpi-needs-attention" hx-swap-oob="outerHTML"')
+
+        # Verify NO toast notification is included for success
+        self.assertNotContains(response, 'id="toast-container"')
+        self.assertNotContains(response, "toast-notification")
+
+    def test_dashboard_kpi_metrics_helpers(self):
+        """Test calculation of live metrics in ui.helpers.dashboard."""
+        from ui.helpers.dashboard import (
+            get_dashboard_metrics,
+            get_needs_attention_metrics,
+            get_solved_problems_metrics,
+        )
+
+        # Clear existing problems & create known set
+        Problem.objects.all().delete()
+        Problem.objects.create(
+            slug="two-sum",
+            leetcode_id=1,
+            difficulty=Problem.Difficulty.EASY,
+            solved=True,
+        )
+        Problem.objects.create(
+            slug="add-two-numbers",
+            leetcode_id=2,
+            difficulty=Problem.Difficulty.MEDIUM,
+            solved=True,
+        )
+        p3 = Problem.objects.create(
+            slug="longest-substring",
+            leetcode_id=3,
+            difficulty=Problem.Difficulty.MEDIUM,
+            solved=False,
+        )
+        Problem.objects.create(
+            slug="median-arrays",
+            leetcode_id=4,
+            difficulty=Problem.Difficulty.HARD,
+            solved=False,
+        )
+
+        solved_metrics = get_solved_problems_metrics()
+        self.assertEqual(solved_metrics["total_problems"], 4)
+        self.assertEqual(solved_metrics["total_solved"], 2)
+        self.assertEqual(solved_metrics["overall_progress_pct"], 50.0)
+        self.assertEqual(solved_metrics["easy"]["solved"], 1)
+        self.assertEqual(solved_metrics["easy"]["total"], 1)
+        self.assertEqual(solved_metrics["easy"]["pct"], 100.0)
+        self.assertEqual(solved_metrics["medium"]["solved"], 1)
+        self.assertEqual(solved_metrics["medium"]["total"], 2)
+        self.assertEqual(solved_metrics["medium"]["pct"], 50.0)
+        self.assertEqual(solved_metrics["hard"]["solved"], 0)
+        self.assertEqual(solved_metrics["hard"]["total"], 1)
+        self.assertEqual(solved_metrics["hard"]["pct"], 0.0)
+
+        # Needs attention with no stale submissions
+        attention = get_needs_attention_metrics()
+        self.assertEqual(attention["total"], 0)
+        self.assertFalse(attention["has_items"])
+        self.assertEqual(len(attention["categories"]), 0)
+
+        # Create stale submissions: 1 unpinned, 1 pinned
+        now = timezone.now()
+        Submission.objects.create(
+            problem=p3,
+            submission_id=1001,
+            lang="python3",
+            code="pass",
+            submission_date=now,
+            is_stale=True,
+            pinned=False,
+        )
+        p2 = Problem.objects.get(slug="add-two-numbers")
+        Submission.objects.create(
+            problem=p2,
+            submission_id=1002,
+            lang="python3",
+            code="pass",
+            submission_date=now,
+            is_stale=True,
+            pinned=True,
+        )
+
+        attention = get_needs_attention_metrics()
+        self.assertEqual(attention["total"], 1)
+        self.assertTrue(attention["has_items"])
+        self.assertEqual(attention["pinned_with_updates"], 1)
+        self.assertEqual(len(attention["categories"]), 1)
+        self.assertEqual(attention["categories"][0]["id"], "stale_submissions")
+        self.assertEqual(attention["categories"][0]["count"], 1)
+
+        # Test aggregated dashboard metrics
+        metrics = get_dashboard_metrics()
+        self.assertEqual(metrics["solved"]["total_solved"], 2)
+        self.assertEqual(metrics["attention"]["total"], 1)
+
+    @patch("ui.views.effective.leetcode_session", return_value="fake_session")
+    @patch("ui.views.effective.leetcode_csrf_token", return_value="fake_csrf")
+    @patch("ui.views.get_client")
+    @patch("ui.views.sync_leetcode_overview")
+    def test_sync_leetcode_data_view_error(self, mock_sync, mock_client, mock_csrf, mock_session):
+        from leetcode.exceptions import LeetCodeError
+        mock_sync.side_effect = LeetCodeError("Network timeout connecting to LeetCode")
+        url = reverse("ui:sync_leetcode_data")
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/partials/sync_leetcode_button.html")
+        self.assertContains(response, "Sync failed: Network timeout connecting to LeetCode")
+        self.assertContains(response, 'id="toast-container"')
 
     def test_problems_list_page_renders(self):
         url = reverse("ui:problems")

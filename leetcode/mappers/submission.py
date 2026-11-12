@@ -15,8 +15,11 @@ def map_submission_summary(raw: dict[str, Any]) -> SubmissionSummaryDTO:
 
 
 def map_recent_ac(raw: dict[str, Any]) -> RecentAcDTO:
+    raw_id = raw.get("id")
+    sub_id = int(raw_id) if raw_id is not None else None
     return build(
         RecentAcDTO,
+        id=sub_id,
         slug=raw.get("titleSlug"),
         title=raw.get("title"),
         timestamp=raw.get("timestamp"),

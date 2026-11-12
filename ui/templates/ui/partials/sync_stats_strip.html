@@ -1,0 +1,53 @@
+<div
+  id="sync-stats-strip"
+  class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white p-3.5 shadow-xs transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-900/90"
+>
+  <div class="flex flex-wrap items-center gap-2 min-w-0">
+    <div class="flex items-center gap-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100 pr-1">
+      {% lucide "sparkles" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" %}
+      <span>Sync Results:</span>
+    </div>
+
+    <!-- Total Problems in Catalog -->
+    <span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-700 border border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
+      <span class="font-semibold text-zinc-900 dark:text-zinc-100 font-mono">{{ sync_stats.total_catalog }}</span> in catalog
+    </span>
+
+    <!-- New Problems Discovered -->
+    {% if sync_stats.new_problems > 0 %}
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 border border-blue-200/70 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-900/50">
+        <span class="font-bold text-blue-800 dark:text-blue-200 font-mono">+{{ sync_stats.new_problems }}</span> new discovered
+      </span>
+    {% endif %}
+
+    <!-- Newly Solved Problems -->
+    {% if sync_stats.newly_solved > 0 %}
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200/70 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-900/50">
+        <span class="font-bold text-emerald-800 dark:text-emerald-200 font-mono">+{{ sync_stats.newly_solved }}</span> newly solved
+      </span>
+    {% endif %}
+
+    <!-- Stale Submissions -->
+    {% if sync_stats.stale_detected > 0 %}
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 border border-amber-200/70 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900/50">
+        <span class="font-bold text-amber-800 dark:text-amber-200 font-mono">{{ sync_stats.stale_detected }}</span> stale submissions
+      </span>
+    {% endif %}
+
+    {% if sync_stats.new_problems == 0 and sync_stats.newly_solved == 0 and sync_stats.stale_detected == 0 %}
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200/70 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-900/50">
+        All problems & submissions are up to date
+      </span>
+    {% endif %}
+  </div>
+
+  <!-- Dismiss Button -->
+  <button
+    type="button"
+    onclick="dismissSyncStatsStrip(this)"
+    class="self-end sm:self-auto rounded-md p-1 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 dark:text-zinc-500 dark:hover:text-zinc-300 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+    title="Dismiss"
+  >
+    {% lucide "x" class="h-4 w-4" %}
+  </button>
+</div>

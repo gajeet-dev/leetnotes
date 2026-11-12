@@ -46,6 +46,7 @@ query submissionList($questionSlug: String!, $limit: Int, $offset: Int) {
 RECENT_AC_SUBMISSIONS_QUERY = """
 query recentAcSubmissions($username: String!, $limit: Int!) {
   recentAcSubmissionList(username: $username, limit: $limit) {
+    id
     title
     titleSlug
     timestamp

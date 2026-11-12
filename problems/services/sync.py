@@ -10,6 +10,7 @@ from django.utils import timezone
 from structlog.contextvars import bound_contextvars
 
 from leetcode.client import LeetCodeClient
+from leetcode.dto import RecentAcDTO
 from leetcode.exceptions import (
     AuthError,
     LeetCodeError,
@@ -44,12 +45,19 @@ def resolve_pace(requested) -> float | None:
 @dataclass
 class RecentCheckResult:
     checked: int = 0  # entries in LeetCode's recent list
-    reset: int = 0  # submissions tasks set back to pending
+    stale_detected: int = 0  # existing unpinned submissions marked stale
+    ignored_same_newer: int = 0  # already marked / dismissed with same newer ID
     up_to_date: int = 0  # stored solution is already the newest
-    pinned_skipped: int = 0  # protected by a pin
+    pinned_with_updates: int = 0  # pinned solutions that have newer updates on LeetCode
+    pinned_skipped: int = 0  # legacy alias
     unknown: int = 0  # slug not in our DB: run Discover
     newly_solved: int = 0  # known problems we had flagged unsolved
+    pending_initial_sync: int = 0  # solved, but no submission in DB yet
     slug_timestamps: dict[str, datetime] = field(default_factory=dict)
+
+    @property
+    def reset(self) -> int:
+        return self.stale_detected
 
 
 def refresh_recent_submissions(
@@ -59,20 +67,20 @@ def refresh_recent_submissions(
     recent = client.get_recent_accepted(limit=limit)
     result = RecentCheckResult(checked=len(recent))
 
-    # A problem can appear more than once in the list; keep its newest timestamp.
-    newest: dict[str, datetime] = {}
+    # A problem can appear more than once in the list; keep its newest item.
+    newest: dict[str, RecentAcDTO] = {}
     for item in recent:
-        if item.slug not in newest or item.timestamp > newest[item.slug]:
-            newest[item.slug] = item.timestamp
+        if item.slug not in newest or item.timestamp > newest[item.slug].timestamp:
+            newest[item.slug] = item
 
-    result.slug_timestamps = newest
+    result.slug_timestamps = {slug: item.timestamp for slug, item in newest.items()}
     problems = {
         p.slug: p
         for p in Problem.objects.filter(slug__in=newest).select_related("submission")
     }
 
     with transaction.atomic():
-        for slug, timestamp in newest.items():
+        for slug, item in newest.items():
             problem = problems.get(slug)
             if problem is None:
                 result.unknown += 1
@@ -84,31 +92,55 @@ def refresh_recent_submissions(
                 result.newly_solved += 1
 
             sub = getattr(problem, "submission", None)
-            if sub is not None and sub.pinned:
-                result.pinned_skipped += 1
-                continue
+            if sub is not None:
+                if item.timestamp <= sub.submission_date:
+                    result.up_to_date += 1
+                    continue
 
-            if sub is not None and timestamp <= sub.submission_date:
-                result.up_to_date += 1
-                continue
+                # The recent submission timestamp is newer than our stored submission date.
+                # Check if this exact newer submission was already processed/evaluated:
+                if (
+                    sub.newer_submission_id is not None
+                    and sub.newer_submission_id == item.id
+                ):
+                    result.ignored_same_newer += 1
+                    continue
 
-            task, created = SyncTask.objects.get_or_create(
-                problem=problem, part=SyncTask.Part.SUBMISSIONS
-            )
-            if not created:
-                task.status = SyncTask.Status.PENDING
-                task.attempts = 0
-                task.last_error = ""
-                task.completed_at = None
-                task.save()
-            result.reset += 1
+                # Genuine newer submission: mark stale and record newer ID & date
+                sub.is_stale = True
+                sub.newer_submission_id = item.id
+                sub.newer_submission_date = item.timestamp
+                sub.save(
+                    update_fields=[
+                        "is_stale",
+                        "newer_submission_id",
+                        "newer_submission_date",
+                    ]
+                )
+
+                if sub.pinned:
+                    result.pinned_with_updates += 1
+                    result.pinned_skipped += 1
+                else:
+                    result.stale_detected += 1
+            else:
+                # Problem is solved, but no submission row exists in DB yet.
+                # Ensure a submissions task is queued for initial fetch.
+                task, created = SyncTask.objects.get_or_create(
+                    problem=problem, part=SyncTask.Part.SUBMISSIONS
+                )
+                if not created and task.status != SyncTask.Status.DONE:
+                    task.status = SyncTask.Status.PENDING
+                    task.save()
+                result.pending_initial_sync += 1
 
     logger.info(
         "recent_check_completed",
         checked=result.checked,
-        reset=result.reset,
+        stale_detected=result.stale_detected,
+        ignored_same_newer=result.ignored_same_newer,
         up_to_date=result.up_to_date,
-        pinned_skipped=result.pinned_skipped,
+        pinned_with_updates=result.pinned_with_updates,
         unknown=result.unknown,
         newly_solved=result.newly_solved,
     )
@@ -266,6 +298,39 @@ def discover(client: LeetCodeClient) -> DiscoveryResult:
     return result
 
 
+@dataclass
+class SyncOverviewResult:
+    total_catalog: int = 0
+    new_problems: int = 0
+    newly_solved: int = 0
+    new_tasks: int = 0
+    recent_checked: int = 0
+    stale_detected: int = 0
+    ignored_same_newer: int = 0
+    pinned_with_updates: int = 0
+    up_to_date: int = 0
+
+
+def sync_leetcode_overview(
+    client: LeetCodeClient, *, recent_limit: int = 20
+) -> SyncOverviewResult:
+    """Run Step 1 (catalog & solved discovery) and Step 2 (recent accepted submissions check)."""
+    disc_res = discover(client)
+    recent_res = refresh_recent_submissions(client, limit=recent_limit)
+
+    return SyncOverviewResult(
+        total_catalog=disc_res.total,
+        new_problems=disc_res.new_problems,
+        newly_solved=disc_res.newly_solved,
+        new_tasks=disc_res.new_tasks,
+        recent_checked=recent_res.checked,
+        stale_detected=recent_res.stale_detected,
+        ignored_same_newer=recent_res.ignored_same_newer,
+        pinned_with_updates=recent_res.pinned_with_updates,
+        up_to_date=recent_res.up_to_date,
+    )
+
+
 @dataclass(frozen=True)
 class Deps:
     client: LeetCodeClient
@@ -386,9 +451,13 @@ def _sync_submissions(task: SyncTask, deps: Deps) -> None:
             Submission.objects.update_or_create(
                 problem=problem,
                 defaults={
+                    "submission_id": latest.id,
                     "lang": detail.lang,
                     "code": detail.code,
                     "submission_date": detail.submission_date,
+                    "is_stale": False,
+                    "newer_submission_id": None,
+                    "newer_submission_date": None,
                 },
             )
         _complete(task)

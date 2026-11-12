@@ -34,11 +34,13 @@
             <span class="hidden sm:inline text-zinc-300 dark:text-zinc-700">·</span>
             <div class="flex items-center gap-2 truncate">
               <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-                Antigravity CLI (agy) 3.8
+                {{ ai_status.display_text|default:"Manual input AI prefill" }}
               </span>
-              <span class="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 shrink-0">
-                effort [medium]
-              </span>
+              {% if ai_status.has_effort %}
+                <span class="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 shrink-0">
+                  effort [{{ ai_status.effort }}]
+                </span>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -57,7 +59,7 @@
         <!-- Main Line (on full screen: all on the same line!) -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 w-full">
           <div class="flex items-center gap-2.5 min-w-0 flex-1">
-            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md {% if output_dir_exists %}bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400{% elif output_dir %}bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400{% else %}bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400{% endif %}">
               {% lucide "folder" class="h-4 w-4" %}
             </div>
 
@@ -66,34 +68,52 @@
               <span class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                 Output Directory
               </span>
-              <span class="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                Ready
-              </span>
+              {% if output_dir_exists %}
+                <span class="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                  Ready
+                </span>
+              {% elif output_dir %}
+                <span class="inline-flex items-center rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                  Missing
+                </span>
+              {% else %}
+                <span class="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                  Not Configured
+                </span>
+              {% endif %}
             </div>
 
             <!-- Separator on full screen -->
             <span class="hidden sm:inline text-zinc-300 dark:text-zinc-700 shrink-0">·</span>
 
-            <!-- Inline Path (shown on same line on full screen when collapsed) -->
-            <div id="vault-path-inline" class="flex items-center gap-1.5 min-w-0 flex-1">
-              <span
-                id="vault-path-text"
-                class="text-sm font-semibold font-mono text-zinc-800 dark:text-zinc-200 truncate cursor-help"
-                title="/home/gajeet/Documents/ObsidianVault/LeetCodeNotes/PersonalVault"
-              >
-                /home/gajeet/Documents/ObsidianVault/LeetCodeNotes/PersonalVault
-              </span>
-              <span class="text-zinc-400 dark:text-zinc-500 font-mono font-bold tracking-wider text-xs shrink-0 select-none">....</span>
-              <button
-                type="button"
-                id="vault-path-toggle-btn"
-                onclick="toggleVaultPath(event)"
-                class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/60 transition-colors shrink-0 cursor-pointer"
-                title="View full path on next line"
-              >
-                view full
-              </button>
-            </div>
+            {% if output_dir %}
+              <!-- Inline Path (shown on same line on full screen when collapsed) -->
+              <div id="vault-path-inline" class="flex items-center gap-1.5 min-w-0 flex-1">
+                <span
+                  id="vault-path-text"
+                  class="text-sm font-semibold font-mono text-zinc-800 dark:text-zinc-200 truncate cursor-help"
+                  title="{{ output_dir }}"
+                >
+                  {{ output_dir }}
+                </span>
+                <span class="text-zinc-400 dark:text-zinc-500 font-mono font-bold tracking-wider text-xs shrink-0 select-none">....</span>
+                <button
+                  type="button"
+                  id="vault-path-toggle-btn"
+                  onclick="toggleVaultPath(event)"
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/60 transition-colors shrink-0 cursor-pointer"
+                  title="View full path on next line"
+                >
+                  view full
+                </button>
+              </div>
+            {% else %}
+              <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                <span class="text-sm italic text-zinc-400 dark:text-zinc-500">
+                  No directory configured yet
+                </span>
+              </div>
+            {% endif %}
           </div>
 
           <!-- Desktop Settings Shortcut (right side of same line on sm+) -->
@@ -103,24 +123,26 @@
           </div>
         </div>
 
-        <!-- Next Line Expanded View: Triggered when "view full" is clicked -->
-        <div id="vault-path-expanded" class="hidden flex-col gap-2 w-full pt-1 sm:pl-9.5">
-          <div
-            class="rounded-lg bg-zinc-100/90 dark:bg-zinc-950/70 p-3 border border-zinc-200 dark:border-zinc-800 cursor-help"
-            title="/home/gajeet/Documents/ObsidianVault/LeetCodeNotes/PersonalVault"
-          >
-            <span class="text-sm font-semibold font-mono text-zinc-900 dark:text-zinc-100 break-all select-all">
-              /home/gajeet/Documents/ObsidianVault/LeetCodeNotes/PersonalVault
-            </span>
+        {% if output_dir %}
+          <!-- Next Line Expanded View: Triggered when "view full" is clicked -->
+          <div id="vault-path-expanded" class="hidden flex-col gap-2 w-full pt-1 sm:pl-9.5">
+            <div
+              class="rounded-lg bg-zinc-100/90 dark:bg-zinc-950/70 p-3 border border-zinc-200 dark:border-zinc-800 cursor-help"
+              title="{{ output_dir }}"
+            >
+              <span class="text-sm font-semibold font-mono text-zinc-900 dark:text-zinc-100 break-all select-all">
+                {{ output_dir }}
+              </span>
+            </div>
+            <button
+              type="button"
+              onclick="toggleVaultPath(event)"
+              class="self-start inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/60 transition-colors cursor-pointer"
+            >
+              view less
+            </button>
           </div>
-          <button
-            type="button"
-            onclick="toggleVaultPath(event)"
-            class="self-start inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/60 transition-colors cursor-pointer"
-          >
-            view less
-          </button>
-        </div>
+        {% endif %}
 
         <!-- Mobile-only Settings Shortcut: Placed on line below path when screen is small -->
         <div class="flex sm:hidden items-center justify-end gap-1.5 pt-1 text-xs font-medium text-zinc-400 group-hover:text-zinc-700 dark:text-zinc-500 dark:group-hover:text-zinc-200 transition-colors border-t border-zinc-100/80 dark:border-zinc-800/60 mt-0.5">
@@ -153,6 +175,15 @@
         inlineEl.classList.remove('flex');
       }
     }
+
+    function dismissSyncStatsStrip(btn) {
+      const strip = btn.closest('#sync-stats-strip');
+      if (!strip) return;
+      strip.classList.add('opacity-0', '-translate-y-2');
+      setTimeout(function() {
+        strip.remove();
+      }, 250);
+    }
   </script>
 
   <!-- Section 2 - Grid Boxes to Show Basic Metrics -->
@@ -164,103 +195,20 @@
           An overview of you progress
         </p>
       </div>
-      <button
-        type="button"
-        class="h-9 inline-flex items-center gap-2 self-start sm:self-auto rounded-lg border border-zinc-300 bg-white px-3.5 text-xs font-semibold text-zinc-700 shadow-2xs hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 transition-colors cursor-pointer shrink-0"
-      >
-        {% lucide "refresh-cw" class="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" %}
-        <span>Sync Leetcode Data</span>
-      </button>
+      {% include "ui/partials/sync_leetcode_button.html" %}
+    </div>
+
+    <!-- Inline Sync Stats Strip Container -->
+    <div id="sync-stats-container">
+      {% if sync_stats %}
+        {% include "ui/partials/sync_stats_strip.html" %}
+      {% endif %}
     </div>
 
     <!-- Reactive Grid of KPI Boxes -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <!-- Box 1: Solved Problems (Hover reveals difficulty breakdown) -->
-      <div class="group relative flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs transition-all hover:shadow-md hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 cursor-default">
-        <!-- Floating Tooltip on Hover -->
-        <div class="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-30 w-64 rounded-xl border border-zinc-200 bg-white p-3.5 shadow-xl transition-all duration-200 opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto dark:border-zinc-700 dark:bg-zinc-800">
-          <div class="flex items-center justify-between pb-2 mb-2 border-b border-zinc-100 dark:border-zinc-700/60">
-            <span class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Difficulty Breakdown</span>
-            <span class="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">185 Solved</span>
-          </div>
-          <div class="flex flex-col gap-2">
-            <!-- Easy -->
-            <div>
-              <div class="flex items-center justify-between text-xs">
-                <span class="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                  Easy
-                </span>
-                <span class="font-mono text-zinc-700 dark:text-zinc-300">95 / 850</span>
-              </div>
-              <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
-                <div class="h-full rounded-full bg-emerald-500 w-[11.2%]"></div>
-              </div>
-            </div>
-            <!-- Medium -->
-            <div>
-              <div class="flex items-center justify-between text-xs">
-                <span class="flex items-center gap-1.5 font-medium text-amber-600 dark:text-amber-400">
-                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
-                  Medium
-                </span>
-                <span class="font-mono text-zinc-700 dark:text-zinc-300">75 / 1,750</span>
-              </div>
-              <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
-                <div class="h-full rounded-full bg-amber-500 w-[4.3%]"></div>
-              </div>
-            </div>
-            <!-- Hard -->
-            <div>
-              <div class="flex items-center justify-between text-xs">
-                <span class="flex items-center gap-1.5 font-medium text-rose-600 dark:text-rose-400">
-                  <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
-                  Hard
-                </span>
-                <span class="font-mono text-zinc-700 dark:text-zinc-300">15 / 800</span>
-              </div>
-              <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
-                <div class="h-full rounded-full bg-rose-500 w-[1.9%]"></div>
-              </div>
-            </div>
-          </div>
-          <!-- Tooltip Arrow -->
-          <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 border-r border-b border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800"></div>
-        </div>
-
-        <div class="flex items-start justify-between">
-          <div>
-            <div class="flex items-center gap-1.5">
-              <span class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Problems Solved</span>
-              {% lucide "info" class="h-3 w-3 text-zinc-400 dark:text-zinc-500" %}
-            </div>
-            <div class="mt-2 flex items-baseline gap-2">
-              <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">185</span>
-              <span class="text-sm font-medium text-zinc-400 dark:text-zinc-500">/ 4,110</span>
-            </div>
-          </div>
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
-            {% lucide "circle-check" class="h-5 w-5" %}
-          </div>
-        </div>
-
-        <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-          <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
-            <span>Overall Progress</span>
-            <span class="font-mono font-semibold text-zinc-900 dark:text-zinc-100">4.5%</span>
-          </div>
-          <div class="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-            <div class="h-full rounded-full bg-emerald-500 w-[4.5%]"></div>
-          </div>
-          <div class="mt-2 flex items-center justify-between text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
-            <span class="text-emerald-600 dark:text-emerald-400 font-medium">95 E</span>
-            <span>·</span>
-            <span class="text-amber-600 dark:text-amber-400 font-medium">75 M</span>
-            <span>·</span>
-            <span class="text-rose-600 dark:text-rose-400 font-medium">15 H</span>
-          </div>
-        </div>
-      </div>
+      {% include "ui/partials/dashboard_kpi_solved.html" %}
 
       <!-- Box 2: Notes Created -->
       <div class="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
@@ -317,31 +265,8 @@
         </div>
       </div>
 
-      <!-- Box 4: Needs Attention (Placeholder) -->
-      <div class="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
-        <div class="flex items-start justify-between">
-          <div>
-            <span class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Needs Attention</span>
-            <div class="mt-2 flex items-baseline gap-2">
-              <span class="text-3xl font-bold tracking-tight text-amber-600 dark:text-amber-400">3</span>
-              <span class="text-xs font-medium text-zinc-400 dark:text-zinc-500">items</span>
-            </div>
-          </div>
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
-            {% lucide "circle-alert" class="h-5 w-5" %}
-          </div>
-        </div>
-
-        <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex flex-col gap-1.5">
-          <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-            <span>Action required</span>
-            <span class="inline-flex items-center rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">Review</span>
-          </div>
-          <p class="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
-            Placeholder for sync conflicts & review items
-          </p>
-        </div>
-      </div>
+      <!-- Box 4: Needs Attention -->
+      {% include "ui/partials/dashboard_kpi_attention.html" %}
     </div>
   </div>
 

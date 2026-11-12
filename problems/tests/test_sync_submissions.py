@@ -1,11 +1,18 @@
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
-from leetcode.dto import SubmissionDetailDTO, SubmissionSummaryDTO
+from leetcode.dto import RecentAcDTO, SubmissionDetailDTO, SubmissionSummaryDTO
 from problems.models import Problem, Submission, SyncTask
-from problems.services.sync import Deps, _sync_submissions
+from problems.services.sync import (
+    Deps,
+    DiscoveryResult,
+    RecentCheckResult,
+    _sync_submissions,
+    refresh_recent_submissions,
+    sync_leetcode_overview,
+)
 
 
 class SyncSubmissionsTests(TestCase):
@@ -158,3 +165,176 @@ class SyncSubmissionsTests(TestCase):
         self.problem.refresh_from_db()
         sub = self.problem.submission
         self.assertEqual(sub.code, "updated code")
+
+    def test_sync_submissions_persists_submission_id_and_resets_stale(self):
+        date = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
+        self.client.iter_submissions.return_value = [
+            SubmissionSummaryDTO(
+                id=12345,
+                status="Accepted",
+                lang="python3",
+                timestamp=date,
+            )
+        ]
+        self.client.get_submission_details.return_value = SubmissionDetailDTO(
+            lang="python3",
+            code="solution code",
+            submission_date=date,
+        )
+        _sync_submissions(self.task, self.deps)
+        self.problem.refresh_from_db()
+        sub = self.problem.submission
+        self.assertEqual(sub.submission_id, 12345)
+        self.assertFalse(sub.is_stale)
+        self.assertIsNone(sub.newer_submission_id)
+        self.assertIsNone(sub.newer_submission_date)
+
+    def test_refresh_recent_submissions_marks_stale_and_records_newer_id(self):
+        old_time = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
+        new_time = datetime(2026, 11, 1, 14, 0, 0, tzinfo=UTC)
+        Submission.objects.create(
+            problem=self.problem,
+            submission_id=100,
+            lang="python3",
+            code="old code",
+            submission_date=old_time,
+        )
+        self.problem.solved = True
+        self.problem.save()
+
+        self.client.get_recent_accepted.return_value = [
+            RecentAcDTO(
+                id=200,
+                slug=self.problem.slug,
+                title=self.problem.title,
+                timestamp=new_time,
+            )
+        ]
+
+        result = refresh_recent_submissions(self.client)
+        self.assertEqual(result.stale_detected, 1)
+        self.assertEqual(result.up_to_date, 0)
+        self.assertEqual(result.ignored_same_newer, 0)
+
+        sub = Submission.objects.get(problem=self.problem)
+        self.assertTrue(sub.is_stale)
+        self.assertEqual(sub.newer_submission_id, 200)
+        self.assertEqual(sub.newer_submission_date, new_time)
+
+    def test_refresh_recent_submissions_deduplicates_same_newer_id(self):
+        old_time = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
+        new_time = datetime(2026, 11, 1, 14, 0, 0, tzinfo=UTC)
+        Submission.objects.create(
+            problem=self.problem,
+            submission_id=100,
+            lang="python3",
+            code="old code",
+            submission_date=old_time,
+            is_stale=False,  # e.g. user dismissed / decided to keep old solution
+            newer_submission_id=200,
+            newer_submission_date=new_time,
+        )
+        self.problem.solved = True
+        self.problem.save()
+
+        self.client.get_recent_accepted.return_value = [
+            RecentAcDTO(
+                id=200,
+                slug=self.problem.slug,
+                title=self.problem.title,
+                timestamp=new_time,
+            )
+        ]
+
+        result = refresh_recent_submissions(self.client)
+        self.assertEqual(result.stale_detected, 0)
+        self.assertEqual(result.ignored_same_newer, 1)
+
+        sub = Submission.objects.get(problem=self.problem)
+        self.assertFalse(sub.is_stale)
+        self.assertEqual(sub.newer_submission_id, 200)
+
+    def test_refresh_recent_submissions_pinned_with_updates(self):
+        old_time = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
+        new_time = datetime(2026, 11, 1, 14, 0, 0, tzinfo=UTC)
+        Submission.objects.create(
+            problem=self.problem,
+            submission_id=100,
+            lang="python3",
+            code="pinned code",
+            submission_date=old_time,
+            pinned=True,
+        )
+        self.problem.solved = True
+        self.problem.save()
+
+        self.client.get_recent_accepted.return_value = [
+            RecentAcDTO(
+                id=300,
+                slug=self.problem.slug,
+                title=self.problem.title,
+                timestamp=new_time,
+            )
+        ]
+
+        result = refresh_recent_submissions(self.client)
+        self.assertEqual(result.stale_detected, 0)
+        self.assertEqual(result.pinned_with_updates, 1)
+        self.assertEqual(result.pinned_skipped, 1)
+
+        sub = Submission.objects.get(problem=self.problem)
+        self.assertTrue(sub.is_stale)
+        self.assertEqual(sub.newer_submission_id, 300)
+
+    def test_refresh_recent_submissions_already_up_to_date(self):
+        date = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
+        Submission.objects.create(
+            problem=self.problem,
+            submission_id=100,
+            lang="python3",
+            code="code",
+            submission_date=date,
+        )
+        self.problem.solved = True
+        self.problem.save()
+
+        self.client.get_recent_accepted.return_value = [
+            RecentAcDTO(
+                id=100,
+                slug=self.problem.slug,
+                title=self.problem.title,
+                timestamp=date,
+            )
+        ]
+
+        result = refresh_recent_submissions(self.client)
+        self.assertEqual(result.up_to_date, 1)
+        self.assertEqual(result.stale_detected, 0)
+
+    @patch("problems.services.sync.discover")
+    @patch("problems.services.sync.refresh_recent_submissions")
+    def test_sync_leetcode_overview_orchestrates(self, mock_recent, mock_disc):
+        mock_disc.return_value = DiscoveryResult(
+            total=100,
+            new_problems=5,
+            newly_solved=2,
+            new_tasks=10,
+        )
+        mock_recent.return_value = RecentCheckResult(
+            checked=20,
+            stale_detected=3,
+            ignored_same_newer=1,
+            pinned_with_updates=1,
+            up_to_date=15,
+        )
+
+        res = sync_leetcode_overview(self.client, recent_limit=20)
+        self.assertEqual(res.total_catalog, 100)
+        self.assertEqual(res.new_problems, 5)
+        self.assertEqual(res.newly_solved, 2)
+        self.assertEqual(res.new_tasks, 10)
+        self.assertEqual(res.recent_checked, 20)
+        self.assertEqual(res.stale_detected, 3)
+        self.assertEqual(res.ignored_same_newer, 1)
+        self.assertEqual(res.pinned_with_updates, 1)
+        self.assertEqual(res.up_to_date, 15)

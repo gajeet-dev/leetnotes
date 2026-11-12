@@ -76,10 +76,16 @@ class Submission(models.Model):
     problem = models.OneToOneField(
         Problem, on_delete=models.CASCADE, related_name="submission"
     )
+    submission_id = models.BigIntegerField(null=True, blank=True, db_index=True)
     lang = models.CharField(max_length=50)
     code = models.TextField()
     submission_date = models.DateTimeField()
     pinned = models.BooleanField(default=False)
+
+    # Stale submission tracking
+    is_stale = models.BooleanField(default=False, db_index=True)
+    newer_submission_id = models.BigIntegerField(null=True, blank=True)
+    newer_submission_date = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-submission_date"]

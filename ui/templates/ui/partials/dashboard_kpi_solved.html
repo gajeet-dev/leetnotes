@@ -1,0 +1,88 @@
+<div
+  id="kpi-solved-problems"
+  class="group relative flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs transition-all hover:shadow-md hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 cursor-default"
+>
+  <!-- Floating Tooltip on Hover -->
+  <div class="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-30 w-64 rounded-xl border border-zinc-200 bg-white p-3.5 shadow-xl transition-all duration-200 opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto dark:border-zinc-700 dark:bg-zinc-800">
+    <div class="flex items-center justify-between pb-2 mb-2 border-b border-zinc-100 dark:border-zinc-700/60">
+      <span class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Difficulty Breakdown</span>
+      <span class="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">{{ kpi_metrics.solved.total_solved|default:0 }} Solved</span>
+    </div>
+    <div class="flex flex-col gap-2">
+      <!-- Easy -->
+      <div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            Easy
+          </span>
+          <span class="font-mono text-zinc-700 dark:text-zinc-300">{{ kpi_metrics.solved.easy.solved|default:0 }} / {{ kpi_metrics.solved.easy.total|default:0 }}</span>
+        </div>
+        <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
+          <div class="h-full rounded-full bg-emerald-500" style="width: {{ kpi_metrics.solved.easy.pct|default:0 }}%"></div>
+        </div>
+      </div>
+      <!-- Medium -->
+      <div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="flex items-center gap-1.5 font-medium text-amber-600 dark:text-amber-400">
+            <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+            Medium
+          </span>
+          <span class="font-mono text-zinc-700 dark:text-zinc-300">{{ kpi_metrics.solved.medium.solved|default:0 }} / {{ kpi_metrics.solved.medium.total|default:0 }}</span>
+        </div>
+        <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
+          <div class="h-full rounded-full bg-amber-500" style="width: {{ kpi_metrics.solved.medium.pct|default:0 }}%"></div>
+        </div>
+      </div>
+      <!-- Hard -->
+      <div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="flex items-center gap-1.5 font-medium text-rose-600 dark:text-rose-400">
+            <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+            Hard
+          </span>
+          <span class="font-mono text-zinc-700 dark:text-zinc-300">{{ kpi_metrics.solved.hard.solved|default:0 }} / {{ kpi_metrics.solved.hard.total|default:0 }}</span>
+        </div>
+        <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
+          <div class="h-full rounded-full bg-rose-500" style="width: {{ kpi_metrics.solved.hard.pct|default:0 }}%"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Tooltip Arrow -->
+    <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 border-r border-b border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800"></div>
+  </div>
+
+  <div class="flex items-start justify-between">
+    <div>
+      <div class="flex items-center gap-1.5">
+        <span class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Problems Solved</span>
+        {% lucide "info" class="h-3 w-3 text-zinc-400 dark:text-zinc-500" %}
+      </div>
+      <div class="mt-2 flex items-baseline gap-2">
+        <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">{{ kpi_metrics.solved.total_solved|default:0 }}</span>
+        <span class="text-sm font-medium text-zinc-400 dark:text-zinc-500">/ {{ kpi_metrics.solved.total_problems|default:0 }}</span>
+      </div>
+    </div>
+    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+      {% lucide "circle-check" class="h-5 w-5" %}
+    </div>
+  </div>
+
+  <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
+    <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
+      <span>Overall Progress</span>
+      <span class="font-mono font-semibold text-zinc-900 dark:text-zinc-100">{{ kpi_metrics.solved.overall_progress_pct|default:"0.0" }}%</span>
+    </div>
+    <div class="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+      <div class="h-full rounded-full bg-emerald-500" style="width: {{ kpi_metrics.solved.overall_progress_pct|default:0 }}%"></div>
+    </div>
+    <div class="mt-2 flex items-center justify-between text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+      <span class="text-emerald-600 dark:text-emerald-400 font-medium">{{ kpi_metrics.solved.easy.solved|default:0 }} E</span>
+      <span>·</span>
+      <span class="text-amber-600 dark:text-amber-400 font-medium">{{ kpi_metrics.solved.medium.solved|default:0 }} M</span>
+      <span>·</span>
+      <span class="text-rose-600 dark:text-rose-400 font-medium">{{ kpi_metrics.solved.hard.solved|default:0 }} H</span>
+    </div>
+  </div>
+</div>

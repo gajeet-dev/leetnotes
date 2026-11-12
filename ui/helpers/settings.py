@@ -58,6 +58,19 @@ def check_tokens_connection(session: str, csrf_token: str) -> ConnectionResult:
     return check_connection(client_factory=lambda: client)
 
 
+def get_output_dir_status() -> dict:
+    """Return configured output directory path and existence status."""
+    dirs = effective.output_dirs()
+    output_dir_str = str(dirs[0]) if dirs else ""
+    exists = (
+        Path(output_dir_str).expanduser().is_dir() if output_dir_str else False
+    )
+    return {
+        "output_dir": output_dir_str,
+        "output_dir_exists": exists,
+    }
+
+
 def get_settings_context() -> dict:
     """Gather current user configuration, credentials, and connection state for the Settings page."""
     config = load_config()
@@ -66,11 +79,9 @@ def get_settings_context() -> dict:
     raw_session = effective.leetcode_session()
     raw_csrf = effective.leetcode_csrf_token()
 
-    dirs = effective.output_dirs()
-    output_dir_str = str(dirs[0]) if dirs else ""
-    output_dir_exists = (
-        Path(output_dir_str).expanduser().is_dir() if output_dir_str else False
-    )
+    dir_status = get_output_dir_status()
+    output_dir_str = dir_status["output_dir"]
+    output_dir_exists = dir_status["output_dir_exists"]
 
     current_tz = config.time_zone or "UTC"
 
@@ -168,6 +179,85 @@ def get_settings_context() -> dict:
         "agy_effort_levels": EFFORT_LEVELS,
         "available_snapshots": list_snapshots(),
         "db_counts": database_counts,
+    }
+
+
+def get_ai_provider_status() -> dict:
+    """Return summary information for the active default AI note provider."""
+    provider_name = default_provider_name()
+    config = load_config()
+    providers_config = all_providers()
+    saved_providers = config.providers or {}
+
+    if provider_name == "manual":
+        return {
+            "provider": "manual",
+            "name": "Manual",
+            "display_text": "Manual input AI prefill",
+            "model": "",
+            "effort": "",
+            "has_effort": False,
+        }
+
+    provider_info = providers_config.get(provider_name, {})
+    saved_info = saved_providers.get(provider_name, {})
+
+    if provider_name == "claude":
+        model_id = saved_info.get("model") or provider_info.get("model", "sonnet")
+        effort_val = (
+            saved_info.get("effort")
+            if "effort" in saved_info
+            else provider_info.get("effort", "medium")
+        )
+
+        preset = next((m for m in CLAUDE_PRESET_MODELS if m["id"] == model_id), None)
+        if preset:
+            model_display = preset["name"].replace(" (Recommended)", "").strip()
+        else:
+            model_display = model_id or "Sonnet"
+
+        return {
+            "provider": "claude",
+            "name": "Claude Code",
+            "display_text": f"Claude Code · {model_display}",
+            "model": model_display,
+            "effort": effort_val,
+            "has_effort": bool(effort_val),
+        }
+
+    if provider_name == "agy":
+        model_id = saved_info.get("model") or provider_info.get("model", "")
+        effort_val = (
+            saved_info.get("effort")
+            if "effort" in saved_info
+            else provider_info.get("effort", "medium")
+        )
+
+        model_display = model_id if model_id else "Default (CLI default)"
+
+        return {
+            "provider": "agy",
+            "name": "Antigravity CLI (agy)",
+            "display_text": f"Antigravity CLI (agy) · {model_display}",
+            "model": model_display,
+            "effort": effort_val,
+            "has_effort": bool(effort_val),
+        }
+
+    # Custom or third-party provider
+    custom_model = saved_info.get("model") or provider_info.get("model", "")
+    custom_effort = saved_info.get("effort") or provider_info.get("effort", "")
+    display_str = provider_name
+    if custom_model:
+        display_str += f" · {custom_model}"
+
+    return {
+        "provider": provider_name,
+        "name": provider_name,
+        "display_text": display_str,
+        "model": custom_model,
+        "effort": custom_effort,
+        "has_effort": bool(custom_effort),
     }
 
 
