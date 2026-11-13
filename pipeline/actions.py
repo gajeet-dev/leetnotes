@@ -149,7 +149,9 @@ def select_existing_prefill(
         chosen = AIResponse.objects.get(
             pk=response_id, problem=item.problem, status=AIResponse.Status.VALID
         )
-        AIResponse.objects.filter(problem=item.problem, is_active=True).update(is_active=False)
+        AIResponse.objects.filter(problem=item.problem, is_active=True).update(
+            is_active=False
+        )
         chosen.is_active = True
         chosen.save(update_fields=["is_active"])
         label = chosen.model_name or chosen.provider_name or "existing"
