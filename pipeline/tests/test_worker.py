@@ -7,7 +7,17 @@ from pipeline.engine import has_queued_work, next_pending_stage
 from pipeline.models import ItemStage, Task, TaskItem
 from pipeline.runtime.locking import FileLock
 from pipeline.runtime.pacing import Pacer
-from pipeline.runtime.worker import MAX_CRASHES, Worker, WorkerManager
+from pipeline.runtime.worker import (
+    MAX_CRASHES,
+    Worker,
+    ensure_worker_running,
+    get_worker,
+    is_worker_running,
+    reset_worker_state,
+    start_worker,
+    stop_worker,
+    wake_worker,
+)
 from pipeline.tasks.creation import create_task
 from pipeline.tasks.transitions import begin_stage, pause_task
 from pipeline.tests.helpers import make_problem
@@ -26,13 +36,11 @@ class WorkerTests(EngineTestCase):
         self.lock_path = Path(folder.name) / "worker.lock"
 
     def make_worker(self, **options) -> Worker:
-        options.setdefault("idle_timeout", 0)  # exit as soon as nothing is left
-        options.setdefault("poll_seconds", 0)
         worker = Worker(deps=self.deps(), lock=FileLock(self.lock_path), **options)
         worker.pacer = Pacer(lambda: None, wait=worker.wait)  # no pacing in these tests
         return worker
 
-    def test_runs_everything_then_exits_when_idle(self):
+    def test_runs_everything_until_queue_is_empty(self):
         problem = self.problem("a", 1)
         task = self.task_for(problem, review=False)
         self.assertTrue(self.make_worker().run())
@@ -106,7 +114,7 @@ class WorkerTests(EngineTestCase):
     def test_repeated_crashes_stop_the_worker_instead_of_spinning(self):
         problem = self.problem("a", 1)
         self.task_for(problem)
-        worker = self.make_worker(idle_timeout=None)
+        worker = self.make_worker()
         with mock.patch(
             "pipeline.runtime.worker.step", side_effect=RuntimeError("db gone")
         ) as fake_step:
@@ -114,95 +122,58 @@ class WorkerTests(EngineTestCase):
         self.assertEqual(fake_step.call_count, MAX_CRASHES)
         self.assertEqual(self.item_of(problem).status, Item.QUEUED)
 
+    def test_run_forever_processes_work_when_woken(self):
+        problem = self.problem("a", 1)
+        task = self.task_for(problem, review=False)
+        worker = self.make_worker()
 
-class FakeWorker:
-    """Stands in for a Worker so the manager can be tested without threads."""
+        orig_drain = worker.drain_queue
 
-    def __init__(self, owned: bool = True, on_run=None):
-        self.owned, self.on_run, self.runs = owned, on_run, 0
-        self.stop_event = threading.Event()
+        def drain_and_stop():
+            res = orig_drain()
+            worker.stop()
+            return res
 
-    def run(self) -> bool:
-        self.runs += 1
-        if self.on_run:
-            self.on_run(self.runs)
-        return self.owned
+        worker.drain_queue = drain_and_stop
 
-    def stop(self) -> None:
-        self.stop_event.set()
+        self.assertTrue(worker.run_forever())
+        task.refresh_from_db()
+        self.assertEqual(self.item_of(problem).status, Item.COMPLETED)
+        self.assertEqual(task.status, Task.Status.FINISHED)
 
 
-class WorkerManagerTests(DataDirDBTestCase):
+class WorkerControlTests(DataDirDBTestCase):
     def setUp(self):
         super().setUp()
-        update_config({"output_dirs": ["/vault"]})
-        self.spawned = []
+        reset_worker_state()
 
-    def manager(self, worker: FakeWorker) -> WorkerManager:
-        return WorkerManager(spawn=self.spawned.append, make_worker=lambda: worker)
+    def tearDown(self):
+        reset_worker_state()
+        super().tearDown()
 
-    def test_only_one_worker_is_started(self):
-        manager = self.manager(FakeWorker())
-        self.assertTrue(manager.ensure_running())
-        self.assertFalse(manager.ensure_running())
-        self.assertEqual(len(self.spawned), 1)
-        self.assertTrue(manager.is_running)
+    def test_start_worker_starts_thread_once(self):
+        fake_thread = mock.Mock(is_alive=mock.Mock(return_value=True))
+        with mock.patch("pipeline.runtime.worker._spawn_thread", return_value=fake_thread) as mock_spawn:
+            self.assertTrue(start_worker())
+            self.assertFalse(start_worker())
+            self.assertEqual(mock_spawn.call_count, 1)
 
-    def test_it_is_cleared_when_there_is_nothing_left_so_a_new_one_can_start(self):
-        manager = self.manager(FakeWorker())
-        manager.ensure_running()
-        self.spawned[0]()
-        self.assertFalse(manager.is_running)
-        self.assertTrue(manager.ensure_running())
+    def test_wake_worker_signals_the_worker(self):
+        worker = get_worker()
+        self.assertFalse(worker.work_available.is_set())
+        with mock.patch("pipeline.runtime.worker.start_worker"):
+            wake_worker()
+        self.assertTrue(worker.work_available.is_set())
 
-    def test_work_that_arrives_just_as_the_worker_finishes_is_not_missed(self):
-        problem = make_problem("a", 1)
+    def test_ensure_worker_running_wakes_worker(self):
+        worker = get_worker()
+        self.assertFalse(worker.work_available.is_set())
+        with mock.patch("pipeline.runtime.worker.start_worker"):
+            ensure_worker_running()
+        self.assertTrue(worker.work_available.is_set())
 
-        def on_run(run_number):
-            if run_number == 1:
-                create_task([problem])  # new work appears as the first run ends
-            else:
-                TaskItem.objects.update(status=Item.COMPLETED)
-
-        worker = FakeWorker(on_run=on_run)
-        manager = self.manager(worker)
-        manager.ensure_running()
-        self.spawned[0]()
-        self.assertEqual(worker.runs, 2)
-        self.assertFalse(manager.is_running)
-
-    def test_a_worker_that_lost_the_lock_does_not_retry(self):
-        create_task([make_problem("a", 1)])
-        worker = FakeWorker(owned=False)
-        manager = self.manager(worker)
-        manager.ensure_running()
-        self.spawned[0]()
-        self.assertEqual(worker.runs, 1)
-        self.assertFalse(manager.is_running)
-
-    def test_a_worker_that_was_stopped_is_not_restarted_even_with_work_left(self):
-        create_task([make_problem("a", 1)])
-        worker = FakeWorker(on_run=lambda number: worker.stop())
-        manager = self.manager(worker)
-        manager.ensure_running()
-        self.spawned[0]()
-        self.assertEqual(worker.runs, 1)
-        self.assertTrue(has_queued_work())
-
-    def test_a_crash_clears_the_manager_so_it_can_start_again(self):
-        def boom(number):
-            raise RuntimeError("boom")
-
-        manager = self.manager(FakeWorker(on_run=boom))
-        manager.ensure_running()
-        with self.assertRaises(RuntimeError):
-            self.spawned[0]()
-        self.assertFalse(manager.is_running)
-
-    def test_stop_reaches_the_running_worker(self):
-        worker = FakeWorker()
-        manager = self.manager(worker)
-        manager.stop()  # nothing running: fine
-        manager.ensure_running()
-        manager.stop()
+    def test_stop_worker_stops_the_worker(self):
+        worker = get_worker()
+        self.assertFalse(worker.stop_event.is_set())
+        stop_worker()
         self.assertTrue(worker.stop_event.is_set())
