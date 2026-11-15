@@ -6,17 +6,38 @@ from pathlib import Path
 import structlog
 from django.conf import settings
 from django.core.paginator import Paginator
-from django.db import connection
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import (
     require_GET,
-    require_POST,
     require_http_methods,
+    require_POST,
 )
 
 from leetcode.bootstrap import get_client
 from leetcode.exceptions import AuthError, LeetCodeError
+from pipeline.actions import (
+    approve_all_reviews,
+    approve_review,
+    reject_review,
+    retry_failed_item,
+    submit_manual_reply,
+)
+from pipeline.models import Task, TaskItem
+from pipeline.stages.definitions import Stage
+from pipeline.tasks.control import (
+    cancel as cancel_task,
+)
+from pipeline.tasks.control import (
+    pause as pause_task,
+)
+from pipeline.tasks.control import (
+    resume as resume_task,
+)
+from pipeline.tasks.control import (
+    start_task,
+)
+from prefill.providers.discovery import get_agy_models
 from problems.models import Problem, SyncTask
 from problems.services.bundle import export_bundle, import_bundle
 from problems.services.runner import start_background_sync
@@ -27,7 +48,6 @@ from problems.services.snapshots import (
     reset_user_submissions,
 )
 from problems.services.sync import mark_for_refetch, sync_leetcode_overview
-from prefill.providers.discovery import get_agy_models
 from userconfig import AppConfig, effective, load_config, save_config
 from userconfig.paths import db_snapshots_dir
 
@@ -48,6 +68,12 @@ from .helpers.settings import (
     save_general_settings,
     save_leetcode_credentials,
     test_leetcode_connection,
+)
+from .helpers.tasks import (
+    get_algorithms_solved_problems,
+    get_modal_data_for_item_stage,
+    get_task_detail_data,
+    get_task_summary,
 )
 
 logger = structlog.get_logger(__name__)
@@ -104,9 +130,12 @@ def sync_leetcode_data_view(request):
                 "message": "LeetCode credentials not configured. Please set them in Settings.",
             },
         ).content.decode("utf-8")
-        btn_html = render(request, "ui/partials/sync_leetcode_button.html").content.decode("utf-8")
+        btn_html = render(
+            request, "ui/partials/sync_leetcode_button.html"
+        ).content.decode("utf-8")
         return HttpResponse(
-            btn_html + f'<div id="toast-container" hx-swap-oob="beforeend">{toast_html}</div>'
+            btn_html
+            + f'<div id="toast-container" hx-swap-oob="beforeend">{toast_html}</div>'
         )
 
     # Obtain client using bootstrap get_client()
@@ -121,9 +150,12 @@ def sync_leetcode_data_view(request):
                 "message": f"Unable to initialize LeetCode client: {exc}",
             },
         ).content.decode("utf-8")
-        btn_html = render(request, "ui/partials/sync_leetcode_button.html").content.decode("utf-8")
+        btn_html = render(
+            request, "ui/partials/sync_leetcode_button.html"
+        ).content.decode("utf-8")
         return HttpResponse(
-            btn_html + f'<div id="toast-container" hx-swap-oob="beforeend">{toast_html}</div>'
+            btn_html
+            + f'<div id="toast-container" hx-swap-oob="beforeend">{toast_html}</div>'
         )
 
     try:
@@ -138,15 +170,20 @@ def sync_leetcode_data_view(request):
                 "message": f"Sync failed: {exc}",
             },
         ).content.decode("utf-8")
-        btn_html = render(request, "ui/partials/sync_leetcode_button.html").content.decode("utf-8")
+        btn_html = render(
+            request, "ui/partials/sync_leetcode_button.html"
+        ).content.decode("utf-8")
         return HttpResponse(
-            btn_html + f'<div id="toast-container" hx-swap-oob="beforeend">{toast_html}</div>'
+            btn_html
+            + f'<div id="toast-container" hx-swap-oob="beforeend">{toast_html}</div>'
         )
 
     # Calculate updated live metrics for OOB dashboard updates
     kpi_metrics = get_dashboard_metrics()
 
-    btn_html = render(request, "ui/partials/sync_leetcode_button.html").content.decode("utf-8")
+    btn_html = render(request, "ui/partials/sync_leetcode_button.html").content.decode(
+        "utf-8"
+    )
     strip_html = render(
         request,
         "ui/partials/sync_stats_strip.html",
@@ -449,9 +486,9 @@ def save_credentials_view(request):
 @require_http_methods(["GET", "POST"])
 def test_connection_view(request):
     """Check connectivity to LeetCode with the currently saved cookies."""
-    force = (
-        request.GET.get("force") in ("true", "1")
-        or request.POST.get("force") in ("true", "1")
+    force = request.GET.get("force") in ("true", "1") or request.POST.get("force") in (
+        "true",
+        "1",
     )
     res = test_leetcode_connection(force=force)
     source = request.GET.get("source") or request.POST.get("source")
@@ -646,9 +683,15 @@ def export_snapshot_view(request):
     custom_filename = (request.POST.get("filename") or "").strip()
     export_all = request.POST.get("export_all") in ("true", "1", "on")
 
-    include_submissions = (request.POST.get("include_submissions") in ("true", "1", "on")) or export_all
-    include_ai_notes = (request.POST.get("include_ai_notes") in ("true", "1", "on")) or export_all
-    include_note_records = (request.POST.get("include_note_records") in ("true", "1", "on")) or export_all
+    include_submissions = (
+        request.POST.get("include_submissions") in ("true", "1", "on")
+    ) or export_all
+    include_ai_notes = (
+        request.POST.get("include_ai_notes") in ("true", "1", "on")
+    ) or export_all
+    include_note_records = (
+        request.POST.get("include_note_records") in ("true", "1", "on")
+    ) or export_all
     # Solved status is automatically preserved when user submissions are included
     preserve_solved = include_submissions
 
@@ -964,3 +1007,275 @@ def download_database_file_view(request):
         filename=db_file.name,
         content_type="application/x-sqlite3",
     )
+
+
+# --- Notes Generation & Tasks Views ---
+
+
+@require_GET
+def tasks_new_view(request):
+    """Problem selection page for notes generation, filtering to solved Algorithms."""
+    search_query = request.GET.get("q", "").strip()
+    difficulty = request.GET.get("difficulty", "").strip()
+    page = request.GET.get("page", 1)
+    per_page = parse_per_page(request, default=100)
+
+    data = get_algorithms_solved_problems(
+        search_query=search_query,
+        difficulty=difficulty,
+        page=page,
+        per_page=per_page,
+    )
+
+    context = {
+        "active": "tasks",
+        "search_query": search_query,
+        "difficulty_filter": difficulty,
+        "per_page": per_page,
+        "per_page_presets": [25, 50, 100, 200],
+        **data,
+    }
+    if request.headers.get("HX-Request"):
+        return render(request, "ui/partials/tasks_new_table.html", context)
+
+    return render(request, "ui/tasks_new.html", context)
+
+
+@require_POST
+def tasks_create_view(request):
+    """Create a new Task with the selected problem IDs and start the worker."""
+    raw_ids = request.POST.getlist("problem_ids")
+    if not raw_ids:
+        return redirect("ui:tasks_new")
+
+    problem_ids = []
+    for raw in raw_ids:
+        try:
+            problem_ids.append(int(raw))
+        except ValueError, TypeError:
+            continue
+
+    if not problem_ids:
+        return redirect("ui:tasks_new")
+
+    problems = Problem.objects.filter(pk__in=problem_ids)
+    if not problems.exists():
+        return redirect("ui:tasks_new")
+
+    creation = start_task(problems)
+    return redirect("ui:task_detail", task_id=creation.task.pk)
+
+
+@require_GET
+def tasks_list_view(request):
+    """List all notes generation tasks with progress and status filters."""
+    status_filter = request.GET.get("status", "").strip()
+
+    all_tasks = Task.objects.all().order_by("-created_at")
+    total_count = all_tasks.count()
+    active_count = all_tasks.filter(status=Task.Status.ACTIVE).count()
+    paused_count = all_tasks.filter(status=Task.Status.PAUSED).count()
+    finished_count = all_tasks.filter(status=Task.Status.FINISHED).count()
+
+    filtered_tasks = all_tasks
+    if status_filter:
+        filtered_tasks = filtered_tasks.filter(status=status_filter)
+
+    summaries = [get_task_summary(t) for t in filtered_tasks]
+
+    context = {
+        "active": "tasks",
+        "summaries": summaries,
+        "status_filter": status_filter,
+        "total_count": total_count,
+        "active_count": active_count,
+        "paused_count": paused_count,
+        "finished_count": finished_count,
+    }
+    return render(request, "ui/tasks_list.html", context)
+
+
+@require_GET
+def task_detail_view(request, task_id: int):
+    """Detailed cockpit for a single task: progress bar, stage matrix, filter tabs."""
+    stage_filter = request.GET.get("filter", "all").strip()
+
+    try:
+        context = get_task_detail_data(task_id, stage_filter=stage_filter)
+    except Task.DoesNotExist:
+        raise Http404("Task not found.")
+
+    context["active"] = "tasks"
+
+    if request.headers.get("HX-Request"):
+        return render(request, "ui/partials/task_detail_content.html", context)
+
+    return render(request, "ui/task_detail.html", context)
+
+
+@require_GET
+def task_poll_partial(request, task_id: int):
+    """Polling endpoint for active tasks (HTMX every 1.5s)."""
+    stage_filter = request.GET.get("filter", "all").strip()
+    try:
+        context = get_task_detail_data(task_id, stage_filter=stage_filter)
+    except Task.DoesNotExist:
+        raise Http404("Task not found.")
+
+    context["active"] = "tasks"
+    return render(request, "ui/partials/task_detail_content.html", context)
+
+
+@require_POST
+def task_pause_view(request, task_id: int):
+    """Pause an active task."""
+    try:
+        pause_task(task_id)
+    except Exception as e:
+        logger.warning("task_pause_failed", task_id=task_id, error=str(e))
+
+    context = get_task_detail_data(task_id)
+    context["active"] = "tasks"
+    return render(request, "ui/partials/task_detail_content.html", context)
+
+
+@require_POST
+def task_resume_view(request, task_id: int):
+    """Resume a paused task."""
+    try:
+        resume_task(task_id)
+    except Exception as e:
+        logger.warning("task_resume_failed", task_id=task_id, error=str(e))
+
+    context = get_task_detail_data(task_id)
+    context["active"] = "tasks"
+    return render(request, "ui/partials/task_detail_content.html", context)
+
+
+@require_POST
+def task_cancel_view(request, task_id: int):
+    """Cancel a task."""
+    try:
+        cancel_task(task_id)
+    except Exception as e:
+        logger.warning("task_cancel_failed", task_id=task_id, error=str(e))
+
+    context = get_task_detail_data(task_id)
+    context["active"] = "tasks"
+    return render(request, "ui/partials/task_detail_content.html", context)
+
+
+@require_GET
+def stage_modal_content_view(request, item_id: int, stage: str):
+    """Render the specific modal for a waiting or failed stage."""
+    try:
+        item = TaskItem.objects.select_related("problem", "task").get(pk=item_id)
+    except TaskItem.DoesNotExist:
+        raise Http404("TaskItem not found.")
+
+    context = get_modal_data_for_item_stage(item, stage)
+
+    if stage == Stage.GENERATE_PREFILL:
+        tpl = "ui/partials/modals/modal_manual_prefill.html"
+    elif stage == Stage.REVIEW:
+        tpl = "ui/partials/modals/modal_review.html"
+    else:
+        tpl = "ui/partials/modals/modal_stage_error.html"
+
+    return render(request, tpl, context)
+
+
+@require_POST
+def submit_prefill_view(request, item_id: int):
+    """Submit pasted manual AI response, advance pipeline, and close modal."""
+    text = request.POST.get("response_text", "").strip()
+    label = request.POST.get("label", "").strip()
+
+    try:
+        item = submit_manual_reply(item_id, text, label=label)
+        task_id = item.task_id
+    except Exception as e:
+        logger.exception("submit_prefill_failed", item_id=item_id, error=str(e))
+        item = TaskItem.objects.get(pk=item_id)
+        task_id = item.task_id
+
+    context = get_task_detail_data(task_id)
+    context["active"] = "tasks"
+    content = render(
+        request, "ui/partials/task_detail_content.html", context
+    ).content.decode("utf-8")
+    oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
+    return HttpResponse(content + oob_clear)
+
+
+@require_POST
+def approve_review_view(request, item_id: int):
+    """Approve a note waiting for review, proceed to save notes, and close modal."""
+    try:
+        item = approve_review(item_id)
+        task_id = item.task_id
+    except Exception as e:
+        logger.exception("approve_review_failed", item_id=item_id, error=str(e))
+        item = TaskItem.objects.get(pk=item_id)
+        task_id = item.task_id
+
+    context = get_task_detail_data(task_id)
+    context["active"] = "tasks"
+    content = render(
+        request, "ui/partials/task_detail_content.html", context
+    ).content.decode("utf-8")
+    oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
+    return HttpResponse(content + oob_clear)
+
+
+@require_POST
+def reject_review_view(request, item_id: int):
+    """Reject a note waiting for review, queue regeneration, and close modal."""
+    try:
+        item = reject_review(item_id)
+        task_id = item.task_id
+    except Exception as e:
+        logger.exception("reject_review_failed", item_id=item_id, error=str(e))
+        item = TaskItem.objects.get(pk=item_id)
+        task_id = item.task_id
+
+    context = get_task_detail_data(task_id)
+    context["active"] = "tasks"
+    content = render(
+        request, "ui/partials/task_detail_content.html", context
+    ).content.decode("utf-8")
+    oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
+    return HttpResponse(content + oob_clear)
+
+
+@require_POST
+def approve_all_reviews_view(request, task_id: int):
+    """Bulk-approve all notes waiting for review in this task."""
+    try:
+        approve_all_reviews(task_id)
+    except Exception as e:
+        logger.exception("approve_all_reviews_failed", task_id=task_id, error=str(e))
+
+    context = get_task_detail_data(task_id)
+    context["active"] = "tasks"
+    return render(request, "ui/partials/task_detail_content.html", context)
+
+
+@require_POST
+def retry_item_view(request, item_id: int):
+    """Retry a failed stage of a TaskItem and close modal."""
+    try:
+        item = retry_failed_item(item_id)
+        task_id = item.task_id
+    except Exception as e:
+        logger.exception("retry_item_failed", item_id=item_id, error=str(e))
+        item = TaskItem.objects.get(pk=item_id)
+        task_id = item.task_id
+
+    context = get_task_detail_data(task_id)
+    context["active"] = "tasks"
+    content = render(
+        request, "ui/partials/task_detail_content.html", context
+    ).content.decode("utf-8")
+    oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
+    return HttpResponse(content + oob_clear)

@@ -20,9 +20,9 @@
             </a>
           </li>
           <li>
-            <a href="#">
-              {% lucide "clipboard-check" %}
-              <span>Review</span>
+            <a href="{% url 'ui:tasks_list' %}" {% if active == 'tasks' %}aria-current="page"{% endif %}>
+              {% lucide "layers" %}
+              <span>Tasks</span>
             </a>
           </li>
           <li>

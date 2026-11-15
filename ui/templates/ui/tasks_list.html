@@ -1,0 +1,157 @@
+{% extends "ui/base.html" %}
+{% block title %}Tasks · Leetnotes{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-6xl mx-auto flex flex-col gap-6 pb-16">
+  <!-- Page Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="flex flex-col gap-1">
+      <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Notes Generation Tasks</h1>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400">
+        Audit past pipeline runs, manage active batches, and inspect settings snapshots.
+      </p>
+    </div>
+    <a
+      href="{% url 'ui:tasks_new' %}"
+      class="inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors shrink-0"
+    >
+      {% lucide "plus" class="h-4 w-4" %}
+      <span>New Generation Run</span>
+    </a>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white p-3 shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+    <div class="flex flex-wrap items-center gap-1.5">
+      <a
+        href="{% url 'ui:tasks_list' %}"
+        class="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors {% if not status_filter %}bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900{% else %}text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800{% endif %}"
+      >
+        All Statuses ({{ total_count }})
+      </a>
+      <a
+        href="{% url 'ui:tasks_list' %}?status=active"
+        class="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors {% if status_filter == 'active' %}bg-emerald-600 text-white{% else %}text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800{% endif %}"
+      >
+        Active ({{ active_count }})
+      </a>
+      <a
+        href="{% url 'ui:tasks_list' %}?status=paused"
+        class="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors {% if status_filter == 'paused' %}bg-amber-600 text-white{% else %}text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800{% endif %}"
+      >
+        Paused ({{ paused_count }})
+      </a>
+      <a
+        href="{% url 'ui:tasks_list' %}?status=finished"
+        class="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors {% if status_filter == 'finished' %}bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900{% else %}text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800{% endif %}"
+      >
+        Finished ({{ finished_count }})
+      </a>
+    </div>
+  </div>
+
+  <!-- Tasks Cards List -->
+  <div class="flex flex-col gap-4">
+    {% for summary in summaries %}
+      {% with task=summary.task %}
+        <div class="rounded-2xl border border-zinc-200/90 bg-white p-5 sm:p-6 shadow-xs hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 transition-all">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-zinc-100 dark:border-zinc-800">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-xs font-bold text-zinc-400 dark:text-zinc-500">#{{ task.pk }}</span>
+              <a
+                href="{% url 'ui:task_detail' task.pk %}"
+                class="text-base font-bold text-zinc-900 dark:text-zinc-100 hover:underline"
+              >
+                {{ task.name|default:"Notes Generation Run" }}
+              </a>
+
+              <!-- Status Badge -->
+              {% if task.status == 'active' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  ACTIVE
+                </span>
+              {% elif task.status == 'paused' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-800">
+                  {% lucide "pause" class="h-3 w-3" %}
+                  PAUSED
+                </span>
+              {% elif task.status == 'finished' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-bold text-zinc-700 border border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
+                  {% lucide "check" class="h-3 w-3 text-emerald-600 dark:text-emerald-400" %}
+                  FINISHED
+                </span>
+              {% elif task.status == 'cancelled' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800">
+                  {% lucide "ban" class="h-3 w-3" %}
+                  CANCELLED
+                </span>
+              {% endif %}
+            </div>
+
+            <!-- Date & Details Link -->
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                {{ task.created_at|date:"M d, Y · H:i" }}
+              </span>
+              <a
+                href="{% url 'ui:task_detail' task.pk %}"
+                class="inline-flex items-center gap-1 text-xs font-semibold text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+              >
+                <span>View Details</span>
+                {% lucide "arrow-right" class="h-3.5 w-3.5" %}
+              </a>
+            </div>
+          </div>
+
+          <!-- Progress Bar & Metrics -->
+          <div class="flex flex-col gap-2.5 pt-3">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-medium text-zinc-600 dark:text-zinc-400">
+                {{ summary.completed_items }} / {{ summary.total_items }} problems completed
+                {% if summary.waiting_items > 0 %}
+                  · <strong class="text-amber-600 dark:text-amber-400">{{ summary.waiting_items }} waiting for review/input</strong>
+                {% endif %}
+              </span>
+              <span class="font-mono font-bold text-zinc-900 dark:text-zinc-100">{{ summary.progress_pct }}%</span>
+            </div>
+
+            <div class="h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <div
+                class="h-full rounded-full bg-zinc-900 dark:bg-zinc-100 transition-all"
+                style="width: {{ summary.progress_pct }}%;"
+              ></div>
+            </div>
+
+            <!-- Settings Summary -->
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400 font-mono pt-1">
+              <span>Provider: <strong class="text-zinc-700 dark:text-zinc-300">{{ summary.provider_name }}</strong></span>
+              <span>·</span>
+              <span>Review: <strong class="text-zinc-700 dark:text-zinc-300">{{ summary.require_review|yesno:"Required,Off" }}</strong></span>
+              <span>·</span>
+              <span>Vault: <strong class="text-zinc-700 dark:text-zinc-300 truncate max-w-xs">{{ summary.output_dir }}</strong></span>
+            </div>
+          </div>
+        </div>
+      {% endwith %}
+    {% empty %}
+      <div class="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 mb-3">
+          {% lucide "layers" class="h-6 w-6" %}
+        </div>
+        <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">No notes generation tasks found</h3>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm">
+          Select solved algorithm problems to start generating structured notes and Obsidian markdown files.
+        </p>
+        <a
+          href="{% url 'ui:tasks_new' %}"
+          class="mt-4 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors"
+        >
+          {% lucide "play" class="h-3.5 w-3.5" %}
+          <span>Generate First Notes</span>
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

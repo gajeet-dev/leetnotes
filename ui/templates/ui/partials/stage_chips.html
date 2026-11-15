@@ -1,0 +1,70 @@
+{% if stage.status == 'done' %}
+  <span
+    class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400"
+    title="Completed: {{ stage.detail|default:'Success' }}"
+  >
+    {% lucide "check" class="h-3.5 w-3.5" %}
+  </span>
+{% elif stage.status == 'skipped' %}
+  <span
+    class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400"
+    title="Skipped: {{ stage.detail|default:'Already available' }}"
+  >
+    {% lucide "chevrons-right" class="h-3.5 w-3.5" %}
+  </span>
+{% elif stage.status == 'running' %}
+  <span
+    class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 animate-pulse"
+    title="Running now"
+  >
+    {% lucide "loader-circle" class="h-3.5 w-3.5 animate-spin" %}
+  </span>
+{% elif stage.status == 'waiting' %}
+  {% if stage.stage == 'generate_prefill' %}
+    <button
+      type="button"
+      hx-get="{% url 'ui:stage_modal' item.pk stage.stage %}"
+      hx-target="#modal-container"
+      class="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900 border border-amber-300 hover:bg-amber-200 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800 cursor-pointer shadow-xs transition-colors"
+      title="Waiting: click to paste manual AI response"
+    >
+      {% lucide "sparkles" class="h-3 w-3 shrink-0" %}
+      <span>Paste AI</span>
+    </button>
+  {% elif stage.stage == 'review' %}
+    <button
+      type="button"
+      hx-get="{% url 'ui:stage_modal' item.pk stage.stage %}"
+      hx-target="#modal-container"
+      class="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-900 border border-blue-300 hover:bg-blue-200 dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-800 cursor-pointer shadow-xs transition-colors"
+      title="Waiting: click to review AI note"
+    >
+      {% lucide "eye" class="h-3 w-3 shrink-0" %}
+      <span>Review</span>
+    </button>
+  {% else %}
+    <button
+      type="button"
+      hx-get="{% url 'ui:stage_modal' item.pk stage.stage %}"
+      hx-target="#modal-container"
+      class="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 cursor-pointer"
+    >
+      Waiting
+    </button>
+  {% endif %}
+{% elif stage.status == 'failed' %}
+  <button
+    type="button"
+    hx-get="{% url 'ui:stage_modal' item.pk stage.stage %}"
+    hx-target="#modal-container"
+    class="inline-flex items-center gap-1 rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800 border border-rose-300 hover:bg-rose-200 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800 cursor-pointer shadow-xs transition-colors"
+    title="Failed: {{ stage.error|default:'Click to view error' }}"
+  >
+    {% lucide "circle-alert" class="h-3 w-3 shrink-0" %}
+    <span>Retry</span>
+  </button>
+{% else %}
+  <span class="inline-flex h-6 w-6 items-center justify-center text-zinc-300 dark:text-zinc-700" title="Pending">
+    {% lucide "circle" class="h-2.5 w-2.5 fill-current" %}
+  </span>
+{% endif %}

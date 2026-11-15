@@ -9,7 +9,10 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from leetcode.dto import RecentAcDTO
 from notes.models import NoteRecord
+from pipeline.models import ItemStage, Task, TaskItem
+from pipeline.stages.definitions import Stage
 from prefill.models import AIResponse
 from problems.models import Problem, Submission, SyncTask
 from userconfig import effective, update_config, update_credentials
@@ -1722,3 +1725,471 @@ class SettingsUITests(DataDirDBTestCase):
             response = self.client.post(url, HTTP_HX_REQUEST="true")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response["HX-Refresh"], "true")
+
+
+class TasksViewsTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = Client()
+
+        self.mock_recent_patcher = patch("ui.helpers.tasks.get_client")
+        self.mock_get_client = self.mock_recent_patcher.start()
+        self.mock_lc_client = mock.Mock()
+        self.mock_get_client.return_value = self.mock_lc_client
+        self.mock_lc_client.get_recent_accepted.return_value = [
+            RecentAcDTO(
+                id=101,
+                slug="two-sum",
+                title="Two Sum",
+                timestamp=timezone.now(),
+            )
+        ]
+        self.addCleanup(self.mock_recent_patcher.stop)
+
+        # Solved Algorithms problem with submission
+        self.p_algo_1 = Problem.objects.create(
+            leetcode_id=1,
+            title="Two Sum",
+            slug="two-sum",
+            difficulty=Problem.Difficulty.EASY,
+            category=Problem.Category.ALGORITHMS,
+            solved=True,
+            content_remote_markdown="# Two Sum",
+        )
+        self.sub_1 = Submission.objects.create(
+            problem=self.p_algo_1,
+            submission_id=101,
+            lang="python3",
+            code="class Solution: pass",
+            submission_date=timezone.now(),
+        )
+
+        # Another Solved Algorithms problem
+        self.p_algo_2 = Problem.objects.create(
+            leetcode_id=2,
+            title="Add Two Numbers",
+            slug="add-two-numbers",
+            difficulty=Problem.Difficulty.MEDIUM,
+            category=Problem.Category.ALGORITHMS,
+            solved=True,
+            content_remote_markdown="# Add Two Numbers",
+        )
+        self.sub_2 = Submission.objects.create(
+            problem=self.p_algo_2,
+            submission_id=102,
+            lang="python3",
+            code="class Solution: pass",
+            submission_date=timezone.now(),
+        )
+
+        # Database category problem (should be excluded)
+        self.p_db = Problem.objects.create(
+            leetcode_id=175,
+            title="Combine Two Tables",
+            slug="combine-two-tables",
+            difficulty=Problem.Difficulty.EASY,
+            category=Problem.Category.DATABASE,
+            solved=True,
+        )
+
+    def test_tasks_new_view_filters_algorithms_and_splits_sections(self):
+        url = reverse("ui:tasks_new")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/tasks_new.html")
+
+        # Database category problem should not be in context
+        recent = response.context["recent_problems"]
+        other = response.context["other_problems"]
+        all_problems = recent + other
+        pks = [p.pk for p in all_problems]
+
+        self.assertIn(self.p_algo_1.pk, pks)
+        self.assertIn(self.p_algo_2.pk, pks)
+        self.assertNotIn(self.p_db.pk, pks)
+
+    def test_tasks_new_view_htmx_partial_and_pagination(self):
+        url = reverse("ui:tasks_new")
+        response = self.client.get(
+            url,
+            {"per_page": 50, "page": 1},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/partials/tasks_new_table.html")
+        self.assertEqual(response.context["per_page"], 50)
+        self.assertIn("display_start", response.context)
+        self.assertIn("display_end", response.context)
+        self.assertIn("total_count", response.context)
+
+    def test_tasks_new_view_search_removes_section_strips_and_shows_unified_list(self):
+        url = reverse("ui:tasks_new")
+        response = self.client.get(url, {"q": "Two Sum"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["recent_problems"], [])
+        self.assertEqual(len(response.context["other_problems"]), 1)
+        self.assertEqual(response.context["other_problems"][0].pk, self.p_algo_1.pk)
+
+        # Neither the blue recent strip nor the other strip should be rendered
+        content = response.content.decode("utf-8")
+        self.assertNotIn("Recently Solved Algorithms", content)
+        self.assertNotIn("Other Solved Algorithms", content)
+        self.assertIn("Two Sum", content)
+
+    def test_tasks_new_view_difficulty_filter_splits_recent_and_other(self):
+        # Create an additional Easy algorithm without recent submission
+        Problem.objects.create(
+            leetcode_id=9,
+            title="Palindrome Number",
+            slug="palindrome-number",
+            difficulty=Problem.Difficulty.EASY,
+            category=Problem.Category.ALGORITHMS,
+            solved=True,
+        )
+        url = reverse("ui:tasks_new")
+        response = self.client.get(url, {"difficulty": "Easy"})
+        self.assertEqual(response.status_code, 200)
+        recent = response.context["recent_problems"]
+        other = response.context["other_problems"]
+        self.assertEqual(len(recent), 1)
+        self.assertEqual(recent[0].pk, self.p_algo_1.pk)
+        self.assertEqual(len(other), 1)
+
+        content = response.content.decode("utf-8")
+        self.assertIn("Recently Solved Easy Algorithms", content)
+        self.assertIn("Other Solved Easy Algorithms", content)
+
+    def test_tasks_new_view_difficulty_filter_when_other_is_empty(self):
+        # self.p_algo_1 is the only Easy problem, and it has a recent submission
+        url = reverse("ui:tasks_new")
+        response = self.client.get(url, {"difficulty": "Easy"})
+        self.assertEqual(response.status_code, 200)
+        recent = response.context["recent_problems"]
+        other = response.context["other_problems"]
+        self.assertEqual(len(recent), 1)
+        self.assertEqual(len(other), 0)
+
+        content = response.content.decode("utf-8")
+        self.assertIn("Recently Solved Easy Algorithms", content)
+        self.assertIn("Other Solved Easy Algorithms", content)
+        self.assertIn("0 problems total", content)
+
+    def test_tasks_new_composite_pagination_strips_only_on_page_1(self):
+        # Clean existing problems to have controlled count
+        Problem.objects.all().delete()
+
+        # Mock LeetCode API to return 20 recent accepted submissions
+        self.mock_lc_client.get_recent_accepted.return_value = [
+            RecentAcDTO(
+                id=1000 + i,
+                slug=f"recent-problem-{i}",
+                title=f"Recent Problem {i}",
+                timestamp=timezone.now(),
+            )
+            for i in range(1, 21)
+        ]
+
+        # Create 20 recent problems (with recent submissions)
+        for i in range(1, 21):
+            p = Problem.objects.create(
+                leetcode_id=i,
+                title=f"Recent Problem {i}",
+                slug=f"recent-problem-{i}",
+                difficulty=Problem.Difficulty.MEDIUM,
+                category=Problem.Category.ALGORITHMS,
+                solved=True,
+            )
+            Submission.objects.create(
+                problem=p,
+                submission_id=1000 + i,
+                lang="python3",
+                code="pass",
+                submission_date=timezone.now(),
+            )
+
+        # Create 10 other problems (without submissions)
+        for i in range(21, 31):
+            Problem.objects.create(
+                leetcode_id=i,
+                title=f"Other Problem {i}",
+                slug=f"other-problem-{i}",
+                difficulty=Problem.Difficulty.MEDIUM,
+                category=Problem.Category.ALGORITHMS,
+                solved=True,
+            )
+
+        url = reverse("ui:tasks_new")
+
+        # --- PAGE 1 (per_page=25) ---
+        resp_p1 = self.client.get(
+            url,
+            {"page": 1, "per_page": 25},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(resp_p1.status_code, 200)
+        self.assertEqual(len(resp_p1.context["recent_problems"]), 20)
+        self.assertEqual(len(resp_p1.context["other_problems"]), 5)
+        self.assertEqual(resp_p1.context["page_obj"].number, 1)
+        self.assertEqual(resp_p1.context["page_obj"].paginator.num_pages, 2)
+        self.assertTrue(resp_p1.context["page_obj"].has_next())
+        self.assertFalse(resp_p1.context["page_obj"].has_previous())
+        self.assertEqual(resp_p1.context["display_start"], 1)
+        self.assertEqual(resp_p1.context["display_end"], 25)
+        self.assertEqual(resp_p1.context["total_count"], 30)
+
+        content_p1 = resp_p1.content.decode("utf-8")
+        # On Page 1, both section strips MUST be rendered
+        self.assertIn("Recently Solved Algorithms", content_p1)
+        self.assertIn("Other Solved Algorithms", content_p1)
+
+        # --- PAGE 2 (per_page=25) ---
+        resp_p2 = self.client.get(
+            url,
+            {"page": 2, "per_page": 25},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(resp_p2.status_code, 200)
+        self.assertEqual(len(resp_p2.context["recent_problems"]), 0)
+        self.assertEqual(len(resp_p2.context["other_problems"]), 5)
+        self.assertEqual(resp_p2.context["page_obj"].number, 2)
+        self.assertFalse(resp_p2.context["page_obj"].has_next())
+        self.assertTrue(resp_p2.context["page_obj"].has_previous())
+        self.assertEqual(resp_p2.context["display_start"], 26)
+        self.assertEqual(resp_p2.context["display_end"], 30)
+        self.assertEqual(resp_p2.context["total_count"], 30)
+
+        content_p2 = resp_p2.content.decode("utf-8")
+        # On Page 2, NO section strips should be rendered (neither Recent nor Other)
+        self.assertNotIn("Recently Solved Algorithms", content_p2)
+        self.assertNotIn("Other Solved Algorithms", content_p2)
+        # Problems 26-30 should be present
+        self.assertIn("Other Problem 26", content_p2)
+        self.assertIn("Other Problem 30", content_p2)
+
+    def test_tasks_new_fetches_live_recent_accepted_submissions(self):
+        url = reverse("ui:tasks_new")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.mock_lc_client.get_recent_accepted.assert_called_with(limit=20)
+        recent = response.context["recent_problems"]
+        self.assertEqual(len(recent), 1)
+        self.assertEqual(recent[0].slug, "two-sum")
+        self.assertIsNotNone(recent[0].submission_date)
+
+    def test_tasks_new_recent_accepted_filters_out_non_algorithms(self):
+        # LeetCode returns both an Algorithm problem and a Database problem in recent AC
+        self.mock_lc_client.get_recent_accepted.return_value = [
+            RecentAcDTO(
+                id=201,
+                slug="combine-two-tables",  # Category: DATABASE
+                title="Combine Two Tables",
+                timestamp=timezone.now(),
+            ),
+            RecentAcDTO(
+                id=101,
+                slug="two-sum",  # Category: ALGORITHMS
+                title="Two Sum",
+                timestamp=timezone.now(),
+            ),
+        ]
+        url = reverse("ui:tasks_new")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        recent = response.context["recent_problems"]
+        # Only the Algorithm problem should be included in recently solved
+        recent_slugs = [p.slug for p in recent]
+        self.assertIn("two-sum", recent_slugs)
+        self.assertNotIn("combine-two-tables", recent_slugs)
+        self.assertEqual(len(recent), 1)
+
+        # Neither should the Database problem appear in other problems
+        other = response.context["other_problems"]
+        other_slugs = [p.slug for p in other]
+        self.assertNotIn("combine-two-tables", other_slugs)
+
+    def test_tasks_create_view_starts_task_and_redirects(self):
+        url = reverse("ui:tasks_create")
+        with patch("ui.views.start_task") as mock_start:
+            fake_task = Task.objects.create(name="Test Task")
+            mock_creation = mock.Mock(task=fake_task)
+            mock_start.return_value = mock_creation
+
+            response = self.client.post(url, {"problem_ids": [self.p_algo_1.pk]})
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(response.url, reverse("ui:task_detail", args=[fake_task.pk]))
+            self.assertTrue(mock_start.called)
+
+    def test_tasks_list_view_renders(self):
+        task = Task.objects.create(name="Batch 1", status=Task.Status.ACTIVE)
+        url = reverse("ui:tasks_list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/tasks_list.html")
+        self.assertContains(response, "Batch 1")
+
+    def test_task_detail_view_and_polling(self):
+        task = Task.objects.create(name="Batch Detail", status=Task.Status.ACTIVE)
+        item = TaskItem.objects.create(task=task, problem=self.p_algo_1, position=0)
+        stage = ItemStage.objects.create(
+            item=item, stage=Stage.FETCH_PROBLEM, order=0, status=ItemStage.Status.DONE
+        )
+
+        url = reverse("ui:task_detail", args=[task.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/task_detail.html")
+        self.assertContains(response, "Batch Detail")
+
+        # HTMX polling partial
+        poll_url = reverse("ui:task_poll", args=[task.pk])
+        poll_response = self.client.get(poll_url, HTTP_HX_REQUEST="true")
+        self.assertEqual(poll_response.status_code, 200)
+        self.assertTemplateUsed(poll_response, "ui/partials/task_detail_content.html")
+
+    def test_task_lifecycle_controls_pause_resume_cancel(self):
+        task = Task.objects.create(name="Lifecycle Task", status=Task.Status.ACTIVE)
+
+        # Pause
+        pause_url = reverse("ui:task_pause", args=[task.pk])
+        resp = self.client.post(pause_url, HTTP_HX_REQUEST="true")
+        self.assertEqual(resp.status_code, 200)
+        task.refresh_from_db()
+        self.assertEqual(task.status, Task.Status.PAUSED)
+
+        # Resume
+        resume_url = reverse("ui:task_resume", args=[task.pk])
+        resp = self.client.post(resume_url, HTTP_HX_REQUEST="true")
+        self.assertEqual(resp.status_code, 200)
+        task.refresh_from_db()
+        self.assertEqual(task.status, Task.Status.ACTIVE)
+
+        # Cancel
+        cancel_url = reverse("ui:task_cancel", args=[task.pk])
+        resp = self.client.post(cancel_url, HTTP_HX_REQUEST="true")
+        self.assertEqual(resp.status_code, 200)
+        task.refresh_from_db()
+        self.assertEqual(task.status, Task.Status.CANCELLED)
+
+    def test_stage_modals_render_content(self):
+        task = Task.objects.create(name="Modal Task", status=Task.Status.ACTIVE)
+        item = TaskItem.objects.create(
+            task=task,
+            problem=self.p_algo_1,
+            status=TaskItem.Status.NEEDS_INPUT,
+            input_kind=TaskItem.InputKind.MANUAL_PREFILL,
+            stage=Stage.GENERATE_PREFILL,
+        )
+        ItemStage.objects.create(
+            item=item,
+            stage=Stage.GENERATE_PREFILL,
+            order=3,
+            status=ItemStage.Status.WAITING,
+        )
+
+        modal_url = reverse("ui:stage_modal", args=[item.pk, Stage.GENERATE_PREFILL])
+        response = self.client.get(modal_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/partials/modals/modal_manual_prefill.html")
+
+        # Review modal
+        item.input_kind = TaskItem.InputKind.REVIEW
+        item.stage = Stage.REVIEW
+        item.save()
+        AIResponse.objects.create(
+            problem=self.p_algo_1,
+            raw_text="### Intuition\nTest note",
+            prompt_version="v1",
+            input_hash="hash1",
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+        review_modal_url = reverse("ui:stage_modal", args=[item.pk, Stage.REVIEW])
+        response = self.client.get(review_modal_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/partials/modals/modal_review.html")
+
+    def test_review_actions_approve_and_reject(self):
+        task = Task.objects.create(name="Review Task", status=Task.Status.ACTIVE)
+        item = TaskItem.objects.create(
+            task=task,
+            problem=self.p_algo_1,
+            status=TaskItem.Status.NEEDS_INPUT,
+            input_kind=TaskItem.InputKind.REVIEW,
+            stage=Stage.REVIEW,
+        )
+        row = ItemStage.objects.create(
+            item=item,
+            stage=Stage.REVIEW,
+            order=4,
+            status=ItemStage.Status.WAITING,
+        )
+        AIResponse.objects.create(
+            problem=self.p_algo_1,
+            raw_text="### Intuition\nTest note",
+            prompt_version="v1",
+            input_hash="hash1",
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+
+        approve_url = reverse("ui:approve_review", args=[item.pk])
+        resp = self.client.post(approve_url, HTTP_HX_REQUEST="true")
+        self.assertEqual(resp.status_code, 200)
+        row.refresh_from_db()
+        self.assertEqual(row.status, ItemStage.Status.DONE)
+
+    def test_approve_all_reviews(self):
+        task = Task.objects.create(name="Bulk Review Task", status=Task.Status.ACTIVE)
+        item = TaskItem.objects.create(
+            task=task,
+            problem=self.p_algo_1,
+            status=TaskItem.Status.NEEDS_INPUT,
+            input_kind=TaskItem.InputKind.REVIEW,
+            stage=Stage.REVIEW,
+        )
+        row = ItemStage.objects.create(
+            item=item,
+            stage=Stage.REVIEW,
+            order=4,
+            status=ItemStage.Status.WAITING,
+        )
+        AIResponse.objects.create(
+            problem=self.p_algo_1,
+            raw_text="### Intuition\nTest note",
+            prompt_version="v1",
+            input_hash="hash1",
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+
+        bulk_url = reverse("ui:approve_all_reviews", args=[task.pk])
+        resp = self.client.post(bulk_url, HTTP_HX_REQUEST="true")
+        self.assertEqual(resp.status_code, 200)
+        row.refresh_from_db()
+        self.assertEqual(row.status, ItemStage.Status.DONE)
+
+    def test_retry_failed_item_action(self):
+        task = Task.objects.create(name="Retry Task", status=Task.Status.ACTIVE)
+        item = TaskItem.objects.create(
+            task=task,
+            problem=self.p_algo_1,
+            status=TaskItem.Status.FAILED,
+            stage=Stage.FETCH_PROBLEM,
+        )
+        row = ItemStage.objects.create(
+            item=item,
+            stage=Stage.FETCH_PROBLEM,
+            order=0,
+            status=ItemStage.Status.FAILED,
+            error="Network Timeout",
+        )
+
+        retry_url = reverse("ui:retry_item", args=[item.pk])
+        resp = self.client.post(retry_url, HTTP_HX_REQUEST="true")
+        self.assertEqual(resp.status_code, 200)
+        item.refresh_from_db()
+        self.assertEqual(item.status, TaskItem.Status.QUEUED)
+        row.refresh_from_db()
+        self.assertEqual(row.status, ItemStage.Status.PENDING)
+

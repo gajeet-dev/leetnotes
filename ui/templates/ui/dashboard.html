@@ -245,13 +245,22 @@
         </span>
       </div>
 
-      <button
-        type="button"
-        class="h-10 inline-flex items-center justify-center gap-2 self-start sm:self-auto rounded-lg bg-zinc-900 px-5 text-sm font-semibold text-white shadow-xs hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors cursor-pointer shrink-0"
-      >
-        {% lucide "play" class="h-4 w-4" %}
-        <span>Generate Notes</span>
-      </button>
+      <div class="flex items-center gap-3">
+        <a
+          href="{% url 'ui:tasks_list' %}"
+          class="h-10 inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 shadow-xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+        >
+          {% lucide "layers" class="h-4 w-4" %}
+          <span>All Tasks</span>
+        </a>
+        <a
+          href="{% url 'ui:tasks_new' %}"
+          class="h-10 inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-5 text-sm font-semibold text-white shadow-xs hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors cursor-pointer shrink-0"
+        >
+          {% lucide "play" class="h-4 w-4" %}
+          <span>Generate Notes</span>
+        </a>
+      </div>
     </div>
   </div>
 </div>

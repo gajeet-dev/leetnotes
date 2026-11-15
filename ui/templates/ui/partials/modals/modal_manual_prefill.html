@@ -1,0 +1,125 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <!-- Backdrop -->
+  <div class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" onclick="closeStageModal()"></div>
+
+  <!-- Modal Card -->
+  <div class="relative z-10 w-full max-w-2xl sm:max-w-3xl max-h-[90vh] flex flex-col transform overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl transition-all dark:border-zinc-800 dark:bg-zinc-900">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+      <div class="flex items-center gap-3">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-400">
+          {% lucide "sparkles" class="h-5 w-5" %}
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+            Manual AI Prefill · {{ problem.leetcode_id }}. {{ problem.title }}
+          </h3>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">
+            Copy the prompt into your AI chat (ChatGPT / Claude / Gemini), then paste the response below.
+          </p>
+        </div>
+      </div>
+      <button type="button" onclick="closeStageModal()" class="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200">
+        {% lucide "x" class="h-5 w-5" %}
+      </button>
+    </div>
+
+    <!-- Body (scrollable) -->
+    <form
+      id="prefill-modal-form"
+      hx-post="{% url 'ui:submit_prefill' item.pk %}"
+      hx-target="#task-content-container"
+      hx-swap="innerHTML"
+      class="flex flex-col flex-1 overflow-y-auto p-6 gap-5"
+    >
+      {% csrf_token %}
+
+      <!-- Step 1: Prompt Box -->
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+            Step 1 · Generated Prompt
+          </label>
+          <button
+            type="button"
+            id="btn-copy-prompt"
+            onclick="copyPromptText()"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+          >
+            {% lucide "copy" id="copy-icon" class="h-3.5 w-3.5" %}
+            <span id="copy-label">Copy Prompt</span>
+          </button>
+        </div>
+        <div class="relative rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5 max-h-48 overflow-y-auto dark:border-zinc-800 dark:bg-zinc-950/60 font-mono text-xs text-zinc-700 dark:text-zinc-300 select-all whitespace-pre-wrap">
+          <span id="prompt-content-text">{{ prompt_text }}</span>
+        </div>
+      </div>
+
+      <!-- Step 2: Response Input -->
+      <div class="flex flex-col gap-2">
+        <label for="response-text" class="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+          Step 2 · Paste AI Response
+        </label>
+        <textarea
+          id="response-text"
+          name="response_text"
+          rows="8"
+          required
+          placeholder="Paste the full markdown response here (Intuition, Complexity, Solution Code)..."
+          class="w-full rounded-xl border border-zinc-300 bg-white p-3 font-mono text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-200 dark:focus:ring-zinc-200"
+        ></textarea>
+      </div>
+
+      <!-- Optional Label -->
+      <div class="flex items-center gap-3">
+        <label for="prefill-label" class="text-xs font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
+          Model / Label (optional):
+        </label>
+        <input
+          type="text"
+          id="prefill-label"
+          name="label"
+          placeholder="e.g. chatgpt-4o, claude-3-5-sonnet"
+          class="h-8 rounded-lg border border-zinc-300 bg-white px-3 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-200 flex-1 max-w-xs"
+        />
+      </div>
+
+      <!-- Actions -->
+      <div class="mt-auto flex items-center justify-end gap-3 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+        <button
+          type="button"
+          onclick="closeStageModal()"
+          class="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-2 text-sm font-semibold text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 cursor-pointer transition-colors shadow-xs"
+        >
+          {% lucide "play" class="h-4 w-4" %}
+          <span>Submit & Proceed</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function closeStageModal() {
+    const container = document.getElementById('modal-container');
+    if (container) container.innerHTML = '';
+  }
+
+  function copyPromptText() {
+    const textEl = document.getElementById('prompt-content-text');
+    if (!textEl) return;
+    navigator.clipboard.writeText(textEl.innerText).then(() => {
+      const label = document.getElementById('copy-label');
+      if (label) {
+        label.innerText = 'Copied!';
+        setTimeout(() => { label.innerText = 'Copy Prompt'; }, 2000);
+      }
+    });
+  }
+</script>

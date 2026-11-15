@@ -1,0 +1,58 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <!-- Backdrop -->
+  <div class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" onclick="closeStageModal()"></div>
+
+  <!-- Modal Card -->
+  <div class="relative z-10 w-full max-w-lg sm:max-w-xl flex flex-col transform overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl transition-all dark:border-zinc-800 dark:bg-zinc-900">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+      <div class="flex items-center gap-3">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-400">
+          {% lucide "circle-alert" class="h-5 w-5" %}
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+            Stage Failed · {{ problem.leetcode_id }}. {{ problem.title }}
+          </h3>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">
+            Stage: <span class="font-mono font-semibold text-rose-600 dark:text-rose-400">{{ stage_name }}</span>
+          </p>
+        </div>
+      </div>
+      <button type="button" onclick="closeStageModal()" class="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200">
+        {% lucide "x" class="h-5 w-5" %}
+      </button>
+    </div>
+
+    <!-- Error Body -->
+    <div class="p-6 flex flex-col gap-3">
+      <label class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        Error Details
+      </label>
+      <div class="rounded-xl border border-rose-200 bg-rose-50/70 p-4 font-mono text-xs text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 max-h-60 overflow-y-auto whitespace-pre-wrap select-all">
+        {{ error_message }}
+      </div>
+    </div>
+
+    <!-- Footer Actions -->
+    <div class="flex items-center justify-end gap-3 border-t border-zinc-100 px-6 py-4 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40">
+      <button
+        type="button"
+        onclick="closeStageModal()"
+        class="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+      >
+        Close
+      </button>
+      <button
+        type="button"
+        hx-post="{% url 'ui:retry_item' item.pk %}"
+        hx-target="#task-content-container"
+        hx-swap="innerHTML"
+        class="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-500 dark:bg-rose-500 dark:hover:bg-rose-400 cursor-pointer transition-colors shadow-xs"
+      >
+        {% lucide "rotate-ccw" class="h-4 w-4" %}
+        <span>Retry This Stage</span>
+      </button>
+    </div>
+  </div>
+</div>

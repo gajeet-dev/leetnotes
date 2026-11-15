@@ -13,6 +13,7 @@ def should_auto_start_worker() -> bool:
         "collectstatic",
         "shell",
         "check",
+        "tailwind",
     )
     if any(cmd in sys.argv for cmd in skip_commands):
         return False

@@ -1,0 +1,444 @@
+{% extends "ui/base.html" %}
+{% block title %}Select Problems · Generate Notes · Leetnotes{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-6xl mx-auto flex flex-col gap-6 pb-24">
+  <!-- Page Header -->
+  <div class="flex flex-col gap-1.5">
+    <div class="flex items-center gap-2">
+      <a
+        href="{% url 'ui:tasks_list' %}"
+        class="inline-flex items-center gap-1 text-xs font-semibold text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+      >
+        {% lucide "arrow-left" class="h-3.5 w-3.5" %}
+        <span>Tasks</span>
+      </a>
+      <span class="text-zinc-300 dark:text-zinc-700">/</span>
+      <span class="text-xs font-semibold text-zinc-600 dark:text-zinc-300">New Run</span>
+    </div>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Generate Notes · Select Problems</h1>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400">
+          Choose solved algorithm problems to synthesize structured notes and write to your Obsidian vault.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search & Filter Bar -->
+  <form
+    id="filter-form"
+    hx-get="{% url 'ui:tasks_new' %}"
+    hx-target="#problems-selection-table-container"
+    hx-swap="outerHTML"
+    hx-push-url="true"
+    hx-trigger="submit"
+    autocomplete="off"
+    class="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200/90 bg-white p-3 shadow-xs dark:border-zinc-800 dark:bg-zinc-900"
+  >
+    <input type="hidden" name="per_page" id="filter-per-page" value="{{ per_page|default:100 }}" />
+
+    <!-- Search Input -->
+    <div class="relative min-w-[240px] flex-1">
+      <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-400">
+        {% lucide "search" class="h-4 w-4" %}
+      </div>
+      <input
+        type="search"
+        name="q"
+        value="{{ search_query }}"
+        placeholder="Search solved algorithms by title, ID, or slug..."
+        class="h-9 w-full rounded-lg border border-zinc-300 bg-white pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-200 dark:focus:ring-zinc-200"
+        oninput="const resetBtn = document.getElementById('btn-reset-filters'); if (resetBtn) resetBtn.disabled = !this.value.trim() && !document.getElementById('difficulty-input')?.value?.trim();"
+        hx-get="{% url 'ui:tasks_new' %}"
+        hx-target="#problems-selection-table-container"
+        hx-swap="outerHTML"
+        hx-include="#filter-form"
+        hx-push-url="true"
+        hx-trigger="input changed delay:300ms, search"
+      />
+    </div>
+
+    <!-- Difficulty Filter (Basecoat Dropdown Menu) -->
+    <div class="flex items-center gap-2">
+      <div class="dropdown-menu w-40 relative" id="difficulty-dropdown">
+        <button
+          type="button"
+          id="difficulty-trigger-btn"
+          class="h-9 w-full inline-flex items-center justify-between rounded-lg border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:focus:border-zinc-200 shadow-2xs transition-colors cursor-pointer"
+          aria-expanded="false"
+        >
+          <span id="difficulty-selected-label" class="font-normal text-left truncate">
+            {% if difficulty_filter %}{{ difficulty_filter }}{% else %}All Difficulties{% endif %}
+          </span>
+          {% lucide "chevron-down" class="h-3.5 w-3.5 shrink-0 text-zinc-400" size=14 %}
+        </button>
+        <input type="hidden" name="difficulty" id="difficulty-input" value="{{ difficulty_filter }}" />
+
+        <div data-popover aria-hidden="true" class="absolute top-full left-0 mt-1 w-full z-50 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+          <div role="menu" class="w-full flex flex-col gap-0.5">
+            <div
+              role="menuitemradio"
+              data-value=""
+              aria-checked="{% if not difficulty_filter %}true{% else %}false{% endif %}"
+              class="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer select-none transition-colors"
+              onclick="selectDifficulty('', 'All Difficulties')"
+            >
+              <span class="font-medium truncate">All Difficulties</span>
+              <span data-indicator class="{% if difficulty_filter %}hidden{% endif %}">
+                {% lucide "check" class="h-3.5 w-3.5 text-zinc-900 dark:text-zinc-100" size=14 %}
+              </span>
+            </div>
+            <div
+              role="menuitemradio"
+              data-value="Easy"
+              aria-checked="{% if difficulty_filter == 'Easy' %}true{% else %}false{% endif %}"
+              class="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer select-none transition-colors"
+              onclick="selectDifficulty('Easy', 'Easy')"
+            >
+              <span class="font-medium truncate text-emerald-600 dark:text-emerald-400">Easy</span>
+              <span data-indicator class="{% if difficulty_filter != 'Easy' %}hidden{% endif %}">
+                {% lucide "check" class="h-3.5 w-3.5 text-zinc-900 dark:text-zinc-100" size=14 %}
+              </span>
+            </div>
+            <div
+              role="menuitemradio"
+              data-value="Medium"
+              aria-checked="{% if difficulty_filter == 'Medium' %}true{% else %}false{% endif %}"
+              class="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer select-none transition-colors"
+              onclick="selectDifficulty('Medium', 'Medium')"
+            >
+              <span class="font-medium truncate text-amber-600 dark:text-amber-400">Medium</span>
+              <span data-indicator class="{% if difficulty_filter != 'Medium' %}hidden{% endif %}">
+                {% lucide "check" class="h-3.5 w-3.5 text-zinc-900 dark:text-zinc-100" size=14 %}
+              </span>
+            </div>
+            <div
+              role="menuitemradio"
+              data-value="Hard"
+              aria-checked="{% if difficulty_filter == 'Hard' %}true{% else %}false{% endif %}"
+              class="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer select-none transition-colors"
+              onclick="selectDifficulty('Hard', 'Hard')"
+            >
+              <span class="font-medium truncate text-rose-600 dark:text-rose-400">Hard</span>
+              <span data-indicator class="{% if difficulty_filter != 'Hard' %}hidden{% endif %}">
+                {% lucide "check" class="h-3.5 w-3.5 text-zinc-900 dark:text-zinc-100" size=14 %}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        id="btn-reset-filters"
+        onclick="clearFilters()"
+        {% if not search_query and not difficulty_filter %}disabled{% endif %}
+        class="h-9 inline-flex items-center px-3 rounded-lg border border-rose-200 bg-rose-50/70 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-400 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100/60 disabled:text-zinc-400 dark:disabled:border-zinc-800 dark:disabled:bg-zinc-800/40 dark:disabled:text-zinc-600"
+      >
+        Clear Filters
+      </button>
+    </div>
+  </form>
+
+  <!-- Selection Options Bar (Non-sticky) -->
+  <div
+    id="selection-bar"
+    class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white p-3 shadow-xs dark:border-zinc-800 dark:bg-zinc-900 transition-all"
+  >
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="inline-flex items-center rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+        <span id="selected-count" class="mr-1">0</span> selected
+      </span>
+
+      <button
+        type="button"
+        id="btn-select-recent"
+        onclick="selectAllRecent()"
+        class="{% if not recent_problems %}hidden{% endif %} rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+      >
+        Select All Recent (<span id="recent-count-badge">{{ recent_problems|length }}</span>)
+      </button>
+
+      <button
+        type="button"
+        onclick="toggleSelectAllPage()"
+        id="btn-select-all"
+        class="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+      >
+        Select All on Page
+      </button>
+
+      <button
+        type="button"
+        id="btn-clear-selection"
+        onclick="clearSelection()"
+        disabled
+        class="text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 underline underline-offset-4 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:text-zinc-400 dark:disabled:text-zinc-600 disabled:no-underline"
+      >
+        Clear
+      </button>
+    </div>
+
+    <!-- Submit Action -->
+    <button
+      type="button"
+      id="btn-start-generation"
+      onclick="submitSelectionForm()"
+      disabled
+      class="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors cursor-pointer"
+    >
+      {% lucide "play" class="h-4 w-4" %}
+      <span>Start Generation</span>
+    </button>
+  </div>
+
+  <!-- Form wrapping the table for creation -->
+  <form id="tasks-create-form" method="POST" action="{% url 'ui:tasks_create' %}">
+    {% csrf_token %}
+    {% include "ui/partials/tasks_new_table.html" %}
+  </form>
+</div>
+
+<script>
+  const selectedProblemIds = new Set();
+
+  function updateSelectionUI() {
+    const count = selectedProblemIds.size;
+    const countEl = document.getElementById('selected-count');
+    if (countEl) countEl.innerText = count;
+
+    const submitBtn = document.getElementById('btn-start-generation');
+    if (submitBtn) {
+      submitBtn.disabled = count === 0;
+    }
+
+    const clearBtn = document.getElementById('btn-clear-selection');
+    if (clearBtn) {
+      clearBtn.disabled = count === 0;
+    }
+
+    // Toggle recent button visibility based on presence of recent section
+    const recentBoxes = document.querySelectorAll('.problem-checkbox[data-section="recent"]:not(:disabled)');
+    const btnRecent = document.getElementById('btn-select-recent');
+    const recentBadge = document.getElementById('recent-count-badge');
+    if (btnRecent) {
+      if (recentBoxes.length > 0) {
+        btnRecent.classList.remove('hidden');
+        if (recentBadge) recentBadge.textContent = recentBoxes.length;
+      } else {
+        btnRecent.classList.add('hidden');
+      }
+    }
+
+    // Update master checkbox header
+    const masterCb = document.getElementById('master-checkbox-header');
+    const enabledBoxes = Array.from(document.querySelectorAll('.problem-checkbox:not(:disabled)'));
+    if (masterCb && enabledBoxes.length > 0) {
+      const allChecked = enabledBoxes.every(cb => cb.checked);
+      const someChecked = enabledBoxes.some(cb => cb.checked);
+      masterCb.checked = allChecked;
+      masterCb.indeterminate = !allChecked && someChecked;
+    } else if (masterCb) {
+      masterCb.checked = false;
+      masterCb.indeterminate = false;
+    }
+
+    // Update clear filters button disabled state
+    const filterForm = document.getElementById('filter-form');
+    const resetBtn = document.getElementById('btn-reset-filters');
+    if (filterForm && resetBtn) {
+      const qVal = filterForm.querySelector('input[name="q"]')?.value?.trim();
+      const diffVal = document.getElementById('difficulty-input')?.value?.trim();
+      resetBtn.disabled = !qVal && !diffVal;
+    }
+  }
+
+  function selectDifficulty(value, label) {
+    const input = document.getElementById('difficulty-input');
+    if (input) {
+      input.value = value;
+    }
+    const labelEl = document.getElementById('difficulty-selected-label');
+    if (labelEl) {
+      labelEl.textContent = label;
+    }
+
+    const menu = document.querySelector('#difficulty-dropdown [role="menu"]');
+    if (menu) {
+      menu.querySelectorAll('[role="menuitemradio"]').forEach(function(item) {
+        const itemVal = item.getAttribute('data-value');
+        const isSelected = itemVal === value;
+        item.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+        const indicator = item.querySelector('[data-indicator]');
+        if (indicator) {
+          indicator.classList.toggle('hidden', !isSelected);
+        }
+      });
+    }
+
+    const trigger = document.getElementById('difficulty-trigger-btn');
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'false');
+      const popover = document.querySelector('#difficulty-dropdown [data-popover]');
+      if (popover) popover.setAttribute('aria-hidden', 'true');
+    }
+
+    updateSelectionUI();
+
+    const form = document.getElementById('filter-form');
+    if (form && window.htmx) {
+      window.htmx.trigger(form, 'submit');
+    }
+  }
+
+  function onProblemCheckboxChange(cb) {
+    const val = String(cb.value);
+    if (cb.checked) {
+      selectedProblemIds.add(val);
+    } else {
+      selectedProblemIds.delete(val);
+    }
+    updateSelectionUI();
+  }
+
+  function togglePageCheckboxes(masterCb) {
+    const isChecked = masterCb.checked;
+    const enabledBoxes = document.querySelectorAll('.problem-checkbox:not(:disabled)');
+    enabledBoxes.forEach(cb => {
+      cb.checked = isChecked;
+      const val = String(cb.value);
+      if (isChecked) {
+        selectedProblemIds.add(val);
+      } else {
+        selectedProblemIds.delete(val);
+      }
+    });
+    updateSelectionUI();
+  }
+
+  function toggleSelectAllPage() {
+    const enabledBoxes = Array.from(document.querySelectorAll('.problem-checkbox:not(:disabled)'));
+    const anyUnchecked = enabledBoxes.some(cb => !cb.checked);
+    enabledBoxes.forEach(cb => {
+      cb.checked = anyUnchecked;
+      const val = String(cb.value);
+      if (anyUnchecked) {
+        selectedProblemIds.add(val);
+      } else {
+        selectedProblemIds.delete(val);
+      }
+    });
+    updateSelectionUI();
+  }
+
+  function selectAllRecent() {
+    const recentBoxes = document.querySelectorAll('.problem-checkbox[data-section="recent"]:not(:disabled)');
+    recentBoxes.forEach(cb => {
+      cb.checked = true;
+      selectedProblemIds.add(String(cb.value));
+    });
+    updateSelectionUI();
+  }
+
+  function clearSelection() {
+    selectedProblemIds.clear();
+    document.querySelectorAll('.problem-checkbox').forEach(cb => {
+      cb.checked = false;
+    });
+    updateSelectionUI();
+  }
+
+  function onPerPageChange(val) {
+    let num = parseInt(val, 10);
+    if (isNaN(num) || num < 1) num = 100;
+    if (num > 1000) num = 1000;
+    const perPageInput = document.getElementById('filter-per-page');
+    if (perPageInput) perPageInput.value = num;
+    const form = document.getElementById('filter-form');
+    if (form && window.htmx) {
+      window.htmx.trigger(form, 'submit');
+    }
+  }
+
+  function clearFilters() {
+    const form = document.getElementById('filter-form');
+    if (!form) return;
+    const qInput = form.querySelector('input[name="q"]');
+    if (qInput) qInput.value = '';
+    const diffInput = document.getElementById('difficulty-input');
+    if (diffInput) diffInput.value = '';
+    const diffLabel = document.getElementById('difficulty-selected-label');
+    if (diffLabel) diffLabel.textContent = 'All Difficulties';
+    const menu = document.querySelector('#difficulty-dropdown [role="menu"]');
+    if (menu) {
+      menu.querySelectorAll('[role="menuitemradio"]').forEach(function(item) {
+        const itemVal = item.getAttribute('data-value');
+        const isSelected = itemVal === '';
+        item.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+        const indicator = item.querySelector('[data-indicator]');
+        if (indicator) {
+          indicator.classList.toggle('hidden', !isSelected);
+        }
+      });
+    }
+    const resetBtn = document.getElementById('btn-reset-filters');
+    if (resetBtn) resetBtn.disabled = true;
+    if (window.htmx) {
+      window.htmx.trigger(form, 'submit');
+    }
+  }
+
+  function submitSelectionForm() {
+    const form = document.getElementById('tasks-create-form');
+    if (!form || selectedProblemIds.size === 0) return;
+
+    // Clear any existing hidden problem_ids
+    form.querySelectorAll('input[name="problem_ids"]').forEach(el => el.remove());
+
+    selectedProblemIds.forEach(id => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'problem_ids';
+      input.value = id;
+      form.appendChild(input);
+    });
+
+    form.submit();
+  }
+
+  // Restore checkbox state after HTMX loads a new page of problems
+  document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target && evt.detail.target.id === 'problems-selection-table-container') {
+      document.querySelectorAll('.problem-checkbox').forEach(cb => {
+        cb.checked = selectedProblemIds.has(String(cb.value));
+      });
+      updateSelectionUI();
+    }
+  });
+
+  // Strip empty filter parameters so pushed URLs are clean
+  document.body.addEventListener('htmx:configRequest', function(evt) {
+    if (
+      evt.detail.elt &&
+      (evt.detail.elt.id === 'filter-form' ||
+        evt.detail.elt.closest('#filter-form') ||
+        evt.detail.elt.closest('#problems-selection-table-container'))
+    ) {
+      for (const key in evt.detail.parameters) {
+        if (evt.detail.parameters[key] === '') {
+          delete evt.detail.parameters[key];
+        }
+      }
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', function() {
+    updateSelectionUI();
+    if (window.basecoat && typeof window.basecoat.initAll === 'function') {
+      window.basecoat.initAll();
+    }
+  });
+</script>
+{% endblock %}
