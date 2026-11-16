@@ -1,26 +1,15 @@
 {% extends "ui/base.html" %}
-{% block title %}Select Problems · Generate Notes · Leetnotes{% endblock %}
+{% block title %}Notes Generation Workbench · Leetnotes{% endblock %}
 
 {% block content %}
-<div class="w-full max-w-6xl mx-auto flex flex-col gap-6 pb-24">
+<div class="w-full flex flex-col gap-5 pb-24">
   <!-- Page Header -->
   <div class="flex flex-col gap-1.5">
-    <div class="flex items-center gap-2">
-      <a
-        href="{% url 'ui:tasks_list' %}"
-        class="inline-flex items-center gap-1 text-xs font-semibold text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
-      >
-        {% lucide "arrow-left" class="h-3.5 w-3.5" %}
-        <span>Tasks</span>
-      </a>
-      <span class="text-zinc-300 dark:text-zinc-700">/</span>
-      <span class="text-xs font-semibold text-zinc-600 dark:text-zinc-300">New Run</span>
-    </div>
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Generate Notes · Select Problems</h1>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Notes Generation Workbench</h1>
         <p class="text-sm text-zinc-500 dark:text-zinc-400">
-          Choose solved algorithm problems to synthesize structured notes and write to your Obsidian vault.
+          Select solved algorithm problems, configure AI models, and monitor automated pipeline synthesis in real time.
         </p>
       </div>
     </div>
@@ -29,7 +18,7 @@
   <!-- Search & Filter Bar -->
   <form
     id="filter-form"
-    hx-get="{% url 'ui:tasks_new' %}"
+    hx-get="{% url 'ui:tasks' %}"
     hx-target="#problems-selection-table-container"
     hx-swap="outerHTML"
     hx-push-url="true"
@@ -51,7 +40,7 @@
         placeholder="Search solved algorithms by title, ID, or slug..."
         class="h-9 w-full rounded-lg border border-zinc-300 bg-white pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-200 dark:focus:ring-zinc-200"
         oninput="const resetBtn = document.getElementById('btn-reset-filters'); if (resetBtn) resetBtn.disabled = !this.value.trim() && !document.getElementById('difficulty-input')?.value?.trim();"
-        hx-get="{% url 'ui:tasks_new' %}"
+        hx-get="{% url 'ui:tasks' %}"
         hx-target="#problems-selection-table-container"
         hx-swap="outerHTML"
         hx-include="#filter-form"
@@ -142,7 +131,7 @@
     </div>
   </form>
 
-  <!-- Selection Options Bar (Non-sticky) -->
+  <!-- Selection Options Bar -->
   <div
     id="selection-bar"
     class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white p-3 shadow-xs dark:border-zinc-800 dark:bg-zinc-900 transition-all"
@@ -181,7 +170,7 @@
       </button>
     </div>
 
-    <!-- Submit Action -->
+    <!-- Submit Action: Opens modal_generate_settings -->
     <button
       type="button"
       id="btn-start-generation"
@@ -189,16 +178,24 @@
       disabled
       class="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors cursor-pointer"
     >
-      {% lucide "play" class="h-4 w-4" %}
-      <span>Start Generation</span>
+      {% lucide "sparkles" class="h-4 w-4" %}
+      <span>Generate Notes</span>
     </button>
   </div>
 
-  <!-- Form wrapping the table for creation -->
-  <form id="tasks-create-form" method="POST" action="{% url 'ui:tasks_create' %}">
+  <!-- Hidden Form triggering settings modal -->
+  <form
+    id="tasks-create-form"
+    hx-post="{% url 'ui:generate_settings_modal' %}"
+    hx-trigger="submit, open-settings-modal"
+    hx-target="#modal-container"
+    hx-swap="innerHTML"
+  >
     {% csrf_token %}
-    {% include "ui/partials/tasks_new_table.html" %}
   </form>
+
+  <!-- Problems Table Container -->
+  {% include "ui/partials/tasks_new_table.html" %}
 </div>
 
 <script>
@@ -391,22 +388,45 @@
   }
 
   function submitSelectionForm() {
+    if (selectedProblemIds.size === 0) return;
+    const ids = Array.from(selectedProblemIds);
+
     const form = document.getElementById('tasks-create-form');
-    if (!form || selectedProblemIds.size === 0) return;
+    if (form) {
+      form.querySelectorAll('input[name="problem_ids"]').forEach(el => el.remove());
+      ids.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'problem_ids';
+        input.value = id;
+        form.appendChild(input);
+      });
+    }
 
-    // Clear any existing hidden problem_ids
-    form.querySelectorAll('input[name="problem_ids"]').forEach(el => el.remove());
-
-    selectedProblemIds.forEach(id => {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'problem_ids';
-      input.value = id;
-      form.appendChild(input);
-    });
-
-    form.submit();
+    if (window.htmx) {
+      if (typeof window.htmx.ajax === 'function') {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+        window.htmx.ajax('POST', "{% url 'ui:generate_settings_modal' %}", {
+          values: {
+            problem_ids: ids,
+            csrfmiddlewaretoken: csrfToken
+          },
+          target: '#modal-container',
+          swap: 'innerHTML'
+        });
+      } else if (form) {
+        window.htmx.trigger(form, 'submit');
+      }
+    }
   }
+
+  // Clear selections when tasks generation starts successfully from modal
+  document.body.addEventListener('htmx:afterRequest', function(evt) {
+    if (evt.detail.elt && evt.detail.elt.closest('#modal-container') && evt.detail.successful) {
+      selectedProblemIds.clear();
+      updateSelectionUI();
+    }
+  });
 
   // Restore checkbox state after HTMX loads a new page of problems
   document.body.addEventListener('htmx:afterSwap', function(evt) {

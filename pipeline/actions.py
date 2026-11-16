@@ -1,22 +1,22 @@
-"""What you can do about an item that is waiting for you."""
+"""What you can do about a pipeline item that is waiting for you."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from typing import Any
 
 from django.db import transaction
 
 from pipeline.engine import advance_item
-from pipeline.models import ItemStage, Task, TaskItem
+from pipeline.models import ItemStage, PipelineItem
 from pipeline.runtime.worker import ensure_worker_running
 from pipeline.stages.definitions import Stage
 from pipeline.stages.outcomes import done
-from pipeline.tasks.transitions import complete_stage, refresh_task_status, save_fields
+from pipeline.tasks.transitions import complete_stage, save_fields
 from prefill.models import AIResponse
 from prefill.parsing import ParseError, parse_solution
 from prefill.prompt_builder import PromptInputError, build_prompt
 from prefill.services import import_manual_response
 
 WakeWorker = Callable[[], bool]
-OPEN_TASK_STATUSES = (Task.Status.ACTIVE, Task.Status.PAUSED)
 
 
 class ActionError(Exception):
@@ -26,25 +26,25 @@ class ActionError(Exception):
 # --- finding what is waiting ---
 
 
-def get_item(item_id: int) -> TaskItem:
-    return TaskItem.objects.select_related("task", "problem").get(pk=item_id)
+def get_item(item_id: int) -> PipelineItem:
+    return PipelineItem.objects.select_related("problem").get(pk=item_id)
 
 
-def check_task_is_open(item: TaskItem) -> None:
-    if item.task.status not in OPEN_TASK_STATUSES:
-        raise ActionError(f"the task is {item.task.status}")
+def check_item_is_open(item: PipelineItem) -> None:
+    if item.status in (PipelineItem.Status.CANCELLED,):
+        raise ActionError(f"the item is {item.status}")
 
 
-def check_item_waits_for(item: TaskItem, kind: str) -> None:
-    if item.status != TaskItem.Status.NEEDS_INPUT or item.input_kind != kind:
+def check_item_waits_for(item: PipelineItem, kind: str) -> None:
+    if item.status != PipelineItem.Status.NEEDS_INPUT or item.input_kind != kind:
         raise ActionError(
             f"{item.problem.slug} is not waiting for {kind.replace('_', ' ')}"
         )
 
 
-def waiting_stage(item: TaskItem, kind: str) -> ItemStage:
+def waiting_stage(item: PipelineItem, kind: str) -> ItemStage:
     """The stage this item is parked at, after checking it really waits for `kind`."""
-    check_task_is_open(item)
+    check_item_is_open(item)
     check_item_waits_for(item, kind)
     return item.stages.get(stage=item.stage, status=ItemStage.Status.WAITING)
 
@@ -52,47 +52,55 @@ def waiting_stage(item: TaskItem, kind: str) -> ItemStage:
 # --- moving on once you have answered ---
 
 
-def finish_waiting_stage(item: TaskItem, row: ItemStage, detail: str) -> None:
+def finish_waiting_stage(item: PipelineItem, row: ItemStage, detail: str) -> None:
     """Mark the stage done and send the item on to its next stage (or finish it)."""
     outcome = done(detail)
     complete_stage(row, outcome)
     save_fields(item, input_kind="")
     advance_item(item, outcome)
-    refresh_task_status(item.task)
 
 
 # --- approving reviews ---
 
 
-def approve_without_waking(item: TaskItem) -> None:
-    row = waiting_stage(item, TaskItem.InputKind.REVIEW)
+def approve_without_waking(item: PipelineItem) -> None:
+    row = waiting_stage(item, PipelineItem.InputKind.REVIEW)
     finish_waiting_stage(item, row, "approved")
 
 
-def approve_review(item_id: int, wake: WakeWorker = ensure_worker_running) -> TaskItem:
+def approve_review(
+    item_id: int, wake: WakeWorker = ensure_worker_running
+) -> PipelineItem:
     """Approve one AI note, so the item goes on to save its notes."""
     item = get_item(item_id)
     approve_without_waking(item)
-    wake()
+    if wake:
+        wake()
     return item
 
 
-def items_waiting_for_review(task: Task) -> list[TaskItem]:
-    return list(
-        task.items.select_related("task", "problem").filter(
-            status=TaskItem.Status.NEEDS_INPUT,
-            input_kind=TaskItem.InputKind.REVIEW,
-        )
+def items_waiting_for_review(
+    item_ids: Sequence[int] | None = None,
+) -> list[PipelineItem]:
+    qs = PipelineItem.objects.select_related("problem").filter(
+        status=PipelineItem.Status.NEEDS_INPUT,
+        input_kind=PipelineItem.InputKind.REVIEW,
     )
+    if item_ids is not None:
+        qs = qs.filter(pk__in=item_ids)
+    return list(qs)
 
 
-def approve_all_reviews(task_id: int, wake: WakeWorker = ensure_worker_running) -> int:
-    """Approve every AI note in the task that is waiting for review. Returns how many."""
-    task = Task.objects.get(pk=task_id)
-    items = items_waiting_for_review(task)
+def approve_all_reviews(
+    task_id: Any = None,
+    item_ids: Sequence[int] | None = None,
+    wake: WakeWorker = ensure_worker_running,
+) -> int:
+    """Approve every AI note waiting for review. Returns how many were approved."""
+    items = items_waiting_for_review(item_ids=item_ids)
     for item in items:
         approve_without_waking(item)
-    if items:
+    if items and wake:
         wake()
     return len(items)
 
@@ -107,14 +115,16 @@ def check_reply_is_valid(text: str) -> None:
         raise ActionError(f"the reply isn't valid:\n{exc}") from exc
 
 
-def build_prompt_for(item: TaskItem):
+def build_prompt_for(item: PipelineItem):
     try:
         return build_prompt(item.problem)
     except PromptInputError as exc:
         raise ActionError(f"can't build the prompt: {exc}") from exc
 
 
-def save_pasted_reply(item: TaskItem, row: ItemStage, text: str, label: str) -> None:
+def save_pasted_reply(
+    item: PipelineItem, row: ItemStage, text: str, label: str
+) -> None:
     """Store the reply as the active AI note and finish the waiting stage, together."""
     prompt = build_prompt_for(item)
     with transaction.atomic():
@@ -127,13 +137,14 @@ def submit_manual_reply(
     text: str,
     label: str = "",
     wake: WakeWorker = ensure_worker_running,
-) -> TaskItem:
+) -> PipelineItem:
     """Use a reply pasted from an AI chat as this item's AI note, then carry on."""
     item = get_item(item_id)
-    row = waiting_stage(item, TaskItem.InputKind.MANUAL_PREFILL)
+    row = waiting_stage(item, PipelineItem.InputKind.MANUAL_PREFILL)
     check_reply_is_valid(text)
     save_pasted_reply(item, row, text, label)
-    wake()
+    if wake:
+        wake()
     return item
 
 
@@ -141,10 +152,10 @@ def select_existing_prefill(
     item_id: int,
     response_id: int,
     wake: WakeWorker = ensure_worker_running,
-) -> TaskItem:
+) -> PipelineItem:
     """Use an existing AIResponse as this item's AI note, then advance the pipeline."""
     item = get_item(item_id)
-    row = waiting_stage(item, TaskItem.InputKind.MANUAL_PREFILL)
+    row = waiting_stage(item, PipelineItem.InputKind.MANUAL_PREFILL)
     with transaction.atomic():
         chosen = AIResponse.objects.get(
             pk=response_id, problem=item.problem, status=AIResponse.Status.VALID
@@ -156,7 +167,8 @@ def select_existing_prefill(
         chosen.save(update_fields=["is_active"])
         label = chosen.model_name or chosen.provider_name or "existing"
         finish_waiting_stage(item, row, f"reused existing draft ({label})")
-    wake()
+    if wake:
+        wake()
     return item
 
 
@@ -175,10 +187,10 @@ def reset_stage_row(row: ItemStage) -> None:
     )
 
 
-def queue_item_at(item: TaskItem, stage: str) -> None:
+def queue_item_at(item: PipelineItem, stage: str) -> None:
     save_fields(
         item,
-        status=TaskItem.Status.QUEUED,
+        status=PipelineItem.Status.QUEUED,
         stage=stage,
         input_kind="",
         error="",
@@ -189,52 +201,45 @@ def queue_item_at(item: TaskItem, stage: str) -> None:
 # --- rejecting a review ---
 
 
-def reset_prefill_and_review(item: TaskItem) -> None:
+def reset_prefill_and_review(item: PipelineItem) -> None:
     for stage in (Stage.GENERATE_PREFILL, Stage.REVIEW):
         reset_stage_row(item.stages.get(stage=stage))
 
 
-def reject_review(item_id: int, wake: WakeWorker = ensure_worker_running) -> TaskItem:
+def reject_review(
+    item_id: int, wake: WakeWorker = ensure_worker_running
+) -> PipelineItem:
     """Throw the AI note away for now: the item goes back to generating a new one."""
     item = get_item(item_id)
-    waiting_stage(item, TaskItem.InputKind.REVIEW)
+    waiting_stage(item, PipelineItem.InputKind.REVIEW)
     reset_prefill_and_review(item)
     queue_item_at(item, Stage.GENERATE_PREFILL)
-    wake()
+    if wake:
+        wake()
     return item
 
 
 # --- retrying a failed item ---
 
-RETRYABLE_TASK_STATUSES = (*OPEN_TASK_STATUSES, Task.Status.FINISHED)
 
-
-def check_item_can_retry(item: TaskItem) -> None:
-    if item.task.status not in RETRYABLE_TASK_STATUSES:
-        raise ActionError(f"the task is {item.task.status}")
-    if item.status != TaskItem.Status.FAILED:
+def check_item_can_retry(item: PipelineItem) -> None:
+    if item.status != PipelineItem.Status.FAILED:
         raise ActionError(f"{item.problem.slug} has not failed")
 
 
-def reopen_task_if_finished(task: Task) -> None:
-    """A task that finished because this item failed has work to do again."""
-    if task.status == Task.Status.FINISHED:
-        save_fields(task, status=Task.Status.ACTIVE, finished_at=None)
-
-
-def failed_stage(item: TaskItem) -> ItemStage:
+def failed_stage(item: PipelineItem) -> ItemStage:
     return item.stages.filter(status=ItemStage.Status.FAILED).order_by("order").first()
 
 
 def retry_failed_item(
     item_id: int, wake: WakeWorker = ensure_worker_running
-) -> TaskItem:
+) -> PipelineItem:
     """Run the stage that failed again, and carry on from there."""
     item = get_item(item_id)
     check_item_can_retry(item)
     row = failed_stage(item)
     reset_stage_row(row)
     queue_item_at(item, row.stage)
-    reopen_task_if_finished(item.task)
-    wake()
+    if wake:
+        wake()
     return item

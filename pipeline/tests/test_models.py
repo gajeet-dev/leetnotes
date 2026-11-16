@@ -1,7 +1,7 @@
 from django.db import IntegrityError, transaction
 from django.test import SimpleTestCase, TestCase
 
-from pipeline.models import ItemStage, Task, TaskItem
+from pipeline.models import ItemStage, PipelineItem
 from pipeline.stages.definitions import STAGE_ORDER, Stage, next_stage, stage_order
 from problems.models import Problem
 
@@ -33,40 +33,22 @@ class PipelineModelTests(TestCase):
     def setUp(self):
         self.problem = Problem.objects.create(slug="two-sum", leetcode_id=1)
         self.other = Problem.objects.create(slug="contains-duplicate", leetcode_id=217)
-        self.task = Task.objects.create(name="Run 1")
 
-    def add_item(self, problem, position=0) -> TaskItem:
-        return TaskItem.objects.create(
-            task=self.task, problem=problem, position=position
-        )
-
-    def test_task_defaults(self):
-        self.assertEqual(self.task.status, Task.Status.ACTIVE)
-        self.assertEqual(self.task.settings, {})
+    def add_item(self, problem, position=0) -> PipelineItem:
+        return PipelineItem.objects.create(problem=problem, position=position)
 
     def test_item_defaults(self):
         item = self.add_item(self.problem)
-        self.assertEqual(item.status, TaskItem.Status.QUEUED)
+        self.assertEqual(item.status, PipelineItem.Status.QUEUED)
         self.assertEqual((item.stage, item.input_kind, item.error), ("", "", ""))
+        self.assertEqual(item.settings, {})
 
-    def test_a_problem_appears_once_per_task(self):
-        self.add_item(self.problem)
-        with self.assertRaises(IntegrityError), transaction.atomic():
-            self.add_item(self.problem, position=1)
-
-    def test_the_same_problem_can_be_in_two_tasks(self):
-        self.add_item(self.problem)
-        TaskItem.objects.create(task=Task.objects.create(), problem=self.problem)
-
-    def test_items_come_back_in_position_order(self):
-        self.add_item(self.other, position=1)
+    def test_multiple_pipeline_runs_for_problem(self):
         self.add_item(self.problem, position=0)
-        self.assertEqual(
-            [item.problem.slug for item in self.task.items.all()],
-            ["two-sum", "contains-duplicate"],
-        )
+        self.add_item(self.problem, position=1)
+        self.assertEqual(self.problem.pipeline_items.count(), 2)
 
-    def make_stage_rows(self, item: TaskItem, stages) -> None:
+    def make_stage_rows(self, item: PipelineItem, stages) -> None:
         for stage in stages:
             ItemStage.objects.create(item=item, stage=stage, order=stage_order(stage))
 
@@ -83,12 +65,15 @@ class PipelineModelTests(TestCase):
         with self.assertRaises(IntegrityError), transaction.atomic():
             self.make_stage_rows(item, [Stage.REVIEW])
 
-    def test_deleting_a_task_deletes_its_items_and_stages(self):
-        self.make_stage_rows(self.add_item(self.problem), [Stage.REVIEW])
-        self.task.delete()
-        self.assertEqual((TaskItem.objects.count(), ItemStage.objects.count()), (0, 0))
+    def test_deleting_an_item_deletes_its_stages(self):
+        item = self.add_item(self.problem)
+        self.make_stage_rows(item, [Stage.REVIEW])
+        item.delete()
+        self.assertEqual(
+            (PipelineItem.objects.count(), ItemStage.objects.count()), (0, 0)
+        )
 
-    def test_deleting_a_problem_removes_it_from_tasks(self):
+    def test_deleting_a_problem_removes_its_items(self):
         self.add_item(self.problem)
         self.problem.delete()
-        self.assertEqual(TaskItem.objects.count(), 0)
+        self.assertEqual(PipelineItem.objects.count(), 0)

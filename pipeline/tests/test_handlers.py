@@ -3,7 +3,7 @@ from unittest import mock
 from django.test import TestCase
 
 from leetcode.exceptions import AuthError
-from pipeline.models import ItemStage, Task, TaskItem
+from pipeline.models import ItemStage, PipelineItem
 from pipeline.stages.deps import StageDeps
 from pipeline.stages.handlers.fetch import fetch_images, fetch_problem, fetch_submission
 from pipeline.stages.outcomes import StageError
@@ -14,8 +14,8 @@ from problems.models import Problem, SyncTask
 DEPS = StageDeps(get_client=lambda: "client", get_downloader=lambda: "downloader")
 
 
-def make_item(problem: Problem) -> TaskItem:
-    return TaskItem.objects.create(task=Task.objects.create(), problem=problem)
+def make_item(problem: Problem) -> PipelineItem:
+    return PipelineItem.objects.create(problem=problem)
 
 
 class FetchHandlerTests(TestCase):

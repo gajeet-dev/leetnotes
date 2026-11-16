@@ -1,8 +1,7 @@
-"""The settings a task runs with: a snapshot taken when the task is created."""
+"""The settings a pipeline item runs with: a snapshot taken when it is created."""
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from pipeline.models import Task
 from prefill.providers.config import default_provider_name, provider_names
 from userconfig import effective, load_config
 from userconfig.store import describe_validation_errors
@@ -11,7 +10,7 @@ MANUAL_PROVIDER = "manual"  # no tool: you paste a reply from a web chat
 
 
 class TaskSettingsError(ValueError):
-    """A task setting is unknown or invalid. str(exc) says which."""
+    """A setting is unknown or invalid. str(exc) says which."""
 
 
 class TaskSettings(BaseModel):
@@ -20,6 +19,7 @@ class TaskSettings(BaseModel):
     )  # snapshots saved by an older version still load
 
     provider: str = MANUAL_PROVIDER  # a provider name, or "manual"
+    model: str = ""  # optional model override (e.g. claude-3-5-sonnet, gemini-1.5-flash)
     review: bool = True  # wait for your approval before saving notes
     output_dirs: list[str] = Field(default_factory=list)
     replace_edited: bool = False  # replace notes you edited (backed up first)
@@ -39,10 +39,19 @@ class TaskSettings(BaseModel):
 
 
 def default_task_settings() -> TaskSettings:
-    """What a new task starts from: your saved defaults."""
+    """What a new item starts from: your saved defaults."""
+    cfg = load_config()
+    default_prov = default_provider_name()
+    default_mod = ""
+    if default_prov == "agy":
+        default_mod = cfg.agy.default_model
+    elif default_prov in cfg.providers:
+        default_mod = cfg.providers[default_prov].default_model
+
     return TaskSettings(
-        provider=default_provider_name(),
-        review=load_config().review_before_writing,
+        provider=default_prov,
+        model=default_mod,
+        review=cfg.review_before_writing,
         output_dirs=[str(folder) for folder in effective.output_dirs()],
     )
 
@@ -50,7 +59,7 @@ def default_task_settings() -> TaskSettings:
 def check_override_names(overrides: dict) -> None:
     unknown = sorted(set(overrides) - set(TaskSettings.model_fields))
     if unknown:
-        raise TaskSettingsError(f"Unknown task setting(s): {', '.join(unknown)}")
+        raise TaskSettingsError(f"Unknown pipeline setting(s): {', '.join(unknown)}")
 
 
 def check_provider(name: str) -> None:
@@ -64,7 +73,7 @@ def check_provider(name: str) -> None:
 
 
 def settings_with_overrides(overrides: dict | None = None) -> TaskSettings:
-    """Your defaults with this task's changes on top, validated."""
+    """Your defaults with this item's changes on top, validated."""
     overrides = overrides or {}
     check_override_names(overrides)
     merged = {**default_task_settings().model_dump(), **overrides}
@@ -76,6 +85,15 @@ def settings_with_overrides(overrides: dict | None = None) -> TaskSettings:
     return settings
 
 
-def task_settings(task: Task) -> TaskSettings:
-    """The snapshot saved on a task."""
-    return TaskSettings.model_validate(task.settings)
+def task_settings(item_or_dict) -> TaskSettings:
+    """The snapshot saved on an item (or settings dict)."""
+    if hasattr(item_or_dict, "settings"):
+        raw = item_or_dict.settings
+    elif isinstance(item_or_dict, dict):
+        raw = item_or_dict
+    else:
+        raw = {}
+    return TaskSettings.model_validate(raw or default_task_settings().model_dump())
+
+
+item_settings = task_settings

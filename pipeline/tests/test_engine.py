@@ -8,12 +8,21 @@ from django.utils import timezone
 from leetcode.exceptions import AuthError, NotFoundError, TransportError
 from notes.models import NoteRecord
 from notes.state import expected_path
-from pipeline.engine import next_pending_stage, next_queued_item, run_until_idle, step
-from pipeline.models import ItemStage, Task, TaskItem
+from pipeline.engine import (
+    next_pending_stage,
+    next_queued_item,
+    run_until_idle,
+    step,
+)
+from pipeline.models import ItemStage, PipelineItem
 from pipeline.stages.definitions import Stage
 from pipeline.stages.deps import StageDeps
-from pipeline.tasks.creation import create_task
-from pipeline.tasks.transitions import cancel_task, pause_task, resume_task
+from pipeline.tasks.creation import start_pipeline_items
+from pipeline.tasks.transitions import (
+    cancel_item,
+    pause_item,
+    resume_item,
+)
 from pipeline.tests.helpers import make_problem, mark_fetched
 from pipeline.tests.test_note_handlers import FakeProvider, add_submission
 from prefill.models import AIResponse
@@ -25,7 +34,7 @@ from userconfig import update_config
 from userconfig.tests.helpers import DataDirDBTestCase
 
 Row = ItemStage.Status
-Item = TaskItem.Status
+Item = PipelineItem.Status
 
 
 class FakeFetcher:
@@ -97,34 +106,30 @@ class EngineTestCase(DataDirDBTestCase):
             content_local_markdown="Statement.",
         )
 
-    def task_for(self, *problems, **overrides) -> Task:
-        overrides.setdefault(
-            "provider", "claude"
-        )  # any known name: the fake provider is used
-        return create_task(list(problems), overrides).task
+    def task_for(self, *problems, **overrides) -> PipelineItem:
+        overrides.setdefault("provider", "claude")
+        return start_pipeline_items(list(problems), overrides, wake=None).items[0]
+
+    item_for = task_for
 
     def run_all(self, **options):
         return run_until_idle(self.deps(), **options)
 
-    def item_of(self, problem: Problem) -> TaskItem:
-        return TaskItem.objects.get(problem=problem)
+    def item_of(self, problem: Problem) -> PipelineItem:
+        return PipelineItem.objects.filter(problem=problem).latest("created_at")
 
-    def stage_statuses(self, item: TaskItem) -> dict[str, str]:
+    def stage_statuses(self, item: PipelineItem) -> dict[str, str]:
         return {row.stage: row.status for row in item.stages.all()}
 
 
 class FullRunTests(EngineTestCase):
     def test_a_task_runs_to_the_end_and_writes_both_notes(self):
         two_sum = self.problem("two-sum", 1)
-        task = self.task_for(two_sum, review=False)
+        item = self.task_for(two_sum, review=False)
         results = self.run_all()
-        task.refresh_from_db()
-        item = self.item_of(two_sum)
-        self.assertEqual(task.status, Task.Status.FINISHED)
+        item.refresh_from_db()
         self.assertEqual(item.status, Item.COMPLETED)
-        self.assertEqual(
-            len(results), 5
-        )  # three fetches, prefill, save (review starts skipped)
+        self.assertEqual(len(results), 5)
         statuses = self.stage_statuses(item)
         self.assertEqual(statuses[Stage.REVIEW], Row.SKIPPED)
         self.assertTrue(
@@ -156,7 +161,7 @@ class FullRunTests(EngineTestCase):
             self.problem("two-sum", 1),
             self.problem("contains-duplicate", 217),
         )
-        self.task_for(first, second, review=False)
+        start_pipeline_items([first, second], {"review": False, "provider": "claude"}, wake=None)
         results = self.run_all()
         self.assertEqual(
             [result.item.problem.slug for result in results],
@@ -165,22 +170,20 @@ class FullRunTests(EngineTestCase):
 
 
 class WaitingTests(EngineTestCase):
-    def test_review_waits_for_you_and_keeps_the_task_open(self):
+    def test_review_waits_for_you_and_parks_the_item(self):
         two_sum = self.problem("two-sum", 1)
-        task = self.task_for(two_sum)  # review is on by default
+        item = self.task_for(two_sum)
         self.run_all()
-        task.refresh_from_db()
-        item = self.item_of(two_sum)
+        item.refresh_from_db()
         self.assertEqual(
             (item.status, item.input_kind, item.stage),
-            (Item.NEEDS_INPUT, TaskItem.InputKind.REVIEW, Stage.REVIEW),
+            (Item.NEEDS_INPUT, PipelineItem.InputKind.REVIEW, Stage.REVIEW),
         )
         statuses = self.stage_statuses(item)
         self.assertEqual(
             (statuses[Stage.REVIEW], statuses[Stage.SAVE_NOTES]),
             (Row.WAITING, Row.PENDING),
         )
-        self.assertEqual(task.status, Task.Status.ACTIVE)
 
     def test_the_manual_provider_waits_for_a_pasted_reply(self):
         two_sum = self.problem("two-sum", 1)
@@ -191,7 +194,7 @@ class WaitingTests(EngineTestCase):
             (item.status, item.input_kind, item.stage),
             (
                 Item.NEEDS_INPUT,
-                TaskItem.InputKind.MANUAL_PREFILL,
+                PipelineItem.InputKind.MANUAL_PREFILL,
                 Stage.GENERATE_PREFILL,
             ),
         )
@@ -202,12 +205,10 @@ class WaitingTests(EngineTestCase):
             self.problem("contains-duplicate", 217),
         )
         self.provider = lambda name: PickyProvider()
-        task = self.task_for(waiting_problem, other, review=False)
+        start_pipeline_items([waiting_problem, other], {"review": False, "provider": "claude"}, wake=None)
         self.run_all()
-        task.refresh_from_db()
         self.assertEqual(self.item_of(waiting_problem).status, Item.NEEDS_INPUT)
         self.assertEqual(self.item_of(other).status, Item.COMPLETED)
-        self.assertEqual(task.status, Task.Status.ACTIVE)
 
 
 class FailureTests(EngineTestCase):
@@ -216,9 +217,8 @@ class FailureTests(EngineTestCase):
         self.fetcher.fail[("gone", SyncTask.Part.CONTENT)] = NotFoundError(
             "no such problem"
         )
-        task = self.task_for(gone, fine, review=False)
+        start_pipeline_items([gone, fine], {"review": False, "provider": "claude"}, wake=None)
         self.run_all()
-        task.refresh_from_db()
         failed = self.item_of(gone)
         self.assertEqual(
             (failed.status, failed.error), (Item.FAILED, "no such problem")
@@ -226,23 +226,21 @@ class FailureTests(EngineTestCase):
         row = failed.stages.get(stage=Stage.FETCH_PROBLEM)
         self.assertEqual((row.status, row.error), (Row.FAILED, "no such problem"))
         self.assertEqual(self.item_of(fine).status, Item.COMPLETED)
-        self.assertEqual(task.status, Task.Status.FINISHED)
 
-    def test_a_network_error_fails_the_item_and_does_not_pause_the_task(self):
+    def test_a_network_error_fails_the_item_and_does_not_pause_it(self):
         problem = self.problem("two-sum", 1)
         self.fetcher.fail[("two-sum", SyncTask.Part.CONTENT)] = TransportError(
             "timed out"
         )
-        task = self.task_for(problem)
+        item = self.task_for(problem)
         self.run_all()
-        task.refresh_from_db()
-        self.assertEqual(self.item_of(problem).status, Item.FAILED)
-        self.assertNotEqual(task.status, Task.Status.PAUSED)
+        item.refresh_from_db()
+        self.assertEqual(item.status, Item.FAILED)
 
     def test_a_bug_in_a_stage_fails_the_item_without_stopping_the_engine(self):
         broken, fine = self.problem("broken", 1), self.problem("fine", 2)
         self.fetcher.fail[("broken", SyncTask.Part.CONTENT)] = RuntimeError("boom")
-        self.task_for(broken, fine, review=False)
+        start_pipeline_items([broken, fine], {"review": False, "provider": "claude"}, wake=None)
         self.run_all()
         item = self.item_of(broken)
         self.assertEqual(item.status, Item.FAILED)
@@ -251,37 +249,34 @@ class FailureTests(EngineTestCase):
 
 
 class PauseTests(EngineTestCase):
-    def test_expired_cookies_pause_the_whole_task_and_resuming_continues(self):
+    def test_expired_cookies_pause_the_item_and_resuming_continues(self):
         problem = self.problem("two-sum", 1)
         self.fetcher.fail[("two-sum", SyncTask.Part.CONTENT)] = AuthError("HTTP 403")
-        task = self.task_for(problem, review=False)
+        item = self.task_for(problem, review=False)
 
         results = self.run_all()
-        task.refresh_from_db()
-        item = self.item_of(problem)
+        item.refresh_from_db()
         self.assertEqual(len(results), 1)
-        self.assertEqual(task.status, Task.Status.PAUSED)
-        self.assertIn("expired", task.pause_reason)
-        self.assertEqual(item.status, Item.QUEUED)  # not failed: it never really ran
+        self.assertEqual(item.status, Item.PAUSED)
+        self.assertIn("expired", item.error)
         self.assertEqual(item.stages.get(stage=Stage.FETCH_PROBLEM).status, Row.PENDING)
 
         self.fetcher.fail.clear()
-        resume_task(task)
+        resume_item(item)
         self.run_all()
-        task.refresh_from_db()
+        item.refresh_from_db()
         self.assertEqual(self.item_of(problem).status, Item.COMPLETED)
-        self.assertEqual(task.status, Task.Status.FINISHED)
 
-    def test_a_task_you_paused_runs_nothing_until_resumed(self):
-        task = self.task_for(self.problem("two-sum", 1))
-        pause_task(task)
+    def test_an_item_you_paused_runs_nothing_until_resumed(self):
+        item = self.task_for(self.problem("two-sum", 1))
+        pause_item(item)
         self.assertEqual(self.run_all(), [])
-        resume_task(task)
+        resume_item(item)
         self.assertNotEqual(self.run_all(), [])
 
-    def test_a_cancelled_task_runs_nothing(self):
-        task = self.task_for(self.problem("two-sum", 1))
-        cancel_task(task)
+    def test_a_cancelled_item_runs_nothing(self):
+        item = self.task_for(self.problem("two-sum", 1))
+        cancel_item(item)
         self.assertEqual(self.run_all(), [])
 
 
@@ -290,24 +285,23 @@ class ChoosingTests(EngineTestCase):
         self.assertIsNone(next_queued_item())
         self.assertIsNone(step(self.deps()))
 
-    def test_oldest_task_first_then_position_and_only_active_tasks(self):
+    def test_oldest_item_first_and_only_queued_items(self):
         a, b, c = (self.problem("a", 1), self.problem("b", 2), self.problem("c", 3))
-        first, second = self.task_for(a, b), self.task_for(c)
+        first = start_pipeline_items([a, b], {"provider": "claude"}, wake=None).items[0]
+        second = start_pipeline_items([c], {"provider": "claude"}, wake=None).items[0]
         self.assertEqual(next_queued_item().problem.slug, "a")
-        self.assertEqual(next_queued_item(second).problem.slug, "c")
-        pause_task(first)
-        self.assertEqual(next_queued_item().problem.slug, "c")
+        pause_item(first)
+        self.assertEqual(next_queued_item().problem.slug, "b")
 
     def test_a_waiting_item_is_not_chosen(self):
         problem = self.problem("a", 1)
         self.task_for(problem)
-        TaskItem.objects.update(status=Item.NEEDS_INPUT)
+        PipelineItem.objects.update(status=Item.NEEDS_INPUT)
         self.assertIsNone(next_queued_item())
 
     def test_next_pending_stage_is_the_first_one_not_yet_run(self):
         problem = self.problem("a", 1)
-        self.task_for(problem)
-        item = self.item_of(problem)
+        item = self.task_for(problem)
         self.assertEqual(next_pending_stage(item).stage, Stage.FETCH_PROBLEM)
         item.stages.filter(stage=Stage.FETCH_PROBLEM).update(status=Row.DONE)
         self.assertEqual(next_pending_stage(item).stage, Stage.FETCH_IMAGES)
@@ -327,14 +321,13 @@ class ChoosingTests(EngineTestCase):
 
     def test_an_item_with_no_stages_left_is_finished(self):
         problem = self.problem("a", 1)
-        task = self.task_for(problem)
-        self.item_of(problem).stages.update(status=Row.DONE)
+        item = self.task_for(problem)
+        item.stages.update(status=Row.DONE)
         result = step(self.deps())
-        task.refresh_from_db()
+        item.refresh_from_db()
         self.assertEqual(
-            (result.stage, self.item_of(problem).status), (None, Item.COMPLETED)
+            (result.stage, item.status), (None, Item.COMPLETED)
         )
-        self.assertEqual(task.status, Task.Status.FINISHED)
 
 
 class BeforeStageHookTests(EngineTestCase):
@@ -347,7 +340,7 @@ class BeforeStageHookTests(EngineTestCase):
             return True
 
         run_until_idle(self.deps(), before_stage=hook)
-        self.assertEqual(seen[0], (Stage.FETCH_PROBLEM, Row.PENDING))  # not started yet
+        self.assertEqual(seen[0], (Stage.FETCH_PROBLEM, Row.PENDING))
         self.assertEqual(
             [stage for stage, _ in seen],
             [
@@ -366,14 +359,15 @@ class BeforeStageHookTests(EngineTestCase):
         self.assertEqual(self.fetcher.calls, [])
         self.assertEqual(self.item_of(problem).status, Item.QUEUED)
 
-    def test_a_task_paused_while_the_hook_waited_is_not_run(self):
+    def test_an_item_paused_while_the_hook_waited_is_not_run(self):
         problem = self.problem("a", 1)
-        task = self.task_for(problem)
+        item = self.task_for(problem)
 
-        def hook(item, row):
-            pause_task(task)
+        def hook(it, row):
+            pause_item(item)
             return True
 
         self.assertIsNone(step(self.deps(), before_stage=hook))
         self.assertEqual(self.fetcher.calls, [])
-        self.assertEqual(self.item_of(problem).status, Item.QUEUED)
+        item.refresh_from_db()
+        self.assertEqual(item.status, Item.PAUSED)

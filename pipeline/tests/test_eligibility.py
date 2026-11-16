@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from pipeline.models import Task, TaskItem
+from pipeline.models import PipelineItem
 from pipeline.tasks.eligibility import split_eligible
 from pipeline.tests.helpers import make_problem
 
@@ -36,21 +36,20 @@ class EligibilityTests(TestCase):
 
     def test_when_a_problem_is_busy(self):
         cases = [
-            (Task.Status.ACTIVE, TaskItem.Status.QUEUED, True),
-            (Task.Status.ACTIVE, TaskItem.Status.RUNNING, True),
-            (Task.Status.ACTIVE, TaskItem.Status.NEEDS_INPUT, True),
-            (Task.Status.PAUSED, TaskItem.Status.QUEUED, True),
-            (Task.Status.ACTIVE, TaskItem.Status.COMPLETED, False),
-            (Task.Status.ACTIVE, TaskItem.Status.FAILED, False),
-            (Task.Status.CANCELLED, TaskItem.Status.QUEUED, False),
-            (Task.Status.FINISHED, TaskItem.Status.QUEUED, False),
+            (PipelineItem.Status.QUEUED, True),
+            (PipelineItem.Status.RUNNING, True),
+            (PipelineItem.Status.NEEDS_INPUT, True),
+            (PipelineItem.Status.PAUSED, False),
+            (PipelineItem.Status.COMPLETED, False),
+            (PipelineItem.Status.FAILED, False),
+            (PipelineItem.Status.CANCELLED, False),
         ]
-        for number, (task_status, item_status, busy) in enumerate(cases, start=1):
-            with self.subTest(task=task_status, item=item_status):
+        for number, (item_status, busy) in enumerate(cases, start=1):
+            with self.subTest(item=item_status):
                 problem = make_problem(f"p{number}", number)
-                task = Task.objects.create(status=task_status)
-                TaskItem.objects.create(task=task, problem=problem, status=item_status)
+                PipelineItem.objects.create(problem=problem, status=item_status)
                 _, rejected = self.split(problem)
                 self.assertEqual(
-                    rejected.get(problem.slug) == "already in a running task", busy
+                    rejected.get(problem.slug) == "already running in the pipeline",
+                    busy,
                 )

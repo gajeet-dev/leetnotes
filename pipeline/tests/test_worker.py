@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest import mock
 
 from pipeline.engine import has_queued_work, next_pending_stage
-from pipeline.models import ItemStage, Task, TaskItem
+from pipeline.models import ItemStage, PipelineItem
 from pipeline.runtime.locking import FileLock
 from pipeline.runtime.pacing import Pacer
 from pipeline.runtime.worker import (
@@ -18,14 +18,14 @@ from pipeline.runtime.worker import (
     stop_worker,
     wake_worker,
 )
-from pipeline.tasks.creation import create_task
-from pipeline.tasks.transitions import begin_stage, pause_task
+from pipeline.tasks.creation import start_pipeline_items
+from pipeline.tasks.transitions import begin_stage, pause_item
 from pipeline.tests.helpers import make_problem
 from pipeline.tests.test_engine import EngineTestCase
 from userconfig import update_config
 from userconfig.tests.helpers import DataDirDBTestCase
 
-Item = TaskItem.Status
+Item = PipelineItem.Status
 
 
 class WorkerTests(EngineTestCase):
@@ -42,11 +42,10 @@ class WorkerTests(EngineTestCase):
 
     def test_runs_everything_until_queue_is_empty(self):
         problem = self.problem("a", 1)
-        task = self.task_for(problem, review=False)
+        item = self.task_for(problem, review=False)
         self.assertTrue(self.make_worker().run())
-        task.refresh_from_db()
+        item.refresh_from_db()
         self.assertEqual(self.item_of(problem).status, Item.COMPLETED)
-        self.assertEqual(task.status, Task.Status.FINISHED)
 
     def test_the_lock_is_released_afterwards(self):
         self.make_worker().run()
@@ -72,24 +71,20 @@ class WorkerTests(EngineTestCase):
         self.assertTrue(worker.run())
         self.assertEqual(self.item_of(problem).status, Item.QUEUED)
 
-    def test_a_paused_task_is_left_alone(self):
+    def test_a_paused_item_is_left_alone(self):
         problem = self.problem("a", 1)
-        pause_task(self.task_for(problem))
+        pause_item(self.task_for(problem))
         self.make_worker().run()
         self.assertEqual(self.fetcher.calls, [])
-        self.assertEqual(self.item_of(problem).status, Item.QUEUED)
+        self.assertEqual(self.item_of(problem).status, Item.PAUSED)
 
     def test_an_interrupted_stage_is_recovered_at_the_start_and_runs_again(self):
         problem = self.problem("a", 1)
-        task = self.task_for(problem, review=False)
-        item = self.item_of(problem)
+        item = self.task_for(problem, review=False)
         begin_stage(item, next_pending_stage(item))  # as if the app died here
         self.make_worker().run()
-        task.refresh_from_db()
-        self.assertEqual(
-            (self.item_of(problem).status, task.status),
-            (Item.COMPLETED, Task.Status.FINISHED),
-        )
+        item.refresh_from_db()
+        self.assertEqual(self.item_of(problem).status, Item.COMPLETED)
         self.assertEqual(self.fetcher.calls.count(("a", "content")), 1)
 
     def test_the_pacer_is_asked_before_each_stage(self):
@@ -103,7 +98,7 @@ class WorkerTests(EngineTestCase):
 
     def test_a_stop_while_waiting_for_the_next_turn_leaves_the_rest_queued(self):
         first, second = self.problem("a", 1), self.problem("b", 2)
-        self.task_for(first, second, review=False)
+        start_pipeline_items([first, second], {"review": False, "provider": "claude"}, wake=None)
         worker = self.make_worker()
         worker.pacer = Pacer(lambda: 10.0, wait=lambda seconds: worker.stop() or False)
         worker.run()
@@ -124,7 +119,7 @@ class WorkerTests(EngineTestCase):
 
     def test_run_forever_processes_work_when_woken(self):
         problem = self.problem("a", 1)
-        task = self.task_for(problem, review=False)
+        item = self.task_for(problem, review=False)
         worker = self.make_worker()
 
         orig_drain = worker.drain_queue
@@ -137,9 +132,8 @@ class WorkerTests(EngineTestCase):
         worker.drain_queue = drain_and_stop
 
         self.assertTrue(worker.run_forever())
-        task.refresh_from_db()
+        item.refresh_from_db()
         self.assertEqual(self.item_of(problem).status, Item.COMPLETED)
-        self.assertEqual(task.status, Task.Status.FINISHED)
 
 
 class WorkerControlTests(DataDirDBTestCase):

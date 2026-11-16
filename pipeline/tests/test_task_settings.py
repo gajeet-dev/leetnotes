@@ -2,7 +2,7 @@ from pathlib import Path
 
 from django.test import override_settings
 
-from pipeline.models import Task
+from pipeline.models import PipelineItem
 from pipeline.tasks.settings import (
     MANUAL_PROVIDER,
     TaskSettings,
@@ -12,6 +12,7 @@ from pipeline.tasks.settings import (
     task_settings,
 )
 from prefill.providers.manage import change_provider
+from problems.models import Problem
 from userconfig import update_config
 from userconfig.paths import PROJECT_ROOT
 from userconfig.tests.helpers import DataDirDBTestCase
@@ -57,16 +58,22 @@ class TaskSettingsTests(DataDirDBTestCase):
         change_provider("mine", {"type": "cli", "command": ["mytool"]})
         self.assertEqual(settings_with_overrides({"provider": "mine"}).provider, "mine")
 
-    def test_a_task_keeps_its_snapshot_when_the_defaults_change(self):
+    def test_an_item_keeps_its_snapshot_when_the_defaults_change(self):
+        problem = Problem.objects.create(slug="two-sum", leetcode_id=1)
         update_config({"review_before_writing": True})
         snapshot = settings_with_overrides()
-        task = Task.objects.create(settings=snapshot.model_dump())
+        item = PipelineItem.objects.create(
+            problem=problem, settings=snapshot.model_dump()
+        )
         update_config({"review_before_writing": False})
-        self.assertTrue(task_settings(task).review)
-        self.assertEqual(task_settings(task), snapshot)
+        self.assertTrue(task_settings(item).review)
+        self.assertEqual(task_settings(item), snapshot)
 
     def test_an_older_snapshot_with_missing_settings_still_loads(self):
-        task = Task.objects.create(settings={"provider": "claude"})
-        loaded = task_settings(task)
+        problem = Problem.objects.create(slug="two-sum", leetcode_id=1)
+        item = PipelineItem.objects.create(
+            problem=problem, settings={"provider": "claude"}
+        )
+        loaded = task_settings(item)
         self.assertEqual(loaded.provider, "claude")
         self.assertEqual(loaded, TaskSettings(provider="claude"))

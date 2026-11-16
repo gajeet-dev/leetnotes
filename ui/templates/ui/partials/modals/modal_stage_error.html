@@ -46,8 +46,8 @@
       <button
         type="button"
         hx-post="{% url 'ui:retry_item' item.pk %}"
-        hx-target="#task-content-container"
-        hx-swap="innerHTML"
+        hx-target="#problems-selection-table-container"
+        hx-swap="outerHTML"
         class="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-500 dark:bg-rose-500 dark:hover:bg-rose-400 cursor-pointer transition-colors shadow-xs"
       >
         {% lucide "rotate-ccw" class="h-4 w-4" %}

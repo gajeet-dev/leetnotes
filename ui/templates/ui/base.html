@@ -35,6 +35,9 @@
       {% block content %}{% endblock %}
     </main>
 
+    <!-- Global Modal Container for dialogs / workbench settings / review -->
+    <div id="modal-container"></div>
+
     <!-- Global Toast Notifications Container -->
     <div
       id="toast-container"
@@ -42,6 +45,11 @@
     ></div>
 
     <script>
+      function closeStageModal() {
+        const container = document.getElementById('modal-container');
+        if (container) container.innerHTML = '';
+      }
+
       function dismissToast(el) {
         if (!el || el.dataset.dismissing) return;
         el.dataset.dismissing = 'true';

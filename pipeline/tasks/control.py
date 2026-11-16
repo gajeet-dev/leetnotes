@@ -1,50 +1,47 @@
-"""What you can do to a task: start it, pause it, resume it, cancel it."""
+"""What you can do to pipeline items: start, pause, resume, cancel."""
 
 from collections.abc import Callable, Iterable
 
-from pipeline.models import Task
+from pipeline.models import PipelineItem
 from pipeline.runtime.worker import ensure_worker_running
 from problems.models import Problem
 
-from .creation import TaskCreation, create_task
-from .transitions import cancel_task, pause_task, resume_task
+from .creation import PipelineStart, start_pipeline_items
+from .transitions import cancel_item, pause_item, resume_item
 
 WakeWorker = Callable[[], bool]
 
 
-def get_task(task_id: int) -> Task:
-    return Task.objects.get(pk=task_id)
+def get_item(item_id: int) -> PipelineItem:
+    return PipelineItem.objects.get(pk=item_id)
 
 
-def start_task(
+def start_pipeline(
     problems: Iterable[Problem],
     overrides: dict | None = None,
-    *,
-    name: str = "",
     wake: WakeWorker = ensure_worker_running,
-) -> TaskCreation:
-    """Create a task and make sure a worker is running to carry it out."""
-    creation = create_task(problems, overrides, name=name)
+) -> PipelineStart:
+    """Start pipeline for problems and wake worker."""
+    return start_pipeline_items(problems, overrides=overrides, wake=wake)
+
+
+start_task = start_pipeline  # backward compatibility alias
+
+
+def pause(item_id: int) -> PipelineItem:
+    item = get_item(item_id)
+    pause_item(item)
+    return item
+
+
+def resume(item_id: int, wake: WakeWorker = ensure_worker_running) -> PipelineItem:
+    item = get_item(item_id)
+    resume_item(item)
     wake()
-    return creation
+    return item
 
 
-def pause(task_id: int) -> Task:
-    """Stop picking up this task's items. A stage already running finishes first."""
-    task = get_task(task_id)
-    pause_task(task)
-    return task
-
-
-def resume(task_id: int, wake: WakeWorker = ensure_worker_running) -> Task:
-    task = get_task(task_id)
-    resume_task(task)
-    wake()
-    return task
-
-
-def cancel(task_id: int) -> Task:
-    """Stop the task for good. Its problems become available for other tasks."""
-    task = get_task(task_id)
-    cancel_task(task)
-    return task
+def cancel(item_id: int) -> PipelineItem:
+    item = get_item(item_id)
+    cancel_item(item)
+    return item

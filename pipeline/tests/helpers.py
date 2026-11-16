@@ -1,6 +1,6 @@
 from problems.models import Problem, SyncTask
 
-from ..models import Task, TaskItem
+from ..models import PipelineItem, TaskItem
 
 
 def make_problem(slug: str, leetcode_id: int, **overrides) -> Problem:
@@ -17,5 +17,5 @@ def mark_fetched(problem: Problem, *parts: str) -> None:
         )
 
 
-def make_item(problem: Problem) -> TaskItem:
-    return TaskItem.objects.create(task=Task.objects.create(), problem=problem)
+def make_item(problem: Problem) -> PipelineItem:
+    return PipelineItem.objects.create(problem=problem)

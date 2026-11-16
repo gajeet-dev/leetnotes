@@ -23,20 +23,15 @@ from pipeline.actions import (
     retry_failed_item,
     submit_manual_reply,
 )
-from pipeline.models import Task, TaskItem
+from pipeline.models import PipelineItem
 from pipeline.stages.definitions import Stage
 from pipeline.tasks.control import (
-    cancel as cancel_task,
+    cancel as cancel_item,
+    pause as pause_item,
+    resume as resume_item,
+    start_pipeline,
 )
-from pipeline.tasks.control import (
-    pause as pause_task,
-)
-from pipeline.tasks.control import (
-    resume as resume_task,
-)
-from pipeline.tasks.control import (
-    start_task,
-)
+from prefill.providers.config import default_provider_name, provider_names
 from prefill.providers.discovery import get_agy_models
 from problems.models import Problem, SyncTask
 from problems.services.bundle import export_bundle, import_bundle
@@ -72,8 +67,6 @@ from .helpers.settings import (
 from .helpers.tasks import (
     get_algorithms_solved_problems,
     get_modal_data_for_item_stage,
-    get_task_detail_data,
-    get_task_summary,
 )
 
 logger = structlog.get_logger(__name__)
@@ -1009,20 +1002,28 @@ def download_database_file_view(request):
     )
 
 
-# --- Notes Generation & Tasks Views ---
+# --- Notes Generation Workbench Views ---
 
 
-@require_GET
-def tasks_new_view(request):
-    """Problem selection page for notes generation, filtering to solved Algorithms."""
-    search_query = request.GET.get("q", "").strip()
-    difficulty = request.GET.get("difficulty", "").strip()
-    page = request.GET.get("page", 1)
+def _render_workbench_table(request, extra_context=None):
+    search_query = (
+        request.GET.get("q", "").strip() or request.POST.get("q", "").strip()
+    )
+    difficulty = (
+        request.GET.get("difficulty", "").strip()
+        or request.POST.get("difficulty", "").strip()
+    )
+    status_filter = (
+        request.GET.get("status", "").strip()
+        or request.POST.get("status", "").strip()
+    )
+    page = request.GET.get("page", 1) or request.POST.get("page", 1)
     per_page = parse_per_page(request, default=100)
 
     data = get_algorithms_solved_problems(
         search_query=search_query,
         difficulty=difficulty,
+        status_filter=status_filter,
         page=page,
         per_page=per_page,
     )
@@ -1031,147 +1032,134 @@ def tasks_new_view(request):
         "active": "tasks",
         "search_query": search_query,
         "difficulty_filter": difficulty,
+        "status_filter": status_filter,
         "per_page": per_page,
         "per_page_presets": [25, 50, 100, 200],
         **data,
     }
-    if request.headers.get("HX-Request"):
-        return render(request, "ui/partials/tasks_new_table.html", context)
+    if extra_context:
+        context.update(extra_context)
+    return render(request, "ui/partials/tasks_new_table.html", context)
 
+
+@require_GET
+def tasks_workbench_view(request):
+    """Unified Notes Generation Workbench: select problems, monitor live pipelines, trigger actions."""
+    if request.headers.get("HX-Request"):
+        return _render_workbench_table(request)
+
+    search_query = request.GET.get("q", "").strip()
+    difficulty = request.GET.get("difficulty", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+    page = request.GET.get("page", 1)
+    per_page = parse_per_page(request, default=100)
+
+    data = get_algorithms_solved_problems(
+        search_query=search_query,
+        difficulty=difficulty,
+        status_filter=status_filter,
+        page=page,
+        per_page=per_page,
+    )
+
+    context = {
+        "active": "tasks",
+        "search_query": search_query,
+        "difficulty_filter": difficulty,
+        "status_filter": status_filter,
+        "per_page": per_page,
+        "per_page_presets": [25, 50, 100, 200],
+        **data,
+    }
     return render(request, "ui/tasks_new.html", context)
 
 
-@require_POST
-def tasks_create_view(request):
-    """Create a new Task with the selected problem IDs and start the worker."""
-    raw_ids = request.POST.getlist("problem_ids")
-    if not raw_ids:
-        return redirect("ui:tasks_new")
+# Compatibility aliases for routes
+tasks_new_view = tasks_workbench_view
+tasks_list_view = tasks_workbench_view
+tasks_poll_view = tasks_workbench_view
 
+
+@require_http_methods(["GET", "POST"])
+def generate_settings_modal_view(request):
+    """Render the Settings Override modal before launching notes generation."""
+    raw_ids = request.POST.getlist("problem_ids") or request.GET.getlist("problem_ids")
     problem_ids = []
     for raw in raw_ids:
         try:
             problem_ids.append(int(raw))
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             continue
 
-    if not problem_ids:
-        return redirect("ui:tasks_new")
+    cfg = load_config()
+    default_prov = default_provider_name()
+    providers = provider_names()
 
-    problems = Problem.objects.filter(pk__in=problem_ids)
-    if not problems.exists():
-        return redirect("ui:tasks_new")
-
-    creation = start_task(problems)
-    return redirect("ui:task_detail", task_id=creation.task.pk)
-
-
-@require_GET
-def tasks_list_view(request):
-    """List all notes generation tasks with progress and status filters."""
-    status_filter = request.GET.get("status", "").strip()
-
-    all_tasks = Task.objects.all().order_by("-created_at")
-    total_count = all_tasks.count()
-    active_count = all_tasks.filter(status=Task.Status.ACTIVE).count()
-    paused_count = all_tasks.filter(status=Task.Status.PAUSED).count()
-    finished_count = all_tasks.filter(status=Task.Status.FINISHED).count()
-
-    filtered_tasks = all_tasks
-    if status_filter:
-        filtered_tasks = filtered_tasks.filter(status=status_filter)
-
-    summaries = [get_task_summary(t) for t in filtered_tasks]
+    default_mod = ""
+    if default_prov == "agy":
+        default_mod = cfg.agy.default_model
+    elif default_prov in cfg.providers:
+        default_mod = cfg.providers[default_prov].default_model
 
     context = {
-        "active": "tasks",
-        "summaries": summaries,
-        "status_filter": status_filter,
-        "total_count": total_count,
-        "active_count": active_count,
-        "paused_count": paused_count,
-        "finished_count": finished_count,
+        "problem_ids": problem_ids,
+        "problem_count": len(problem_ids),
+        "providers": providers,
+        "default_provider": default_prov,
+        "default_model": default_mod,
+        "review_default": cfg.review_before_writing,
     }
-    return render(request, "ui/tasks_list.html", context)
+    return render(request, "ui/partials/modals/modal_generate_settings.html", context)
 
 
-@require_GET
-def task_detail_view(request, task_id: int):
-    """Detailed cockpit for a single task: progress bar, stage matrix, filter tabs."""
-    stage_filter = request.GET.get("filter", "all").strip()
+@require_POST
+def tasks_create_view(request):
+    """Start pipeline generation for selected problems with modal settings overrides."""
+    raw_ids = request.POST.getlist("problem_ids")
+    problem_ids = []
+    for raw in raw_ids:
+        try:
+            problem_ids.append(int(raw))
+        except (ValueError, TypeError):
+            continue
 
-    try:
-        context = get_task_detail_data(task_id, stage_filter=stage_filter)
-    except Task.DoesNotExist:
-        raise Http404("Task not found.")
+    if problem_ids:
+        problems = Problem.objects.filter(pk__in=problem_ids)
+        if problems.exists():
+            overrides = {}
+            if "provider" in request.POST and request.POST.get("provider").strip():
+                overrides["provider"] = request.POST.get("provider").strip()
+            if "model" in request.POST and request.POST.get("model").strip():
+                overrides["model"] = request.POST.get("model").strip()
+            if "review" in request.POST:
+                overrides["review"] = request.POST.get("review") == "true"
+            if "regenerate_prefill" in request.POST:
+                overrides["regenerate_prefill"] = (
+                    request.POST.get("regenerate_prefill") == "true"
+                )
+            if "refetch" in request.POST:
+                overrides["refetch"] = request.POST.get("refetch") == "true"
 
-    context["active"] = "tasks"
+            try:
+                start_pipeline(problems, overrides=overrides)
+            except Exception as e:
+                logger.exception("start_pipeline_failed", error=str(e))
 
     if request.headers.get("HX-Request"):
-        return render(request, "ui/partials/task_detail_content.html", context)
+        table_html = _render_workbench_table(request).content.decode("utf-8")
+        oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
+        return HttpResponse(table_html + oob_clear)
 
-    return render(request, "ui/task_detail.html", context)
-
-
-@require_GET
-def task_poll_partial(request, task_id: int):
-    """Polling endpoint for active tasks (HTMX every 1.5s)."""
-    stage_filter = request.GET.get("filter", "all").strip()
-    try:
-        context = get_task_detail_data(task_id, stage_filter=stage_filter)
-    except Task.DoesNotExist:
-        raise Http404("Task not found.")
-
-    context["active"] = "tasks"
-    return render(request, "ui/partials/task_detail_content.html", context)
-
-
-@require_POST
-def task_pause_view(request, task_id: int):
-    """Pause an active task."""
-    try:
-        pause_task(task_id)
-    except Exception as e:
-        logger.warning("task_pause_failed", task_id=task_id, error=str(e))
-
-    context = get_task_detail_data(task_id)
-    context["active"] = "tasks"
-    return render(request, "ui/partials/task_detail_content.html", context)
-
-
-@require_POST
-def task_resume_view(request, task_id: int):
-    """Resume a paused task."""
-    try:
-        resume_task(task_id)
-    except Exception as e:
-        logger.warning("task_resume_failed", task_id=task_id, error=str(e))
-
-    context = get_task_detail_data(task_id)
-    context["active"] = "tasks"
-    return render(request, "ui/partials/task_detail_content.html", context)
-
-
-@require_POST
-def task_cancel_view(request, task_id: int):
-    """Cancel a task."""
-    try:
-        cancel_task(task_id)
-    except Exception as e:
-        logger.warning("task_cancel_failed", task_id=task_id, error=str(e))
-
-    context = get_task_detail_data(task_id)
-    context["active"] = "tasks"
-    return render(request, "ui/partials/task_detail_content.html", context)
+    return redirect("ui:tasks")
 
 
 @require_GET
 def stage_modal_content_view(request, item_id: int, stage: str):
-    """Render the specific modal for a waiting or failed stage."""
+    """Render the modal for a waiting or failed stage."""
     try:
-        item = TaskItem.objects.select_related("problem", "task").get(pk=item_id)
-    except TaskItem.DoesNotExist:
-        raise Http404("TaskItem not found.")
+        item = PipelineItem.objects.select_related("problem").get(pk=item_id)
+    except PipelineItem.DoesNotExist:
+        raise Http404("PipelineItem not found.")
 
     context = get_modal_data_for_item_stage(item, stage)
 
@@ -1187,95 +1175,76 @@ def stage_modal_content_view(request, item_id: int, stage: str):
 
 @require_POST
 def submit_prefill_view(request, item_id: int):
-    """Submit pasted manual AI response, advance pipeline, and close modal."""
+    """Submit pasted manual AI response, advance pipeline, and close modal in-place."""
     text = request.POST.get("response_text", "").strip()
     label = request.POST.get("label", "").strip()
 
     try:
-        item = submit_manual_reply(item_id, text, label=label)
-        task_id = item.task_id
+        submit_manual_reply(item_id, text, label=label)
     except Exception as e:
         logger.exception("submit_prefill_failed", item_id=item_id, error=str(e))
-        item = TaskItem.objects.get(pk=item_id)
-        task_id = item.task_id
 
-    context = get_task_detail_data(task_id)
-    context["active"] = "tasks"
-    content = render(
-        request, "ui/partials/task_detail_content.html", context
-    ).content.decode("utf-8")
+    table_html = _render_workbench_table(request).content.decode("utf-8")
     oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
-    return HttpResponse(content + oob_clear)
+    return HttpResponse(table_html + oob_clear)
 
 
 @require_POST
 def approve_review_view(request, item_id: int):
-    """Approve a note waiting for review, proceed to save notes, and close modal."""
+    """Approve a note waiting for review, proceed to save notes, and close modal in-place."""
     try:
-        item = approve_review(item_id)
-        task_id = item.task_id
+        approve_review(item_id)
     except Exception as e:
         logger.exception("approve_review_failed", item_id=item_id, error=str(e))
-        item = TaskItem.objects.get(pk=item_id)
-        task_id = item.task_id
 
-    context = get_task_detail_data(task_id)
-    context["active"] = "tasks"
-    content = render(
-        request, "ui/partials/task_detail_content.html", context
-    ).content.decode("utf-8")
+    table_html = _render_workbench_table(request).content.decode("utf-8")
     oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
-    return HttpResponse(content + oob_clear)
+    return HttpResponse(table_html + oob_clear)
 
 
 @require_POST
 def reject_review_view(request, item_id: int):
-    """Reject a note waiting for review, queue regeneration, and close modal."""
+    """Reject a note waiting for review, queue regeneration, and close modal in-place."""
     try:
-        item = reject_review(item_id)
-        task_id = item.task_id
+        reject_review(item_id)
     except Exception as e:
         logger.exception("reject_review_failed", item_id=item_id, error=str(e))
-        item = TaskItem.objects.get(pk=item_id)
-        task_id = item.task_id
 
-    context = get_task_detail_data(task_id)
-    context["active"] = "tasks"
-    content = render(
-        request, "ui/partials/task_detail_content.html", context
-    ).content.decode("utf-8")
+    table_html = _render_workbench_table(request).content.decode("utf-8")
     oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
-    return HttpResponse(content + oob_clear)
+    return HttpResponse(table_html + oob_clear)
 
 
 @require_POST
-def approve_all_reviews_view(request, task_id: int):
-    """Bulk-approve all notes waiting for review in this task."""
+def approve_all_reviews_view(request, task_id: Any = None):
+    """Bulk-approve all notes waiting for review."""
     try:
-        approve_all_reviews(task_id)
+        approve_all_reviews()
     except Exception as e:
-        logger.exception("approve_all_reviews_failed", task_id=task_id, error=str(e))
+        logger.exception("approve_all_reviews_failed", error=str(e))
 
-    context = get_task_detail_data(task_id)
-    context["active"] = "tasks"
-    return render(request, "ui/partials/task_detail_content.html", context)
+    return _render_workbench_table(request)
 
 
 @require_POST
 def retry_item_view(request, item_id: int):
-    """Retry a failed stage of a TaskItem and close modal."""
+    """Retry a failed stage of a PipelineItem and close modal in-place."""
     try:
-        item = retry_failed_item(item_id)
-        task_id = item.task_id
+        retry_failed_item(item_id)
     except Exception as e:
         logger.exception("retry_item_failed", item_id=item_id, error=str(e))
-        item = TaskItem.objects.get(pk=item_id)
-        task_id = item.task_id
 
-    context = get_task_detail_data(task_id)
-    context["active"] = "tasks"
-    content = render(
-        request, "ui/partials/task_detail_content.html", context
-    ).content.decode("utf-8")
+    table_html = _render_workbench_table(request).content.decode("utf-8")
     oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
-    return HttpResponse(content + oob_clear)
+    return HttpResponse(table_html + oob_clear)
+
+
+@require_POST
+def cancel_item_view(request, item_id: int):
+    """Cancel an active pipeline item."""
+    try:
+        cancel_item(item_id)
+    except Exception as e:
+        logger.exception("cancel_item_failed", item_id=item_id, error=str(e))
+
+    return _render_workbench_table(request)

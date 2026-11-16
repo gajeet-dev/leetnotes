@@ -1,4 +1,4 @@
-"""Creating a task: choose who can join, snapshot the settings, lay out every item's stages."""
+"""Starting pipeline items for problems: snapshot the settings, lay out every item's stages."""
 
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from django.db import transaction
 from django.utils import timezone
 
-from pipeline.models import ItemStage, Task, TaskItem
+from pipeline.models import ItemStage, PipelineItem
+from pipeline.runtime.worker import ensure_worker_running
 from pipeline.stages.definitions import STAGE_ORDER, Stage, stage_order
 from pipeline.stages.plan import StageStart, initial_stages
 from pipeline.tasks.settings import (
@@ -20,7 +21,7 @@ from .eligibility import Rejection, split_eligible
 
 
 class NothingToDo(Exception):
-    """None of the chosen problems can go into a task. str(exc) lists the reasons."""
+    """None of the chosen problems can go into the pipeline. str(exc) lists the reasons."""
 
 
 @dataclass(frozen=True)
@@ -30,9 +31,13 @@ class ProblemPlan:
 
 
 @dataclass(frozen=True)
-class TaskCreation:
-    task: Task
+class PipelineStart:
+    items: list[PipelineItem]
     rejected: list[Rejection]
+
+
+# Backward-compatible alias
+TaskCreation = PipelineStart
 
 
 def unique_problems(problems: Iterable[Problem]) -> list[Problem]:
@@ -59,23 +64,15 @@ def describe_rejections(rejected: list[Rejection]) -> str:
     return "; ".join(f"{item.problem.slug}: {item.reason}" for item in rejected)
 
 
-def default_task_name(count: int) -> str:
-    when = timezone.localtime().strftime("%b %d, %H:%M")
-    noun = "problem" if count == 1 else "problems"
-    return f"{count} {noun} · {when}"
-
-
 def first_open_stage(plan: ProblemPlan) -> Stage:
     """The first stage that still has work to do: where the item starts."""
     for stage in STAGE_ORDER:
         if not plan.stages[stage].skipped:
             return stage
-    return STAGE_ORDER[
-        -1
-    ]  # saving notes is never pre-skipped, so this is just a safe fallback
+    return STAGE_ORDER[-1]
 
 
-def make_stage_rows(item: TaskItem, plan: ProblemPlan) -> list[ItemStage]:
+def make_stage_rows(item: PipelineItem, plan: ProblemPlan) -> list[ItemStage]:
     return [
         ItemStage(
             item=item,
@@ -89,34 +86,62 @@ def make_stage_rows(item: TaskItem, plan: ProblemPlan) -> list[ItemStage]:
 
 
 @transaction.atomic
+def start_pipeline_items(
+    problems: Iterable[Problem],
+    overrides: dict | None = None,
+    wake=ensure_worker_running,
+) -> PipelineStart:
+    """Start pipeline runs for these problems with snapshot settings.
+
+    Problems that can't run are returned in `rejected` with their reasons.
+    Raises NothingToDo if none can, and TaskSettingsError for a bad setting.
+    """
+    settings = settings_with_overrides(overrides)
+    check_output_folders(settings)
+    unique = unique_problems(problems)
+    eligible, rejected = split_eligible(unique)
+    if not eligible:
+        raise NothingToDo(describe_rejections(rejected) or "No problems were chosen.")
+
+    plans = plan_problems(eligible, settings)
+    created_items: list[PipelineItem] = []
+
+    for position, plan in enumerate(plans):
+        # Cancel any previous active or paused runs for this problem
+        PipelineItem.objects.filter(
+            problem=plan.problem,
+            status__in=[
+                PipelineItem.Status.QUEUED,
+                PipelineItem.Status.RUNNING,
+                PipelineItem.Status.NEEDS_INPUT,
+                PipelineItem.Status.PAUSED,
+            ],
+        ).update(
+            status=PipelineItem.Status.CANCELLED,
+            finished_at=timezone.now(),
+        )
+
+        item = PipelineItem.objects.create(
+            problem=plan.problem,
+            position=position,
+            status=PipelineItem.Status.QUEUED,
+            stage=first_open_stage(plan),
+            settings=settings.model_dump(),
+        )
+        ItemStage.objects.bulk_create(make_stage_rows(item, plan))
+        created_items.append(item)
+
+    if wake:
+        wake()
+
+    return PipelineStart(created_items, rejected)
+
+
 def create_task(
     problems: Iterable[Problem],
     overrides: dict | None = None,
     *,
     name: str = "",
-) -> TaskCreation:
-    """Create a task from these problems and this run's settings (on top of your defaults).
-
-    Problems that can't join are returned in `rejected` with their reasons. Raises
-    NothingToDo if none can, and TaskSettingsError for a bad setting or no output folder.
-    """
-    settings = settings_with_overrides(overrides)
-    check_output_folders(settings)
-    eligible, rejected = split_eligible(unique_problems(problems))
-    if not eligible:
-        raise NothingToDo(describe_rejections(rejected) or "No problems were chosen.")
-
-    plans = plan_problems(eligible, settings)
-    task = Task.objects.create(
-        name=name or default_task_name(len(plans)),
-        settings=settings.model_dump(),
-    )
-    for position, plan in enumerate(plans):
-        item = TaskItem.objects.create(
-            task=task,
-            problem=plan.problem,
-            position=position,
-            stage=first_open_stage(plan),
-        )
-        ItemStage.objects.bulk_create(make_stage_rows(item, plan))
-    return TaskCreation(task, rejected)
+) -> PipelineStart:
+    """Backward compatibility alias for start_pipeline_items."""
+    return start_pipeline_items(problems, overrides=overrides, wake=None)

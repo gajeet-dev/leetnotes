@@ -11,9 +11,10 @@ from django.utils import timezone
 
 from leetcode.dto import RecentAcDTO
 from notes.models import NoteRecord
-from pipeline.models import ItemStage, Task, TaskItem
-from pipeline.stages.definitions import Stage
+from pipeline.models import ItemStage, PipelineItem, TaskItem
+from pipeline.stages.definitions import STAGE_ORDER, Stage
 from prefill.models import AIResponse
+from prefill.tests.test_parsing import valid
 from problems.models import Problem, Submission, SyncTask
 from userconfig import effective, update_config, update_credentials
 from userconfig.credentials import load_credentials
@@ -139,7 +140,7 @@ class ProblemsUITests(TestCase):
 
             # Section 3: Notes generation section
             self.assertContains(response, "Notes Generation")
-            self.assertContains(response, "Generate Notes")
+            self.assertContains(response, 'href="/tasks/"')
             self.assertContains(response, "Overall Running Tasks")
 
     def test_dashboard_ai_provider_display_manual(self):
@@ -1727,10 +1728,21 @@ class SettingsUITests(DataDirDBTestCase):
             self.assertEqual(response["HX-Refresh"], "true")
 
 
+def _seed_stages(item):
+    return ItemStage.objects.bulk_create([
+        ItemStage(item=item, stage=stage, order=idx, status=ItemStage.Status.PENDING)
+        for idx, stage in enumerate(STAGE_ORDER)
+    ])
+
+
 class TasksViewsTests(TestCase):
     def setUp(self):
         cache.clear()
         self.client = Client()
+
+        self.mock_worker_patcher = patch("pipeline.runtime.worker.start_worker")
+        self.mock_worker_patcher.start()
+        self.addCleanup(self.mock_worker_patcher.stop)
 
         self.mock_recent_patcher = patch("ui.helpers.tasks.get_client")
         self.mock_get_client = self.mock_recent_patcher.start()
@@ -2008,76 +2020,62 @@ class TasksViewsTests(TestCase):
         other_slugs = [p.slug for p in other]
         self.assertNotIn("combine-two-tables", other_slugs)
 
-    def test_tasks_create_view_starts_task_and_redirects(self):
-        url = reverse("ui:tasks_create")
-        with patch("ui.views.start_task") as mock_start:
-            fake_task = Task.objects.create(name="Test Task")
-            mock_creation = mock.Mock(task=fake_task)
-            mock_start.return_value = mock_creation
+    def test_tasks_workbench_view_renders(self):
+        url = reverse("ui:tasks")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/tasks_new.html")
+        self.assertContains(response, "Notes Generation Workbench")
 
+    def test_tasks_poll_view_returns_table_partial(self):
+        url = reverse("ui:tasks_poll")
+        response = self.client.get(url, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/partials/tasks_new_table.html")
+
+    def test_generate_settings_modal_view(self):
+        url = reverse("ui:generate_settings_modal")
+        response = self.client.get(
+            url, {"problem_ids": [self.p_algo_1.pk, self.p_algo_2.pk]}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response, "ui/partials/modals/modal_generate_settings.html"
+        )
+        self.assertEqual(response.context["problem_count"], 2)
+        self.assertIn("providers", response.context)
+        self.assertIn("default_provider", response.context)
+
+    def test_tasks_create_view_starts_pipeline_and_returns_oob_table(self):
+        url = reverse("ui:tasks_create")
+        with patch("ui.views.start_pipeline") as mock_start:
+            response = self.client.post(
+                url,
+                {
+                    "problem_ids": [self.p_algo_1.pk],
+                    "provider": "gemini",
+                    "model": "gemini-2.5-flash",
+                    "review": "true",
+                },
+                HTTP_HX_REQUEST="true",
+            )
+            self.assertEqual(response.status_code, 200)
+            mock_start.assert_called_once()
+            content = response.content.decode("utf-8")
+            self.assertIn('id="modal-container"', content)
+
+    def test_tasks_create_view_non_htmx_redirects(self):
+        url = reverse("ui:tasks_create")
+        with patch("ui.views.start_pipeline"):
             response = self.client.post(url, {"problem_ids": [self.p_algo_1.pk]})
             self.assertEqual(response.status_code, 302)
-            self.assertEqual(response.url, reverse("ui:task_detail", args=[fake_task.pk]))
-            self.assertTrue(mock_start.called)
-
-    def test_tasks_list_view_renders(self):
-        task = Task.objects.create(name="Batch 1", status=Task.Status.ACTIVE)
-        url = reverse("ui:tasks_list")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "ui/tasks_list.html")
-        self.assertContains(response, "Batch 1")
-
-    def test_task_detail_view_and_polling(self):
-        task = Task.objects.create(name="Batch Detail", status=Task.Status.ACTIVE)
-        item = TaskItem.objects.create(task=task, problem=self.p_algo_1, position=0)
-        stage = ItemStage.objects.create(
-            item=item, stage=Stage.FETCH_PROBLEM, order=0, status=ItemStage.Status.DONE
-        )
-
-        url = reverse("ui:task_detail", args=[task.pk])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "ui/task_detail.html")
-        self.assertContains(response, "Batch Detail")
-
-        # HTMX polling partial
-        poll_url = reverse("ui:task_poll", args=[task.pk])
-        poll_response = self.client.get(poll_url, HTTP_HX_REQUEST="true")
-        self.assertEqual(poll_response.status_code, 200)
-        self.assertTemplateUsed(poll_response, "ui/partials/task_detail_content.html")
-
-    def test_task_lifecycle_controls_pause_resume_cancel(self):
-        task = Task.objects.create(name="Lifecycle Task", status=Task.Status.ACTIVE)
-
-        # Pause
-        pause_url = reverse("ui:task_pause", args=[task.pk])
-        resp = self.client.post(pause_url, HTTP_HX_REQUEST="true")
-        self.assertEqual(resp.status_code, 200)
-        task.refresh_from_db()
-        self.assertEqual(task.status, Task.Status.PAUSED)
-
-        # Resume
-        resume_url = reverse("ui:task_resume", args=[task.pk])
-        resp = self.client.post(resume_url, HTTP_HX_REQUEST="true")
-        self.assertEqual(resp.status_code, 200)
-        task.refresh_from_db()
-        self.assertEqual(task.status, Task.Status.ACTIVE)
-
-        # Cancel
-        cancel_url = reverse("ui:task_cancel", args=[task.pk])
-        resp = self.client.post(cancel_url, HTTP_HX_REQUEST="true")
-        self.assertEqual(resp.status_code, 200)
-        task.refresh_from_db()
-        self.assertEqual(task.status, Task.Status.CANCELLED)
+            self.assertEqual(response.url, reverse("ui:tasks"))
 
     def test_stage_modals_render_content(self):
-        task = Task.objects.create(name="Modal Task", status=Task.Status.ACTIVE)
-        item = TaskItem.objects.create(
-            task=task,
+        item = PipelineItem.objects.create(
             problem=self.p_algo_1,
-            status=TaskItem.Status.NEEDS_INPUT,
-            input_kind=TaskItem.InputKind.MANUAL_PREFILL,
+            status=PipelineItem.Status.NEEDS_INPUT,
+            input_kind=PipelineItem.InputKind.MANUAL_PREFILL,
             stage=Stage.GENERATE_PREFILL,
         )
         ItemStage.objects.create(
@@ -2093,7 +2091,7 @@ class TasksViewsTests(TestCase):
         self.assertTemplateUsed(response, "ui/partials/modals/modal_manual_prefill.html")
 
         # Review modal
-        item.input_kind = TaskItem.InputKind.REVIEW
+        item.input_kind = PipelineItem.InputKind.REVIEW
         item.stage = Stage.REVIEW
         item.save()
         AIResponse.objects.create(
@@ -2109,21 +2107,41 @@ class TasksViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "ui/partials/modals/modal_review.html")
 
-    def test_review_actions_approve_and_reject(self):
-        task = Task.objects.create(name="Review Task", status=Task.Status.ACTIVE)
-        item = TaskItem.objects.create(
-            task=task,
+    def test_submit_prefill_view(self):
+        item = PipelineItem.objects.create(
             problem=self.p_algo_1,
-            status=TaskItem.Status.NEEDS_INPUT,
-            input_kind=TaskItem.InputKind.REVIEW,
+            status=PipelineItem.Status.NEEDS_INPUT,
+            input_kind=PipelineItem.InputKind.MANUAL_PREFILL,
+            stage=Stage.GENERATE_PREFILL,
+        )
+        _seed_stages(item)
+        row = item.stages.get(stage=Stage.GENERATE_PREFILL)
+        row.status = ItemStage.Status.WAITING
+        row.save()
+
+        valid_text = json.dumps(valid())
+        url = reverse("ui:submit_prefill", args=[item.pk])
+        resp = self.client.post(
+            url,
+            {"response_text": valid_text, "label": "Manual Gemini"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(resp.status_code, 200)
+        row.refresh_from_db()
+        self.assertEqual(row.status, ItemStage.Status.DONE)
+        self.assertIn('id="modal-container"', resp.content.decode("utf-8"))
+
+    def test_review_actions_approve_and_reject(self):
+        item = PipelineItem.objects.create(
+            problem=self.p_algo_1,
+            status=PipelineItem.Status.NEEDS_INPUT,
+            input_kind=PipelineItem.InputKind.REVIEW,
             stage=Stage.REVIEW,
         )
-        row = ItemStage.objects.create(
-            item=item,
-            stage=Stage.REVIEW,
-            order=4,
-            status=ItemStage.Status.WAITING,
-        )
+        _seed_stages(item)
+        row = item.stages.get(stage=Stage.REVIEW)
+        row.status = ItemStage.Status.WAITING
+        row.save()
         AIResponse.objects.create(
             problem=self.p_algo_1,
             raw_text="### Intuition\nTest note",
@@ -2139,21 +2157,43 @@ class TasksViewsTests(TestCase):
         row.refresh_from_db()
         self.assertEqual(row.status, ItemStage.Status.DONE)
 
+        # Rejection
+        item2 = PipelineItem.objects.create(
+            problem=self.p_algo_2,
+            status=PipelineItem.Status.NEEDS_INPUT,
+            input_kind=PipelineItem.InputKind.REVIEW,
+            stage=Stage.REVIEW,
+        )
+        _seed_stages(item2)
+        row2 = item2.stages.get(stage=Stage.REVIEW)
+        row2.status = ItemStage.Status.WAITING
+        row2.save()
+        AIResponse.objects.create(
+            problem=self.p_algo_2,
+            raw_text="### Intuition\nBad note",
+            prompt_version="v1",
+            input_hash="hash2",
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+        reject_url = reverse("ui:reject_review", args=[item2.pk])
+        resp2 = self.client.post(reject_url, HTTP_HX_REQUEST="true")
+        self.assertEqual(resp2.status_code, 200)
+        item2.refresh_from_db()
+        self.assertEqual(item2.status, PipelineItem.Status.QUEUED)
+        self.assertEqual(item2.stage, Stage.GENERATE_PREFILL)
+
     def test_approve_all_reviews(self):
-        task = Task.objects.create(name="Bulk Review Task", status=Task.Status.ACTIVE)
-        item = TaskItem.objects.create(
-            task=task,
+        item = PipelineItem.objects.create(
             problem=self.p_algo_1,
-            status=TaskItem.Status.NEEDS_INPUT,
-            input_kind=TaskItem.InputKind.REVIEW,
+            status=PipelineItem.Status.NEEDS_INPUT,
+            input_kind=PipelineItem.InputKind.REVIEW,
             stage=Stage.REVIEW,
         )
-        row = ItemStage.objects.create(
-            item=item,
-            stage=Stage.REVIEW,
-            order=4,
-            status=ItemStage.Status.WAITING,
-        )
+        _seed_stages(item)
+        row = item.stages.get(stage=Stage.REVIEW)
+        row.status = ItemStage.Status.WAITING
+        row.save()
         AIResponse.objects.create(
             problem=self.p_algo_1,
             raw_text="### Intuition\nTest note",
@@ -2163,18 +2203,16 @@ class TasksViewsTests(TestCase):
             is_active=True,
         )
 
-        bulk_url = reverse("ui:approve_all_reviews", args=[task.pk])
+        bulk_url = reverse("ui:approve_all_reviews")
         resp = self.client.post(bulk_url, HTTP_HX_REQUEST="true")
         self.assertEqual(resp.status_code, 200)
         row.refresh_from_db()
         self.assertEqual(row.status, ItemStage.Status.DONE)
 
     def test_retry_failed_item_action(self):
-        task = Task.objects.create(name="Retry Task", status=Task.Status.ACTIVE)
-        item = TaskItem.objects.create(
-            task=task,
+        item = PipelineItem.objects.create(
             problem=self.p_algo_1,
-            status=TaskItem.Status.FAILED,
+            status=PipelineItem.Status.FAILED,
             stage=Stage.FETCH_PROBLEM,
         )
         row = ItemStage.objects.create(
@@ -2189,7 +2227,20 @@ class TasksViewsTests(TestCase):
         resp = self.client.post(retry_url, HTTP_HX_REQUEST="true")
         self.assertEqual(resp.status_code, 200)
         item.refresh_from_db()
-        self.assertEqual(item.status, TaskItem.Status.QUEUED)
+        self.assertEqual(item.status, PipelineItem.Status.QUEUED)
         row.refresh_from_db()
         self.assertEqual(row.status, ItemStage.Status.PENDING)
+
+    def test_cancel_item_action(self):
+        item = PipelineItem.objects.create(
+            problem=self.p_algo_1,
+            status=PipelineItem.Status.RUNNING,
+            stage=Stage.FETCH_PROBLEM,
+        )
+
+        cancel_url = reverse("ui:cancel_item", args=[item.pk])
+        resp = self.client.post(cancel_url, HTTP_HX_REQUEST="true")
+        self.assertEqual(resp.status_code, 200)
+        item.refresh_from_db()
+        self.assertEqual(item.status, PipelineItem.Status.CANCELLED)
 
