@@ -435,6 +435,12 @@
     }
   });
 
+  document.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target && evt.detail.target.id === 'problems-selection-table-container') {
+      pollVisibleRowStatuses();
+    }
+  });
+
   // Dropdown toggle handler
   document.addEventListener('click', function(e) {
     const trigger = e.target.closest('#difficulty-trigger-btn');

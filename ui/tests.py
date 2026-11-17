@@ -245,8 +245,8 @@ class ProblemsUITests(TestCase):
         self.assertContains(response, "Not Configured")
         self.assertContains(response, "No directory configured yet")
 
-    @patch("ui.views.effective.leetcode_session", return_value="")
-    @patch("ui.views.effective.leetcode_csrf_token", return_value="")
+    @patch("ui.views.dashboard.effective.leetcode_session", return_value="")
+    @patch("ui.views.dashboard.effective.leetcode_csrf_token", return_value="")
     def test_sync_leetcode_data_view_unauthenticated(self, mock_csrf, mock_session):
         url = reverse("ui:sync_leetcode_data")
         response = self.client.post(url)
@@ -255,10 +255,10 @@ class ProblemsUITests(TestCase):
         self.assertContains(response, "LeetCode credentials not configured")
         self.assertContains(response, 'id="toast-container"')
 
-    @patch("ui.views.effective.leetcode_session", return_value="fake_session")
-    @patch("ui.views.effective.leetcode_csrf_token", return_value="fake_csrf")
-    @patch("ui.views.get_client")
-    @patch("ui.views.sync_leetcode_overview")
+    @patch("ui.views.dashboard.effective.leetcode_session", return_value="fake_session")
+    @patch("ui.views.dashboard.effective.leetcode_csrf_token", return_value="fake_csrf")
+    @patch("ui.views.dashboard.get_client")
+    @patch("ui.views.dashboard.sync_leetcode_overview")
     def test_sync_leetcode_data_view_success(
         self, mock_sync, mock_client, mock_csrf, mock_session
     ):
@@ -581,10 +581,10 @@ class ProblemsUITests(TestCase):
         self.assertIn("prefills", dashboard_metrics)
         self.assertEqual(dashboard_metrics["prefills"]["total"], 3)
 
-    @patch("ui.views.effective.leetcode_session", return_value="fake_session")
-    @patch("ui.views.effective.leetcode_csrf_token", return_value="fake_csrf")
-    @patch("ui.views.get_client")
-    @patch("ui.views.sync_leetcode_overview")
+    @patch("ui.views.dashboard.effective.leetcode_session", return_value="fake_session")
+    @patch("ui.views.dashboard.effective.leetcode_csrf_token", return_value="fake_csrf")
+    @patch("ui.views.dashboard.get_client")
+    @patch("ui.views.dashboard.sync_leetcode_overview")
     def test_sync_leetcode_data_view_error(
         self, mock_sync, mock_client, mock_csrf, mock_session
     ):
@@ -682,7 +682,7 @@ class ProblemsUITests(TestCase):
         self.assertIn(self.p_none.id, object_ids)
         self.assertNotIn(self.p_synced.id, object_ids)
 
-    @patch("ui.views.start_background_sync")
+    @patch("ui.views.problems.start_background_sync")
     def test_sync_selected_problems_success(self, mock_start):
         mock_start.return_value = True
         url = reverse("ui:sync_selected")
@@ -697,7 +697,7 @@ class ProblemsUITests(TestCase):
         self.assertEqual(data["count"], 1)
         mock_start.assert_called_once_with([self.p_pending.id], retry_failed=True)
 
-    @patch("ui.views.start_background_sync")
+    @patch("ui.views.problems.start_background_sync")
     def test_sync_selected_automatically_includes_failed_tasks(self, mock_start):
         mock_start.return_value = True
         url = reverse("ui:sync_selected")
@@ -712,7 +712,7 @@ class ProblemsUITests(TestCase):
         self.assertEqual(data["count"], 1)
         mock_start.assert_called_once_with([self.p_failed.id], retry_failed=True)
 
-    @patch("ui.views.start_background_sync")
+    @patch("ui.views.problems.start_background_sync")
     def test_sync_selected_nothing_to_sync(self, mock_start):
         url = reverse("ui:sync_selected")
         response = self.client.post(
@@ -726,7 +726,7 @@ class ProblemsUITests(TestCase):
         self.assertEqual(data["count"], 0)
         mock_start.assert_not_called()
 
-    @patch("ui.views.start_background_sync")
+    @patch("ui.views.problems.start_background_sync")
     def test_sync_selected_already_running(self, mock_start):
         mock_start.return_value = False
         url = reverse("ui:sync_selected")
@@ -749,7 +749,7 @@ class ProblemsUITests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
-    @patch("ui.views.start_background_sync")
+    @patch("ui.views.problems.start_background_sync")
     def test_refetch_selected_submissions(self, mock_start):
         mock_start.return_value = True
         url = reverse("ui:refetch_selected")
@@ -770,7 +770,7 @@ class ProblemsUITests(TestCase):
         )
         self.assertEqual(task.status, SyncTask.Status.PENDING)
 
-    @patch("ui.views.start_background_sync")
+    @patch("ui.views.problems.start_background_sync")
     def test_refetch_selected_content_cascades(self, mock_start):
         mock_start.return_value = True
         # Add images task to p_synced to test cascade
@@ -793,7 +793,7 @@ class ProblemsUITests(TestCase):
         self.assertTrue(data["sync_started"])
         mock_start.assert_called_once_with([self.p_synced.id], retry_failed=True)
 
-    @patch("ui.views.start_background_sync")
+    @patch("ui.views.problems.start_background_sync")
     def test_refetch_selected_content_images_cascades(self, mock_start):
         mock_start.return_value = True
         SyncTask.objects.create(
@@ -814,7 +814,7 @@ class ProblemsUITests(TestCase):
         self.assertTrue(data["sync_started"])
         mock_start.assert_called_once_with([self.p_synced.id], retry_failed=True)
 
-    @patch("ui.views.start_background_sync")
+    @patch("ui.views.problems.start_background_sync")
     def test_refetch_selected_all(self, mock_start):
         mock_start.return_value = True
         SyncTask.objects.create(
@@ -836,7 +836,7 @@ class ProblemsUITests(TestCase):
         self.assertTrue(data["sync_started"])
         mock_start.assert_called_once_with([self.p_synced.id], retry_failed=True)
 
-    @patch("ui.views.start_background_sync")
+    @patch("ui.views.problems.start_background_sync")
     def test_refetch_selected_already_running(self, mock_start):
         mock_start.return_value = False
         url = reverse("ui:refetch_selected")
@@ -1625,7 +1625,7 @@ class SettingsUITests(DataDirDBTestCase):
     def test_refresh_agy_models_endpoint(self):
         url = reverse("ui:refresh_agy_models")
         with patch(
-            "ui.views.get_agy_models",
+            "ui.views.settings.get_agy_models",
             return_value=[{"id": "test-m", "name": "Test Model"}],
         ):
             response = self.client.post(url, HTTP_HX_REQUEST="true")
@@ -1768,7 +1768,7 @@ class SettingsUITests(DataDirDBTestCase):
     def test_reinit_database_endpoint(self):
         # Fetch URL for reinitializing database
         url = reverse("ui:reinit_database")
-        with patch("ui.views.reinit_database", return_value={"success": True}):
+        with patch("ui.views.snapshots.reinit_database", return_value={"success": True}):
             response = self.client.post(url, HTTP_HX_REQUEST="true")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response["HX-Refresh"], "true")
@@ -2105,7 +2105,7 @@ class TasksViewsTests(TestCase):
 
     def test_tasks_create_view_starts_pipeline_and_returns_oob_table(self):
         url = reverse("ui:tasks_create")
-        with patch("ui.views.start_pipeline") as mock_start:
+        with patch("ui.views.tasks_workbench.start_pipeline") as mock_start:
             response = self.client.post(
                 url,
                 {
@@ -2123,7 +2123,7 @@ class TasksViewsTests(TestCase):
 
     def test_tasks_create_view_non_htmx_redirects(self):
         url = reverse("ui:tasks_create")
-        with patch("ui.views.start_pipeline"):
+        with patch("ui.views.tasks_workbench.start_pipeline"):
             response = self.client.post(url, {"problem_ids": [self.p_algo_1.pk]})
             self.assertEqual(response.status_code, 302)
             self.assertEqual(response.url, reverse("ui:tasks"))

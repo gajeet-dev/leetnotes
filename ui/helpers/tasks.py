@@ -36,10 +36,16 @@ def render_ai_response_to_html(problem: Problem, resp: AIResponse | None) -> str
 
     note = None
     if resp.parsed:
-        try:
-            note = SolutionNote.model_validate(resp.parsed)
-        except Exception as e:
-            logger.debug("validate_parsed_solution_note_failed", error=str(e))
+        if isinstance(resp.parsed, dict):
+            try:
+                note = SolutionNote.model_validate(resp.parsed)
+            except Exception as e:
+                logger.debug("validate_parsed_solution_note_failed", error=str(e))
+        elif isinstance(resp.parsed, str):
+            try:
+                note = SolutionNote.model_validate_json(resp.parsed)
+            except Exception as e:
+                logger.debug("validate_parsed_solution_json_str_failed", error=str(e))
 
     if note is None and resp.raw_text:
         try:
@@ -51,12 +57,20 @@ def render_ai_response_to_html(problem: Problem, resp: AIResponse | None) -> str
         try:
             ctx = build_solution_context(problem, note)
             md_text = render_template("solution.md.j2", ctx)
-            return markdown.markdown(md_text, extensions=["fenced_code", "tables"])
+            return markdown.markdown(md_text, extensions=["meta", "fenced_code", "tables"])
         except Exception as e:
             logger.warning("render_solution_template_failed", error=str(e))
 
     if resp.raw_text:
-        return markdown.markdown(resp.raw_text, extensions=["fenced_code", "tables"])
+        raw = resp.raw_text.strip()
+        if raw.startswith("{") or raw.startswith("["):
+            try:
+                import json
+                pretty = json.dumps(json.loads(raw), indent=2)
+                return f"<div class='p-3 text-xs text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded bg-amber-50 dark:bg-amber-950/40 mb-2'>Showing raw unparsed draft JSON</div><pre class='p-3 rounded bg-zinc-900 text-zinc-100 font-mono text-xs overflow-x-auto'><code>{pretty}</code></pre>"
+            except Exception:
+                pass
+        return markdown.markdown(resp.raw_text, extensions=["meta", "fenced_code", "tables"])
 
     return "<div class='p-4 text-center text-sm text-zinc-500 italic'>No AI response content available.</div>"
 

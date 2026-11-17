@@ -75,7 +75,7 @@
     </div>
 
     <!-- Tab 1: Manual Web Paste -->
-    <div id="studio-panel-manual" class="studio-tab-panel flex-1 overflow-y-auto p-6 flex flex-col gap-5 {% if preferred_tab != 'manual' and preferred_tab %}hidden{% endif %}">
+    <div id="studio-panel-manual" class="studio-tab-panel flex-1 overflow-y-auto p-6 flex flex-col gap-5" style="display: none;">
       <form
         id="manual-paste-form"
         hx-post="{% url 'ui:submit_prefill' item.pk %}"
@@ -139,7 +139,7 @@
     </div>
 
     <!-- Tab 2: Select Existing Prefill -->
-    <div id="studio-panel-existing" class="studio-tab-panel flex-1 overflow-hidden p-6 flex flex-col md:flex-row gap-5 {% if preferred_tab != 'existing' %}hidden{% endif %}">
+    <div id="studio-panel-existing" class="studio-tab-panel flex-1 overflow-hidden p-6 flex flex-col md:flex-row gap-5" style="display: none;">
       <!-- Center: Rendered Markdown Preview Pane -->
       <div class="flex-1 flex flex-col rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/40 overflow-hidden">
         <div class="flex items-center justify-between border-b border-zinc-200 px-4 py-2 bg-zinc-100/70 dark:border-zinc-800 dark:bg-zinc-900/60">
@@ -184,7 +184,7 @@
     </div>
 
     <!-- Tab 3: Claude Configuration -->
-    <div id="studio-panel-claude" class="studio-tab-panel flex-1 overflow-y-auto p-6 flex flex-col gap-5 {% if preferred_tab != 'claude' %}hidden{% endif %}">
+    <div id="studio-panel-claude" class="studio-tab-panel flex-1 overflow-y-auto p-6 flex flex-col gap-5" style="display: none;">
       <form
         hx-post="{% url 'ui:switch_provider_prefill' item.pk %}"
         hx-target="#workbench-table-container"
@@ -236,7 +236,7 @@
     </div>
 
     <!-- Tab 4: AGY (Antigravity) Configuration -->
-    <div id="studio-panel-agy" class="studio-tab-panel flex-1 overflow-y-auto p-6 flex flex-col gap-5 {% if preferred_tab != 'agy' %}hidden{% endif %}">
+    <div id="studio-panel-agy" class="studio-tab-panel flex-1 overflow-y-auto p-6 flex flex-col gap-5" style="display: none;">
       <form
         hx-post="{% url 'ui:switch_provider_prefill' item.pk %}"
         hx-target="#workbench-table-container"
@@ -297,16 +297,10 @@
       const btn = document.getElementById('studio-tab-btn-' + t);
       if (!panel || !btn) return;
       if (t === tab) {
-        panel.classList.remove('hidden');
-        if (t === 'existing') {
-          panel.classList.add('flex');
-        }
+        panel.style.setProperty('display', 'flex', 'important');
         btn.className = 'studio-tab-btn flex items-center gap-1.5 border-b-2 py-3 px-1 transition-colors cursor-pointer border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400 font-bold';
       } else {
-        panel.classList.add('hidden');
-        if (t === 'existing') {
-          panel.classList.remove('flex');
-        }
+        panel.style.setProperty('display', 'none', 'important');
         btn.className = 'studio-tab-btn flex items-center gap-1.5 border-b-2 py-3 px-1 transition-colors cursor-pointer border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200';
       }
     });
@@ -321,4 +315,7 @@
       setTimeout(() => { btn.innerHTML = orig; }, 1500);
     });
   }
+
+  // Initialize active tab immediately on modal load
+  switchStudioTab('{{ preferred_tab|default:"manual" }}');
 </script>

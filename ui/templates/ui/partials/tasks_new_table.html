@@ -103,7 +103,7 @@
     <table class="w-full text-left text-sm whitespace-nowrap border-collapse">
       <thead class="border-b border-zinc-200 bg-zinc-50/50 text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
         <tr>
-          <th scope="col" class="py-3 px-3 w-10 text-center whitespace-nowrap">
+          <th scope="col" class="py-3.5 px-4 w-12 text-center whitespace-nowrap">
             <input
               type="checkbox"
               id="select-all-page-header"
@@ -112,11 +112,11 @@
               title="Select all visible problems"
             />
           </th>
-          <th scope="col" class="py-3 px-3 min-w-[280px] whitespace-nowrap">Problem</th>
-          <th scope="col" class="py-3 px-3 w-24 text-center whitespace-nowrap">Difficulty</th>
-          <th scope="col" class="py-3 px-3 w-36 whitespace-nowrap">Solved Date</th>
-          <th scope="col" class="py-3 px-3 w-36 whitespace-nowrap">Notes Status</th>
-          <th scope="col" class="py-3 px-3 w-28 text-right whitespace-nowrap">Action</th>
+          <th scope="col" class="py-3.5 px-4 min-w-[280px] whitespace-nowrap">Problem</th>
+          <th scope="col" class="py-3.5 px-4 w-32 text-center whitespace-nowrap">Difficulty</th>
+          <th scope="col" class="py-3.5 px-4 w-48 whitespace-nowrap">Solved Date</th>
+          <th scope="col" class="py-3.5 px-4 w-44 whitespace-nowrap">Notes Status</th>
+          <th scope="col" class="py-3.5 px-4 w-36 text-right whitespace-nowrap">Action</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 font-normal">
@@ -147,7 +147,7 @@
           </tr>
           {% for p in recent_problems %}
             <tr id="catalog-row-{{ p.pk }}" data-problem-pk="{{ p.pk }}" class="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40 transition-colors">
-              <td class="py-3 px-3 text-center whitespace-nowrap">
+              <td class="py-3.5 px-4 text-center whitespace-nowrap">
                 <input
                   type="checkbox"
                   value="{{ p.pk }}"
@@ -157,7 +157,7 @@
                 />
               </td>
               <!-- Problem: ID + Title combined, slug hidden -->
-              <td class="py-3 px-3 font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+              <td class="py-3.5 px-4 font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
                 <a
                   href="https://leetcode.com/problems/{{ p.slug }}/"
                   target="_blank"
@@ -168,7 +168,7 @@
                   {% lucide "external-link" class="h-3 w-3 text-zinc-400 opacity-60" %}
                 </a>
               </td>
-              <td class="py-3 px-3 text-center whitespace-nowrap">
+              <td class="py-3.5 px-4 text-center whitespace-nowrap">
                 {% if p.difficulty == 'Easy' %}
                   <span class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400">Easy</span>
                 {% elif p.difficulty == 'Medium' %}
@@ -177,10 +177,10 @@
                   <span class="rounded bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800 dark:bg-rose-950/60 dark:text-rose-400">Hard</span>
                 {% endif %}
               </td>
-              <td class="py-3 px-3 text-xs text-zinc-500 dark:text-zinc-400 font-mono whitespace-nowrap">
+              <td class="py-3.5 px-4 text-xs text-zinc-500 dark:text-zinc-400 font-mono whitespace-nowrap">
                 {{ p.submission_date|date:"M d, Y · H:i"|default:"—" }}
               </td>
-              <td id="note-status-{{ p.pk }}" class="py-3 px-3 whitespace-nowrap">
+              <td id="note-status-{{ p.pk }}" class="py-3.5 px-4 whitespace-nowrap">
                 {% if p.pipeline_item and p.pipeline_item.status == 'running' %}
                   <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200 dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-800 animate-pulse">
                     {% lucide "loader-circle" class="h-3 w-3 animate-spin" %}
@@ -207,7 +207,7 @@
                   </span>
                 {% endif %}
               </td>
-              <td id="note-action-{{ p.pk }}" class="py-3 px-3 text-right whitespace-nowrap">
+              <td id="note-action-{{ p.pk }}" class="py-3.5 px-4 text-right whitespace-nowrap">
                 {% if p.pipeline_item and p.pipeline_item.status in 'running,queued,needs_input' %}
                   <a
                     href="{% url 'ui:tasks' %}?q={{ p.leetcode_id|default:p.slug }}"
@@ -249,7 +249,7 @@
         {% if other_problems %}
           {% for p in other_problems %}
             <tr id="catalog-row-{{ p.pk }}" data-problem-pk="{{ p.pk }}" class="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40 transition-colors">
-              <td class="py-3 px-3 text-center whitespace-nowrap">
+              <td class="py-3.5 px-4 text-center whitespace-nowrap">
                 <input
                   type="checkbox"
                   value="{{ p.pk }}"
@@ -259,7 +259,7 @@
                 />
               </td>
               <!-- Problem: ID + Title combined, slug hidden -->
-              <td class="py-3 px-3 font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+              <td class="py-3.5 px-4 font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
                 <a
                   href="https://leetcode.com/problems/{{ p.slug }}/"
                   target="_blank"
@@ -270,7 +270,7 @@
                   {% lucide "external-link" class="h-3 w-3 text-zinc-400 opacity-60" %}
                 </a>
               </td>
-              <td class="py-3 px-3 text-center whitespace-nowrap">
+              <td class="py-3.5 px-4 text-center whitespace-nowrap">
                 {% if p.difficulty == 'Easy' %}
                   <span class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400">Easy</span>
                 {% elif p.difficulty == 'Medium' %}
@@ -279,10 +279,10 @@
                   <span class="rounded bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800 dark:bg-rose-950/60 dark:text-rose-400">Hard</span>
                 {% endif %}
               </td>
-              <td class="py-3 px-3 text-xs text-zinc-500 dark:text-zinc-400 font-mono whitespace-nowrap">
+              <td class="py-3.5 px-4 text-xs text-zinc-500 dark:text-zinc-400 font-mono whitespace-nowrap">
                 {{ p.submission_date|date:"M d, Y · H:i"|default:"—" }}
               </td>
-              <td id="note-status-{{ p.pk }}" class="py-3 px-3 whitespace-nowrap">
+              <td id="note-status-{{ p.pk }}" class="py-3.5 px-4 whitespace-nowrap">
                 {% if p.pipeline_item and p.pipeline_item.status == 'running' %}
                   <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200 dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-800 animate-pulse">
                     {% lucide "loader-circle" class="h-3 w-3 animate-spin" %}
@@ -309,7 +309,7 @@
                   </span>
                 {% endif %}
               </td>
-              <td id="note-action-{{ p.pk }}" class="py-3 px-3 text-right whitespace-nowrap">
+              <td id="note-action-{{ p.pk }}" class="py-3.5 px-4 text-right whitespace-nowrap">
                 {% if p.pipeline_item and p.pipeline_item.status in 'running,queued,needs_input' %}
                   <a
                     href="{% url 'ui:tasks' %}?q={{ p.leetcode_id|default:p.slug }}"
