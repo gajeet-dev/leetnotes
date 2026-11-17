@@ -175,6 +175,98 @@ def select_existing_prefill(
 # --- putting stages back ---
 
 
+def resolve_submission_choice(
+    item_id: int,
+    choice: str,
+    wake: WakeWorker = ensure_worker_running,
+) -> PipelineItem:
+    """Resolve submission choice between existing and newer LeetCode submission.
+
+    choice is either 'keep' or 'use_latest'.
+    """
+    item = get_item(item_id)
+    row = waiting_stage(item, PipelineItem.InputKind.SUBMISSION_CHOICE)
+    problem = item.problem
+    sub = getattr(problem, "submission", None)
+
+    if choice == "use_latest":
+        if sub and sub.newer_submission_id:
+            from leetcode.bootstrap import get_client
+
+            client = get_client()
+            detail = client.get_submission_details(sub.newer_submission_id)
+            if detail:
+                sub.submission_id = sub.newer_submission_id
+                sub.lang = detail.lang
+                sub.code = detail.code
+                if detail.submission_date:
+                    sub.submission_date = detail.submission_date
+                elif sub.newer_submission_date:
+                    sub.submission_date = sub.newer_submission_date
+        if sub:
+            sub.is_stale = False
+            sub.newer_submission_id = None
+            sub.newer_submission_date = None
+            sub.save()
+        finish_waiting_stage(item, row, "Updated to newer submission")
+    else:  # keep
+        if sub:
+            sub.is_stale = False
+            sub.newer_submission_id = None
+            sub.newer_submission_date = None
+            sub.save()
+        finish_waiting_stage(item, row, "Kept existing submission")
+
+    if wake:
+        wake()
+    return item
+
+
+def switch_provider_and_generate(
+    item_id: int,
+    provider: str,
+    model: str = "",
+    effort: str = "",
+    wake: WakeWorker = ensure_worker_running,
+) -> PipelineItem:
+    """Update settings to run prefill with a specific AI provider and queue generation."""
+    item = get_item(item_id)
+    check_item_is_open(item)
+    row = item.stages.get(stage=Stage.GENERATE_PREFILL)
+    settings = dict(item.settings)
+    settings["provider"] = provider
+    if model:
+        settings["model"] = model
+    if effort:
+        settings["effort"] = effort
+    reset_stage_row(row)
+    save_fields(item, settings=settings)
+    queue_item_at(item, Stage.GENERATE_PREFILL)
+    if wake:
+        wake()
+    return item
+
+
+def delete_ai_response(item_id: int, response_id: int) -> None:
+    """Delete an AI response candidate. If active, promote another valid response."""
+    item = get_item(item_id)
+    resp = AIResponse.objects.filter(problem=item.problem, pk=response_id).first()
+    if resp:
+        was_active = resp.is_active
+        resp.delete()
+        if was_active:
+            next_resp = (
+                AIResponse.objects.filter(
+                    problem=item.problem, status=AIResponse.Status.VALID
+                )
+                .order_by("-created_at")
+                .first()
+            )
+            if next_resp:
+                next_resp.is_active = True
+                next_resp.save(update_fields=["is_active"])
+
+
 def reset_stage_row(row: ItemStage) -> None:
     """Make a stage as if it had never run."""
     save_fields(
@@ -209,10 +301,16 @@ def reset_prefill_and_review(item: PipelineItem) -> None:
 def reject_review(
     item_id: int, wake: WakeWorker = ensure_worker_running
 ) -> PipelineItem:
-    """Throw the AI note away for now: the item goes back to generating a new one."""
+    """Throw the AI note away for now: the item goes back to generating a new one with manual tab preferred."""
     item = get_item(item_id)
     waiting_stage(item, PipelineItem.InputKind.REVIEW)
     reset_prefill_and_review(item)
+
+    # Set preferred_prefill_tab to "manual" in settings so the studio defaults to manual tab
+    settings = dict(item.settings)
+    settings["preferred_prefill_tab"] = "manual"
+    save_fields(item, settings=settings)
+
     queue_item_at(item, Stage.GENERATE_PREFILL)
     if wake:
         wake()

@@ -44,9 +44,10 @@ def rejection_reason(problem: Problem, busy_ids: set[int]) -> str | None:
 
 def split_eligible(
     problems: Sequence[Problem],
+    allow_busy: bool = False,
 ) -> tuple[list[Problem], list[Rejection]]:
     """Separate the problems that can run from the ones that can't, keeping the order."""
-    busy_ids = busy_problem_ids(problems)
+    busy_ids = set() if allow_busy else busy_problem_ids(problems)
     eligible: list[Problem] = []
     rejected: list[Rejection] = []
     for problem in problems:

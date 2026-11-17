@@ -4,7 +4,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from django.db import transaction
-from django.utils import timezone
 
 from pipeline.models import ItemStage, PipelineItem
 from pipeline.runtime.worker import ensure_worker_running
@@ -90,16 +89,18 @@ def start_pipeline_items(
     problems: Iterable[Problem],
     overrides: dict | None = None,
     wake=ensure_worker_running,
+    allow_busy: bool = False,
 ) -> PipelineStart:
     """Start pipeline runs for these problems with snapshot settings.
 
     Problems that can't run are returned in `rejected` with their reasons.
     Raises NothingToDo if none can, and TaskSettingsError for a bad setting.
+    Resets existing PipelineItems in-place without retaining duplicate history.
     """
     settings = settings_with_overrides(overrides)
     check_output_folders(settings)
     unique = unique_problems(problems)
-    eligible, rejected = split_eligible(unique)
+    eligible, rejected = split_eligible(unique, allow_busy=allow_busy)
     if not eligible:
         raise NothingToDo(describe_rejections(rejected) or "No problems were chosen.")
 
@@ -107,27 +108,33 @@ def start_pipeline_items(
     created_items: list[PipelineItem] = []
 
     for position, plan in enumerate(plans):
-        # Cancel any previous active or paused runs for this problem
-        PipelineItem.objects.filter(
-            problem=plan.problem,
-            status__in=[
-                PipelineItem.Status.QUEUED,
-                PipelineItem.Status.RUNNING,
-                PipelineItem.Status.NEEDS_INPUT,
-                PipelineItem.Status.PAUSED,
-            ],
-        ).update(
-            status=PipelineItem.Status.CANCELLED,
-            finished_at=timezone.now(),
+        existing_items = list(
+            PipelineItem.objects.filter(problem=plan.problem).order_by("-created_at")
         )
-
-        item = PipelineItem.objects.create(
-            problem=plan.problem,
-            position=position,
-            status=PipelineItem.Status.QUEUED,
-            stage=first_open_stage(plan),
-            settings=settings.model_dump(),
-        )
+        if existing_items:
+            item = existing_items[0]
+            if len(existing_items) > 1:
+                PipelineItem.objects.filter(problem=plan.problem).exclude(
+                    pk=item.pk
+                ).delete()
+            item.stages.all().delete()
+            item.position = position
+            item.status = PipelineItem.Status.QUEUED
+            item.stage = first_open_stage(plan)
+            item.input_kind = ""
+            item.settings = settings.model_dump()
+            item.error = ""
+            item.started_at = None
+            item.finished_at = None
+            item.save()
+        else:
+            item = PipelineItem.objects.create(
+                problem=plan.problem,
+                position=position,
+                status=PipelineItem.Status.QUEUED,
+                stage=first_open_stage(plan),
+                settings=settings.model_dump(),
+            )
         ItemStage.objects.bulk_create(make_stage_rows(item, plan))
         created_items.append(item)
 

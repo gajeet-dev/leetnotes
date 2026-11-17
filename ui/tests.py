@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from leetcode.dto import RecentAcDTO
 from notes.models import NoteRecord
-from pipeline.models import ItemStage, PipelineItem, TaskItem
+from pipeline.models import ItemStage, PipelineItem
 from pipeline.stages.definitions import STAGE_ORDER, Stage
 from prefill.models import AIResponse
 from prefill.tests.test_parsing import valid
@@ -105,7 +105,9 @@ class ProblemsUITests(TestCase):
             self.assertContains(response, "Your leetcode notes workspace")
 
             # Section 1: Health bar (stacked individual lines)
-            self.assertTemplateUsed(response, "ui/partials/dashboard_connection_status.html")
+            self.assertTemplateUsed(
+                response, "ui/partials/dashboard_connection_status.html"
+            )
             self.assertContains(response, "LeetCode Connection")
             self.assertContains(response, 'id="dashboard-leetcode-status"')
             self.assertContains(response, 'hx-trigger="load"')
@@ -122,7 +124,9 @@ class ProblemsUITests(TestCase):
             self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_solved.html")
             self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_notes.html")
             self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_prefills.html")
-            self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_attention.html")
+            self.assertTemplateUsed(
+                response, "ui/partials/dashboard_kpi_attention.html"
+            )
             self.assertContains(response, "Your notes library")
             self.assertContains(response, "An overview of you progress")
             self.assertContains(response, "Sync Leetcode Data")
@@ -153,15 +157,17 @@ class ProblemsUITests(TestCase):
 
     def test_dashboard_ai_provider_display_claude(self):
         """When claude is selected, show model and effort."""
-        update_config({
-            "default_provider": "claude",
-            "providers": {
-                "claude": {
-                    "model": "sonnet",
-                    "effort": "high",
-                }
+        update_config(
+            {
+                "default_provider": "claude",
+                "providers": {
+                    "claude": {
+                        "model": "sonnet",
+                        "effort": "high",
+                    }
+                },
             }
-        })
+        )
         response = self.client.get(reverse("ui:dashboard"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Claude Code · Claude Sonnet")
@@ -169,31 +175,37 @@ class ProblemsUITests(TestCase):
 
     def test_dashboard_ai_provider_display_agy(self):
         """When agy is selected, show model and effort."""
-        update_config({
-            "default_provider": "agy",
-            "providers": {
-                "agy": {
-                    "model": "antigravity-3.8-thinking",
-                    "effort": "medium",
-                }
+        update_config(
+            {
+                "default_provider": "agy",
+                "providers": {
+                    "agy": {
+                        "model": "antigravity-3.8-thinking",
+                        "effort": "medium",
+                    }
+                },
             }
-        })
+        )
         response = self.client.get(reverse("ui:dashboard"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Antigravity CLI (agy) · antigravity-3.8-thinking")
+        self.assertContains(
+            response, "Antigravity CLI (agy) · antigravity-3.8-thinking"
+        )
         self.assertContains(response, "effort [medium]")
 
     def test_dashboard_ai_provider_display_agy_default(self):
         """When agy is selected without explicit model, show Default (CLI default)."""
-        update_config({
-            "default_provider": "agy",
-            "providers": {
-                "agy": {
-                    "model": "",
-                    "effort": "low",
-                }
+        update_config(
+            {
+                "default_provider": "agy",
+                "providers": {
+                    "agy": {
+                        "model": "",
+                        "effort": "low",
+                    }
+                },
             }
-        })
+        )
         response = self.client.get(reverse("ui:dashboard"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Antigravity CLI (agy) · Default (CLI default)")
@@ -247,8 +259,11 @@ class ProblemsUITests(TestCase):
     @patch("ui.views.effective.leetcode_csrf_token", return_value="fake_csrf")
     @patch("ui.views.get_client")
     @patch("ui.views.sync_leetcode_overview")
-    def test_sync_leetcode_data_view_success(self, mock_sync, mock_client, mock_csrf, mock_session):
+    def test_sync_leetcode_data_view_success(
+        self, mock_sync, mock_client, mock_csrf, mock_session
+    ):
         from problems.services.sync import SyncOverviewResult
+
         mock_sync.return_value = SyncOverviewResult(
             total_catalog=100,
             new_problems=3,
@@ -266,7 +281,9 @@ class ProblemsUITests(TestCase):
         self.assertTemplateUsed(response, "ui/partials/dashboard_kpi_attention.html")
 
         # Verify inline message strip & pills
-        self.assertContains(response, 'id="sync-stats-container" hx-swap-oob="innerHTML"')
+        self.assertContains(
+            response, 'id="sync-stats-container" hx-swap-oob="innerHTML"'
+        )
         self.assertContains(response, 'id="sync-stats-strip"')
         self.assertContains(response, "+3")
         self.assertContains(response, "new discovered")
@@ -278,9 +295,13 @@ class ProblemsUITests(TestCase):
         self.assertContains(response, "in catalog")
 
         # Verify OOB KPI updates
-        self.assertContains(response, 'id="kpi-solved-problems" hx-swap-oob="outerHTML"')
+        self.assertContains(
+            response, 'id="kpi-solved-problems" hx-swap-oob="outerHTML"'
+        )
         self.assertContains(response, 'id="kpi-notes-created" hx-swap-oob="outerHTML"')
-        self.assertContains(response, 'id="kpi-needs-attention" hx-swap-oob="outerHTML"')
+        self.assertContains(
+            response, 'id="kpi-needs-attention" hx-swap-oob="outerHTML"'
+        )
 
         # Verify NO toast notification is included for success
         self.assertNotContains(response, 'id="toast-container"')
@@ -379,7 +400,6 @@ class ProblemsUITests(TestCase):
     def test_dashboard_notes_created_and_prefills_helpers(self):
         """Test calculation of Notes Created (with disk inspection) and AI Prefills in dashboard helpers."""
         from notes.hashing import content_hash
-        from notes.models import NoteRecord
         from notes.state import dir_key
         from prefill.models import AIResponse
         from ui.helpers.dashboard import (
@@ -435,7 +455,9 @@ class ProblemsUITests(TestCase):
                 # Write files on disk:
                 # p1 has both problem note and solution note
                 p1_prob_file = out_path / "Leetcode" / "problems" / "0001-two-sum.md"
-                p1_sol_file = out_path / "Leetcode" / "solutions" / "0001-two-sum-solution.md"
+                p1_sol_file = (
+                    out_path / "Leetcode" / "solutions" / "0001-two-sum-solution.md"
+                )
                 p1_prob_file.parent.mkdir(parents=True, exist_ok=True)
                 p1_sol_file.parent.mkdir(parents=True, exist_ok=True)
                 p1_prob_file.write_text("# Two Sum", encoding="utf-8")
@@ -460,7 +482,12 @@ class ProblemsUITests(TestCase):
                 )
 
                 # p2 (solved) has solution note only
-                p2_sol_file = out_path / "Leetcode" / "solutions" / "0002-add-two-numbers-solution.md"
+                p2_sol_file = (
+                    out_path
+                    / "Leetcode"
+                    / "solutions"
+                    / "0002-add-two-numbers-solution.md"
+                )
                 p2_sol_file.write_text("# Add Two Numbers Solution", encoding="utf-8")
                 NoteRecord.objects.create(
                     problem=p2,
@@ -472,7 +499,9 @@ class ProblemsUITests(TestCase):
                 )
 
                 # p3 (unsolved) has problem note only
-                p3_prob_file = out_path / "Leetcode" / "problems" / "0003-longest-substring.md"
+                p3_prob_file = (
+                    out_path / "Leetcode" / "problems" / "0003-longest-substring.md"
+                )
                 p3_prob_file.write_text("# Longest Substring", encoding="utf-8")
                 NoteRecord.objects.create(
                     problem=p3,
@@ -499,12 +528,13 @@ class ProblemsUITests(TestCase):
                 self.assertEqual(notes_metrics["coverage_pct"], 50.0)
 
             # 4. User changes output directory to a different folder
-            with tempfile.TemporaryDirectory() as other_dir:
-                with patch("userconfig.effective.output_dirs", return_value=[Path(other_dir)]):
-                    notes_metrics = get_notes_created_metrics()
-                    self.assertEqual(notes_metrics["notes_created"], 0)
-                    self.assertEqual(notes_metrics["pending_count"], 2)
-                    self.assertEqual(notes_metrics["coverage_pct"], 0.0)
+            with tempfile.TemporaryDirectory() as other_dir, patch(
+                "userconfig.effective.output_dirs", return_value=[Path(other_dir)]
+            ):
+                notes_metrics = get_notes_created_metrics()
+                self.assertEqual(notes_metrics["notes_created"], 0)
+                self.assertEqual(notes_metrics["pending_count"], 2)
+                self.assertEqual(notes_metrics["coverage_pct"], 0.0)
 
         # 5. AI Prefills metrics test
         AIResponse.objects.create(
@@ -555,14 +585,19 @@ class ProblemsUITests(TestCase):
     @patch("ui.views.effective.leetcode_csrf_token", return_value="fake_csrf")
     @patch("ui.views.get_client")
     @patch("ui.views.sync_leetcode_overview")
-    def test_sync_leetcode_data_view_error(self, mock_sync, mock_client, mock_csrf, mock_session):
+    def test_sync_leetcode_data_view_error(
+        self, mock_sync, mock_client, mock_csrf, mock_session
+    ):
         from leetcode.exceptions import LeetCodeError
+
         mock_sync.side_effect = LeetCodeError("Network timeout connecting to LeetCode")
         url = reverse("ui:sync_leetcode_data")
         response = self.client.post(url)
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "ui/partials/sync_leetcode_button.html")
-        self.assertContains(response, "Sync failed: Network timeout connecting to LeetCode")
+        self.assertContains(
+            response, "Sync failed: Network timeout connecting to LeetCode"
+        )
         self.assertContains(response, 'id="toast-container"')
 
     def test_problems_list_page_renders(self):
@@ -1057,6 +1092,7 @@ class SettingsUITests(DataDirDBTestCase):
 
         def cleanup_test_snapshots():
             from userconfig.paths import db_snapshots_dir
+
             for path in db_snapshots_dir().glob("*test_snap*.tar.gz"):
                 try:
                     path.unlink(missing_ok=True)
@@ -1301,7 +1337,9 @@ class SettingsUITests(DataDirDBTestCase):
         url = reverse("ui:test_connection") + "?source=dashboard"
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "ui/partials/dashboard_connection_status.html")
+        self.assertTemplateUsed(
+            response, "ui/partials/dashboard_connection_status.html"
+        )
         content = response.content.decode("utf-8")
         self.assertIn('id="dashboard-leetcode-status"', content)
         self.assertNotIn('hx-trigger="every 5s"', content)
@@ -1324,7 +1362,9 @@ class SettingsUITests(DataDirDBTestCase):
         url = reverse("ui:test_connection") + "?source=dashboard"
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "ui/partials/dashboard_connection_status.html")
+        self.assertTemplateUsed(
+            response, "ui/partials/dashboard_connection_status.html"
+        )
         content = response.content.decode("utf-8")
         self.assertIn('id="dashboard-leetcode-status"', content)
         self.assertNotIn('hx-trigger="every 5s"', content)
@@ -1584,7 +1624,10 @@ class SettingsUITests(DataDirDBTestCase):
 
     def test_refresh_agy_models_endpoint(self):
         url = reverse("ui:refresh_agy_models")
-        with patch("ui.views.get_agy_models", return_value=[{"id": "test-m", "name": "Test Model"}]):
+        with patch(
+            "ui.views.get_agy_models",
+            return_value=[{"id": "test-m", "name": "Test Model"}],
+        ):
             response = self.client.post(url, HTTP_HX_REQUEST="true")
             self.assertEqual(response.status_code, 200)
             content = response.content.decode("utf-8")
@@ -1593,6 +1636,7 @@ class SettingsUITests(DataDirDBTestCase):
 
     def test_settings_context_defaults_effort_to_medium(self):
         from ui.helpers.settings import get_settings_context
+
         ctx = get_settings_context()
         self.assertEqual(ctx["claude_effort"], "medium")
         self.assertEqual(ctx["agy_effort"], "medium")
@@ -1650,7 +1694,9 @@ class SettingsUITests(DataDirDBTestCase):
         )
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
-        self.assertIn("Snapshot saved to db_snapshots/complete_test_snap.tar.gz", content)
+        self.assertIn(
+            "Snapshot saved to db_snapshots/complete_test_snap.tar.gz", content
+        )
         self.assertIn('data-persistent="true"', content)
 
     def test_refresh_snapshots_endpoint(self):
@@ -1729,10 +1775,14 @@ class SettingsUITests(DataDirDBTestCase):
 
 
 def _seed_stages(item):
-    return ItemStage.objects.bulk_create([
-        ItemStage(item=item, stage=stage, order=idx, status=ItemStage.Status.PENDING)
-        for idx, stage in enumerate(STAGE_ORDER)
-    ])
+    return ItemStage.objects.bulk_create(
+        [
+            ItemStage(
+                item=item, stage=stage, order=idx, status=ItemStage.Status.PENDING
+            )
+            for idx, stage in enumerate(STAGE_ORDER)
+        ]
+    )
 
 
 class TasksViewsTests(TestCase):
@@ -2024,14 +2074,21 @@ class TasksViewsTests(TestCase):
         url = reverse("ui:tasks")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "ui/tasks_new.html")
+        self.assertTemplateUsed(response, "ui/tasks_workbench.html")
         self.assertContains(response, "Notes Generation Workbench")
+
+    def test_tasks_catalog_view_renders(self):
+        url = reverse("ui:tasks_new")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ui/tasks_new.html")
+        self.assertContains(response, "Problem Selection Catalogue")
 
     def test_tasks_poll_view_returns_table_partial(self):
         url = reverse("ui:tasks_poll")
         response = self.client.get(url, HTTP_HX_REQUEST="true")
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "ui/partials/tasks_new_table.html")
+        self.assertTemplateUsed(response, "ui/partials/workbench_table.html")
 
     def test_generate_settings_modal_view(self):
         url = reverse("ui:generate_settings_modal")
@@ -2088,7 +2145,9 @@ class TasksViewsTests(TestCase):
         modal_url = reverse("ui:stage_modal", args=[item.pk, Stage.GENERATE_PREFILL])
         response = self.client.get(modal_url)
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "ui/partials/modals/modal_manual_prefill.html")
+        self.assertTemplateUsed(
+            response, "ui/partials/modals/modal_prefill_studio.html"
+        )
 
         # Review modal
         item.input_kind = PipelineItem.InputKind.REVIEW
@@ -2182,6 +2241,7 @@ class TasksViewsTests(TestCase):
         item2.refresh_from_db()
         self.assertEqual(item2.status, PipelineItem.Status.QUEUED)
         self.assertEqual(item2.stage, Stage.GENERATE_PREFILL)
+        self.assertEqual(item2.settings.get("preferred_prefill_tab"), "manual")
 
     def test_approve_all_reviews(self):
         item = PipelineItem.objects.create(
@@ -2244,3 +2304,253 @@ class TasksViewsTests(TestCase):
         item.refresh_from_db()
         self.assertEqual(item.status, PipelineItem.Status.CANCELLED)
 
+    def test_catalog_note_saved_verification_matches_disk(self):
+        """Note Saved status must be verified against NoteRecord AND disk file in current output dir."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = Path(tmpdir)
+            with patch("userconfig.effective.output_dirs", return_value=[out_path]):
+                # 1. No note record -> note_saved is False
+                url = reverse("ui:tasks_new")
+                resp = self.client.get(url)
+                self.assertContains(resp, "No Note")
+
+                # 2. Note record created AND file exists on disk -> note_saved is True
+                sol_file = (
+                    out_path
+                    / "Leetcode"
+                    / "solutions"
+                    / f"0001-{self.p_algo_1.slug}-solution.md"
+                )
+                sol_file.parent.mkdir(parents=True, exist_ok=True)
+                sol_file.write_text("# My Solution Notes")
+                from django.utils import timezone
+
+                from notes.hashing import file_hash
+                from notes.models import NoteRecord
+
+                rec = NoteRecord.objects.create(
+                    problem=self.p_algo_1,
+                    kind=NoteRecord.Kind.SOLUTION,
+                    output_dir=str(out_path),
+                    relative_path=f"Leetcode/solutions/0001-{self.p_algo_1.slug}-solution.md",
+                    content_hash=file_hash(sol_file),
+                    written_at=timezone.now(),
+                )
+
+                resp = self.client.get(url)
+                self.assertContains(resp, "Note Saved")
+
+                # 3. File deleted on disk (MISSING) -> note_saved is False
+                sol_file.unlink()
+                resp = self.client.get(url)
+                self.assertNotContains(resp, "Note Saved")
+                self.assertContains(resp, "No Note")
+
+    def test_stale_submission_modal_and_resolution(self):
+        """Stage 3 Stale Submission Conflict resolution modal and action."""
+        Submission.objects.filter(problem=self.p_algo_1).delete()
+        sub = Submission.objects.create(
+            problem=self.p_algo_1,
+            submission_id=12345,
+            lang="python3",
+            code="def twoSum(nums, target): return [0, 1]",
+            submission_date=timezone.now(),
+            is_stale=True,
+            newer_submission_id=67890,
+            newer_submission_date=timezone.now(),
+        )
+        item = PipelineItem.objects.create(
+            problem=self.p_algo_1,
+            status=PipelineItem.Status.NEEDS_INPUT,
+            input_kind=PipelineItem.InputKind.SUBMISSION_CHOICE,
+            stage=Stage.FETCH_SUBMISSION,
+        )
+        _seed_stages(item)
+        row = item.stages.get(stage=Stage.FETCH_SUBMISSION)
+        row.status = ItemStage.Status.WAITING
+        row.save()
+
+        # Modal renders side-by-side comparison
+        modal_url = reverse("ui:stage_modal", args=[item.pk, Stage.FETCH_SUBMISSION])
+        resp = self.client.get(modal_url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "ui/partials/modals/modal_stale_submission.html")
+        self.assertContains(resp, "Submission Conflict")
+        self.assertContains(resp, "Existing Solution")
+        self.assertContains(resp, "Latest LeetCode")
+
+        # Resolve by keeping existing
+        choice_url = reverse("ui:resolve_submission_choice", args=[item.pk])
+        resp = self.client.post(choice_url, {"choice": "keep"}, HTTP_HX_REQUEST="true")
+        self.assertEqual(resp.status_code, 200)
+        sub.refresh_from_db()
+        self.assertFalse(sub.is_stale)
+        self.assertIsNone(sub.newer_submission_id)
+        row.refresh_from_db()
+        self.assertEqual(row.status, ItemStage.Status.DONE)
+
+    def test_prefill_studio_modal_actions(self):
+        """Stage 4 Prefill Studio modal renders tabs, previews, deletes candidates, and switches providers."""
+        item = PipelineItem.objects.create(
+            problem=self.p_algo_1,
+            status=PipelineItem.Status.NEEDS_INPUT,
+            input_kind=PipelineItem.InputKind.MANUAL_PREFILL,
+            stage=Stage.GENERATE_PREFILL,
+        )
+        _seed_stages(item)
+        row = item.stages.get(stage=Stage.GENERATE_PREFILL)
+        row.status = ItemStage.Status.WAITING
+        row.save()
+
+        resp_cand = AIResponse.objects.create(
+            problem=self.p_algo_1,
+            raw_text="### Intuition\nExisting Draft Content",
+            prompt_version="v1",
+            input_hash="cand_hash",
+            status=AIResponse.Status.VALID,
+            is_active=True,
+            provider_name="claude",
+            model_name="claude-3-7-sonnet",
+        )
+
+        # 1. Open Studio Modal
+        modal_url = reverse("ui:stage_modal", args=[item.pk, Stage.GENERATE_PREFILL])
+        modal_resp = self.client.get(modal_url)
+        self.assertEqual(modal_resp.status_code, 200)
+        self.assertTemplateUsed(
+            modal_resp, "ui/partials/modals/modal_prefill_studio.html"
+        )
+        self.assertContains(modal_resp, "Manual Web Paste")
+        self.assertContains(modal_resp, "Select Existing Prefill")
+        self.assertContains(modal_resp, "Claude")
+        self.assertContains(modal_resp, "AGY (Antigravity)")
+
+        # 2. Preview candidate
+        prev_url = reverse("ui:preview_ai_response", args=[item.pk, resp_cand.pk])
+        prev_resp = self.client.get(prev_url)
+        self.assertEqual(prev_resp.status_code, 200)
+        self.assertContains(prev_resp, "Existing Draft Content")
+
+        # 3. Switch provider to Claude and run
+        switch_url = reverse("ui:switch_provider_prefill", args=[item.pk])
+        switch_resp = self.client.post(
+            switch_url,
+            {"provider": "claude", "model": "claude-3-5-sonnet", "effort": "high"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(switch_resp.status_code, 200)
+        item.refresh_from_db()
+        self.assertEqual(item.status, PipelineItem.Status.QUEUED)
+        self.assertEqual(item.settings["provider"], "claude")
+        self.assertEqual(item.settings["model"], "claude-3-5-sonnet")
+
+        # 4. Delete candidate
+        del_url = reverse("ui:delete_ai_response", args=[item.pk, resp_cand.pk])
+        del_resp = self.client.delete(del_url)
+        self.assertEqual(del_resp.status_code, 200)
+        self.assertFalse(AIResponse.objects.filter(pk=resp_cand.pk).exists())
+
+    def test_in_place_pipeline_item_deduplication(self):
+        """Re-running a problem in the pipeline resets its existing PipelineItem in place without creating duplicates."""
+        from pipeline.tasks.control import start_pipeline
+
+        start_res1 = start_pipeline([self.p_algo_1], overrides={"provider": "manual"})
+        self.assertEqual(len(start_res1.items), 1)
+        orig_pk = start_res1.items[0].pk
+
+        self.assertEqual(PipelineItem.objects.filter(problem=self.p_algo_1).count(), 1)
+
+        # Re-run / regenerate same problem
+        start_res2 = start_pipeline(
+            [self.p_algo_1], overrides={"provider": "claude"}, allow_busy=True
+        )
+        self.assertEqual(len(start_res2.items), 1)
+        self.assertEqual(start_res2.items[0].pk, orig_pk)
+        self.assertEqual(PipelineItem.objects.filter(problem=self.p_algo_1).count(), 1)
+        self.assertEqual(start_res2.items[0].settings["provider"], "claude")
+
+    def test_tasks_status_batch_api(self):
+        """Batch status endpoint returns note_saved and pipeline_status for problem IDs."""
+        item = PipelineItem.objects.create(
+            problem=self.p_algo_1,
+            status=PipelineItem.Status.RUNNING,
+            stage=Stage.FETCH_SUBMISSION,
+        )
+        url = (
+            reverse("ui:tasks_status_batch")
+            + f"?problem_ids={self.p_algo_1.pk},{self.p_algo_2.pk}"
+        )
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("statuses", data)
+        self.assertIn(str(self.p_algo_1.pk), data["statuses"])
+        self.assertIn(str(self.p_algo_2.pk), data["statuses"])
+        p1_info = data["statuses"][str(self.p_algo_1.pk)]
+        self.assertEqual(p1_info["pipeline_status"], "running")
+        self.assertEqual(p1_info["pipeline_item_id"], item.pk)
+
+    def test_pause_and_resume_pipeline_item(self):
+        """User can pause and resume active pipeline items."""
+        item = PipelineItem.objects.create(
+            problem=self.p_algo_1,
+            status=PipelineItem.Status.RUNNING,
+            stage=Stage.GENERATE_PREFILL,
+        )
+        # Pause
+        pause_url = reverse("ui:pause_item", args=[item.pk])
+        resp = self.client.post(pause_url, HTTP_HX_REQUEST="true")
+        self.assertEqual(resp.status_code, 200)
+        item.refresh_from_db()
+        self.assertEqual(item.status, PipelineItem.Status.PAUSED)
+
+        # Resume
+        resume_url = reverse("ui:resume_item", args=[item.pk])
+        resp = self.client.post(resume_url, HTTP_HX_REQUEST="true")
+        self.assertEqual(resp.status_code, 200)
+        item.refresh_from_db()
+        self.assertEqual(item.status, PipelineItem.Status.QUEUED)
+
+    def test_prefill_studio_rendered_markdown_preview(self):
+        """AI prefill preview renders markdown template rather than raw JSON."""
+        item = PipelineItem.objects.create(
+            problem=self.p_algo_1,
+            status=PipelineItem.Status.NEEDS_INPUT,
+            stage=Stage.GENERATE_PREFILL,
+            input_kind=PipelineItem.InputKind.MANUAL_PREFILL,
+        )
+        parsed_data = {
+            "schema_version": 1,
+            "problem_summary": "Find two numbers in array that add to target.",
+            "recognition_clue": [
+                "Target sum pair",
+                "Look up complements in a hash map",
+            ],
+            "approaches": [
+                {
+                    "name": "Hash Map Single Pass",
+                    "core_idea": ["Check if complement already in map."],
+                    "trap": ["Do not use the same element twice."],
+                    "complexity_time": "O(n)",
+                    "complexity_space": "O(n)",
+                }
+            ],
+            "takeaway": ["Hash map allows O(1) complement lookup."],
+        }
+        resp_obj = AIResponse.objects.create(
+            problem=self.p_algo_1,
+            provider_name="manual",
+            model_name="test-model",
+            raw_text=json.dumps(parsed_data),
+            parsed=parsed_data,
+            status=AIResponse.Status.VALID,
+            is_active=True,
+        )
+        url = reverse("ui:preview_ai_response", args=[item.pk, resp_obj.pk])
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        content = resp.content.decode("utf-8")
+        # Must contain rendered study note content, not raw JSON
+        self.assertIn("Find two numbers in array that add to target.", content)
+        self.assertIn("Check if complement already in map.", content)
+        self.assertNotIn('"schema_version": 1', content)

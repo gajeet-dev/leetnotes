@@ -1,5 +1,5 @@
 {% extends "ui/base.html" %}
-{% block title %}Notes Generation Workbench · Leetnotes{% endblock %}
+{% block title %}Problem Selection Catalogue · Leetnotes{% endblock %}
 
 {% block content %}
 <div class="w-full flex flex-col gap-5 pb-24">
@@ -7,10 +7,19 @@
   <div class="flex flex-col gap-1.5">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Notes Generation Workbench</h1>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Problem Selection Catalogue</h1>
         <p class="text-sm text-zinc-500 dark:text-zinc-400">
-          Select solved algorithm problems, configure AI models, and monitor automated pipeline synthesis in real time.
+          Browse solved algorithm problems, check note status in your active vault, and launch notes generation.
         </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a
+          href="{% url 'ui:tasks' %}"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+        >
+          {% lucide "activity" class="h-4 w-4 text-blue-600 dark:text-blue-400" %}
+          <span>View Generation Workbench</span>
+        </a>
       </div>
     </div>
   </div>
@@ -18,7 +27,7 @@
   <!-- Search & Filter Bar -->
   <form
     id="filter-form"
-    hx-get="{% url 'ui:tasks' %}"
+    hx-get="{% url 'ui:tasks_new' %}"
     hx-target="#problems-selection-table-container"
     hx-swap="outerHTML"
     hx-push-url="true"
@@ -40,7 +49,7 @@
         placeholder="Search solved algorithms by title, ID, or slug..."
         class="h-9 w-full rounded-lg border border-zinc-300 bg-white pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-200 dark:focus:ring-zinc-200"
         oninput="const resetBtn = document.getElementById('btn-reset-filters'); if (resetBtn) resetBtn.disabled = !this.value.trim() && !document.getElementById('difficulty-input')?.value?.trim();"
-        hx-get="{% url 'ui:tasks' %}"
+        hx-get="{% url 'ui:tasks_new' %}"
         hx-target="#problems-selection-table-container"
         hx-swap="outerHTML"
         hx-include="#filter-form"
@@ -49,7 +58,7 @@
       />
     </div>
 
-    <!-- Difficulty Filter (Basecoat Dropdown Menu) -->
+    <!-- Difficulty Filter -->
     <div class="flex items-center gap-2">
       <div class="dropdown-menu w-40 relative" id="difficulty-dropdown">
         <button
@@ -119,345 +128,326 @@
         </div>
       </div>
 
+      <!-- Reset Filters Button -->
       <button
         type="button"
         id="btn-reset-filters"
-        onclick="clearFilters()"
+        class="h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        onclick="resetAllFilters()"
         {% if not search_query and not difficulty_filter %}disabled{% endif %}
-        class="h-9 inline-flex items-center px-3 rounded-lg border border-rose-200 bg-rose-50/70 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-400 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100/60 disabled:text-zinc-400 dark:disabled:border-zinc-800 dark:disabled:bg-zinc-800/40 dark:disabled:text-zinc-600"
       >
-        Clear Filters
+        {% lucide "rotate-ccw" class="h-3.5 w-3.5" %}
+        <span>Reset</span>
       </button>
     </div>
   </form>
 
-  <!-- Selection Options Bar -->
+  <!-- Problem Selection Table Partial Container -->
+  {% include "ui/partials/tasks_new_table.html" %}
+
+  <!-- Bottom Floating Selection Bar -->
   <div
     id="selection-bar"
-    class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white p-3 shadow-xs dark:border-zinc-800 dark:bg-zinc-900 transition-all"
+    class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 hidden flex items-center gap-3 rounded-full border border-zinc-800 bg-zinc-900/95 px-5 py-2.5 shadow-2xl backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/95 transition-all duration-200"
   >
-    <div class="flex flex-wrap items-center gap-3">
-      <span class="inline-flex items-center rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
-        <span id="selected-count" class="mr-1">0</span> selected
+    <div class="flex items-center gap-2 border-r border-zinc-700 pr-3 text-xs font-semibold text-white">
+      <span class="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1.5 text-[11px] font-bold text-white" id="selected-badge">
+        0
       </span>
+      <span>Selected</span>
+    </div>
 
+    <!-- Quick Select Buttons -->
+    <div class="flex items-center gap-1.5 text-xs">
       <button
         type="button"
-        id="btn-select-recent"
+        id="btn-select-all-recent"
         onclick="selectAllRecent()"
-        class="{% if not recent_problems %}hidden{% endif %} rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+        class="rounded-full bg-zinc-800 px-3 py-1 font-medium text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer"
       >
-        Select All Recent (<span id="recent-count-badge">{{ recent_problems|length }}</span>)
+        Select All Recent (<span id="recent-count-label">0</span>)
       </button>
-
       <button
         type="button"
-        onclick="toggleSelectAllPage()"
-        id="btn-select-all"
-        class="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+        onclick="selectAllVisible()"
+        class="rounded-full bg-zinc-800 px-3 py-1 font-medium text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer"
       >
-        Select All on Page
+        Select Visible
       </button>
-
       <button
         type="button"
-        id="btn-clear-selection"
         onclick="clearSelection()"
-        disabled
-        class="text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 underline underline-offset-4 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:text-zinc-400 dark:disabled:text-zinc-600 disabled:no-underline"
+        class="rounded-full bg-zinc-800 px-3 py-1 font-medium text-zinc-400 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer"
       >
         Clear
       </button>
     </div>
 
-    <!-- Submit Action: Opens modal_generate_settings -->
+    <!-- Primary Action: Open Settings & Generate Notes -->
     <button
       type="button"
-      id="btn-start-generation"
-      onclick="submitSelectionForm()"
-      disabled
-      class="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors cursor-pointer"
+      id="btn-generate-notes-bar"
+      onclick="openGenerateModalForSelection()"
+      class="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-blue-500 cursor-pointer transition-colors"
     >
-      {% lucide "sparkles" class="h-4 w-4" %}
+      {% lucide "sparkles" class="h-3.5 w-3.5" %}
       <span>Generate Notes</span>
     </button>
   </div>
-
-  <!-- Hidden Form triggering settings modal -->
-  <form
-    id="tasks-create-form"
-    hx-post="{% url 'ui:generate_settings_modal' %}"
-    hx-trigger="submit, open-settings-modal"
-    hx-target="#modal-container"
-    hx-swap="innerHTML"
-  >
-    {% csrf_token %}
-  </form>
-
-  <!-- Problems Table Container -->
-  {% include "ui/partials/tasks_new_table.html" %}
 </div>
 
+<!-- JavaScript for Catalogue State & Actions -->
 <script>
-  const selectedProblemIds = new Set();
+  let selectedProblemIds = new Set();
 
-  function updateSelectionUI() {
-    const count = selectedProblemIds.size;
-    const countEl = document.getElementById('selected-count');
-    if (countEl) countEl.innerText = count;
-
-    const submitBtn = document.getElementById('btn-start-generation');
-    if (submitBtn) {
-      submitBtn.disabled = count === 0;
-    }
-
-    const clearBtn = document.getElementById('btn-clear-selection');
-    if (clearBtn) {
-      clearBtn.disabled = count === 0;
-    }
-
-    // Toggle recent button visibility based on presence of recent section
-    const recentBoxes = document.querySelectorAll('.problem-checkbox[data-section="recent"]:not(:disabled)');
-    const btnRecent = document.getElementById('btn-select-recent');
-    const recentBadge = document.getElementById('recent-count-badge');
-    if (btnRecent) {
-      if (recentBoxes.length > 0) {
-        btnRecent.classList.remove('hidden');
-        if (recentBadge) recentBadge.textContent = recentBoxes.length;
-      } else {
-        btnRecent.classList.add('hidden');
-      }
-    }
-
-    // Update master checkbox header
-    const masterCb = document.getElementById('master-checkbox-header');
-    const enabledBoxes = Array.from(document.querySelectorAll('.problem-checkbox:not(:disabled)'));
-    if (masterCb && enabledBoxes.length > 0) {
-      const allChecked = enabledBoxes.every(cb => cb.checked);
-      const someChecked = enabledBoxes.some(cb => cb.checked);
-      masterCb.checked = allChecked;
-      masterCb.indeterminate = !allChecked && someChecked;
-    } else if (masterCb) {
-      masterCb.checked = false;
-      masterCb.indeterminate = false;
-    }
-
-    // Update clear filters button disabled state
-    const filterForm = document.getElementById('filter-form');
-    const resetBtn = document.getElementById('btn-reset-filters');
-    if (filterForm && resetBtn) {
-      const qVal = filterForm.querySelector('input[name="q"]')?.value?.trim();
-      const diffVal = document.getElementById('difficulty-input')?.value?.trim();
-      resetBtn.disabled = !qVal && !diffVal;
-    }
-  }
-
-  function selectDifficulty(value, label) {
-    const input = document.getElementById('difficulty-input');
-    if (input) {
-      input.value = value;
-    }
-    const labelEl = document.getElementById('difficulty-selected-label');
-    if (labelEl) {
-      labelEl.textContent = label;
-    }
-
-    const menu = document.querySelector('#difficulty-dropdown [role="menu"]');
-    if (menu) {
-      menu.querySelectorAll('[role="menuitemradio"]').forEach(function(item) {
-        const itemVal = item.getAttribute('data-value');
-        const isSelected = itemVal === value;
-        item.setAttribute('aria-checked', isSelected ? 'true' : 'false');
-        const indicator = item.querySelector('[data-indicator]');
-        if (indicator) {
-          indicator.classList.toggle('hidden', !isSelected);
-        }
-      });
-    }
-
-    const trigger = document.getElementById('difficulty-trigger-btn');
-    if (trigger) {
-      trigger.setAttribute('aria-expanded', 'false');
-      const popover = document.querySelector('#difficulty-dropdown [data-popover]');
-      if (popover) popover.setAttribute('aria-hidden', 'true');
-    }
-
-    updateSelectionUI();
-
-    const form = document.getElementById('filter-form');
-    if (form && window.htmx) {
-      window.htmx.trigger(form, 'submit');
-    }
-  }
-
-  function onProblemCheckboxChange(cb) {
-    const val = String(cb.value);
-    if (cb.checked) {
-      selectedProblemIds.add(val);
+  function onProblemCheckboxChange(checkbox) {
+    const id = parseInt(checkbox.value, 10);
+    if (checkbox.checked) {
+      selectedProblemIds.add(id);
     } else {
-      selectedProblemIds.delete(val);
+      selectedProblemIds.delete(id);
     }
-    updateSelectionUI();
+    updateSelectionBar();
   }
 
-  function togglePageCheckboxes(masterCb) {
-    const isChecked = masterCb.checked;
-    const enabledBoxes = document.querySelectorAll('.problem-checkbox:not(:disabled)');
-    enabledBoxes.forEach(cb => {
-      cb.checked = isChecked;
-      const val = String(cb.value);
-      if (isChecked) {
-        selectedProblemIds.add(val);
+  function onSelectAllPageHeaderChange(headerCheckbox) {
+    const checkboxes = document.querySelectorAll('.problem-checkbox');
+    checkboxes.forEach(cb => {
+      cb.checked = headerCheckbox.checked;
+      const id = parseInt(cb.value, 10);
+      if (headerCheckbox.checked) {
+        selectedProblemIds.add(id);
       } else {
-        selectedProblemIds.delete(val);
+        selectedProblemIds.delete(id);
       }
     });
-    updateSelectionUI();
-  }
-
-  function toggleSelectAllPage() {
-    const enabledBoxes = Array.from(document.querySelectorAll('.problem-checkbox:not(:disabled)'));
-    const anyUnchecked = enabledBoxes.some(cb => !cb.checked);
-    enabledBoxes.forEach(cb => {
-      cb.checked = anyUnchecked;
-      const val = String(cb.value);
-      if (anyUnchecked) {
-        selectedProblemIds.add(val);
-      } else {
-        selectedProblemIds.delete(val);
-      }
-    });
-    updateSelectionUI();
+    updateSelectionBar();
   }
 
   function selectAllRecent() {
-    const recentBoxes = document.querySelectorAll('.problem-checkbox[data-section="recent"]:not(:disabled)');
+    const recentBoxes = document.querySelectorAll('.problem-checkbox[data-section="recent"]');
     recentBoxes.forEach(cb => {
       cb.checked = true;
-      selectedProblemIds.add(String(cb.value));
+      selectedProblemIds.add(parseInt(cb.value, 10));
     });
-    updateSelectionUI();
+    updateSelectionBar();
+  }
+
+  function selectAllVisible() {
+    const checkboxes = document.querySelectorAll('.problem-checkbox');
+    checkboxes.forEach(cb => {
+      cb.checked = true;
+      selectedProblemIds.add(parseInt(cb.value, 10));
+    });
+    const headerCb = document.getElementById('select-all-page-header');
+    if (headerCb) headerCb.checked = true;
+    updateSelectionBar();
   }
 
   function clearSelection() {
     selectedProblemIds.clear();
-    document.querySelectorAll('.problem-checkbox').forEach(cb => {
-      cb.checked = false;
+    const checkboxes = document.querySelectorAll('.problem-checkbox');
+    checkboxes.forEach(cb => { cb.checked = false; });
+    const headerCb = document.getElementById('select-all-page-header');
+    if (headerCb) headerCb.checked = false;
+    updateSelectionBar();
+  }
+
+  function updateSelectionBar() {
+    const bar = document.getElementById('selection-bar');
+    const badge = document.getElementById('selected-badge');
+    const recentBoxes = document.querySelectorAll('.problem-checkbox[data-section="recent"]');
+    const recentCountLabel = document.getElementById('recent-count-label');
+    if (recentCountLabel) {
+      recentCountLabel.textContent = recentBoxes.length;
+    }
+    const recentBtn = document.getElementById('btn-select-all-recent');
+    if (recentBtn) {
+      recentBtn.style.display = recentBoxes.length > 0 ? 'inline-block' : 'none';
+    }
+
+    const count = selectedProblemIds.size;
+    if (badge) badge.textContent = count;
+    if (bar) {
+      if (count > 0) {
+        bar.classList.remove('hidden');
+      } else {
+        bar.classList.add('hidden');
+      }
+    }
+  }
+
+  function openGenerateModalForSelection() {
+    const ids = Array.from(selectedProblemIds);
+    if (!ids.length) return;
+    const params = new URLSearchParams();
+    ids.forEach(id => params.append('problem_ids', id));
+    htmx.ajax('GET', `{% url 'ui:generate_settings_modal' %}?${params.toString()}`, {
+      target: '#modal-container',
+      swap: 'innerHTML'
     });
-    updateSelectionUI();
   }
 
   function onPerPageChange(val) {
-    let num = parseInt(val, 10);
-    if (isNaN(num) || num < 1) num = 100;
-    if (num > 1000) num = 1000;
-    const perPageInput = document.getElementById('filter-per-page');
-    if (perPageInput) perPageInput.value = num;
+    const parsed = parseInt(val, 10);
+    if (!parsed || parsed < 1) return;
+    document.getElementById('filter-per-page').value = parsed;
     const form = document.getElementById('filter-form');
-    if (form && window.htmx) {
-      window.htmx.trigger(form, 'submit');
-    }
+    htmx.trigger(form, 'submit');
   }
 
-  function clearFilters() {
+  function selectDifficulty(val, label) {
+    document.getElementById('difficulty-input').value = val;
+    document.getElementById('difficulty-selected-label').textContent = label;
+    const dropdown = document.getElementById('difficulty-dropdown');
+    if (dropdown) {
+      const popover = dropdown.querySelector('[data-popover]');
+      if (popover) popover.setAttribute('aria-hidden', 'true');
+    }
     const form = document.getElementById('filter-form');
-    if (!form) return;
-    const qInput = form.querySelector('input[name="q"]');
-    if (qInput) qInput.value = '';
-    const diffInput = document.getElementById('difficulty-input');
-    if (diffInput) diffInput.value = '';
-    const diffLabel = document.getElementById('difficulty-selected-label');
-    if (diffLabel) diffLabel.textContent = 'All Difficulties';
-    const menu = document.querySelector('#difficulty-dropdown [role="menu"]');
-    if (menu) {
-      menu.querySelectorAll('[role="menuitemradio"]').forEach(function(item) {
-        const itemVal = item.getAttribute('data-value');
-        const isSelected = itemVal === '';
-        item.setAttribute('aria-checked', isSelected ? 'true' : 'false');
-        const indicator = item.querySelector('[data-indicator]');
-        if (indicator) {
-          indicator.classList.toggle('hidden', !isSelected);
+    htmx.trigger(form, 'submit');
+  }
+
+  function resetAllFilters() {
+    const searchInput = document.querySelector('input[name="q"]');
+    if (searchInput) searchInput.value = '';
+    document.getElementById('difficulty-input').value = '';
+    document.getElementById('difficulty-selected-label').textContent = 'All Difficulties';
+    const form = document.getElementById('filter-form');
+    htmx.trigger(form, 'submit');
+  }
+
+  document.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id === 'problems-selection-table-container') {
+      const checkboxes = document.querySelectorAll('.problem-checkbox');
+      checkboxes.forEach(cb => {
+        if (selectedProblemIds.has(parseInt(cb.value, 10))) {
+          cb.checked = true;
         }
       });
+      updateSelectionBar();
+      pollVisibleRowStatuses();
     }
-    const resetBtn = document.getElementById('btn-reset-filters');
-    if (resetBtn) resetBtn.disabled = true;
-    if (window.htmx) {
-      window.htmx.trigger(form, 'submit');
-    }
+  });
+
+  // Lightweight JSON Status Poller (updates only visible rows, never reloads table or hits LeetCode)
+  let catalogPollInterval = null;
+
+  function pollVisibleRowStatuses() {
+    const rows = document.querySelectorAll('tr[data-problem-pk]');
+    if (!rows || rows.length === 0) return;
+
+    const pks = Array.from(rows).map(r => r.getAttribute('data-problem-pk')).filter(Boolean);
+    if (pks.length === 0) return;
+
+    const url = "{% url 'ui:tasks_status_batch' %}?problem_ids=" + pks.join(',');
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(res => res.json())
+      .then(data => {
+        if (!data || !data.statuses) return;
+        let anyActive = false;
+        for (const [pk, info] of Object.entries(data.statuses)) {
+          if (['running', 'queued', 'needs_input'].includes(info.pipeline_status)) {
+            anyActive = true;
+          }
+          updateCatalogRowStatus(pk, info);
+        }
+        const liveIndicator = document.getElementById('catalog-live-indicator');
+        if (liveIndicator) {
+          if (anyActive) {
+            liveIndicator.classList.remove('hidden');
+          } else {
+            liveIndicator.classList.add('hidden');
+          }
+        }
+      })
+      .catch(err => {
+        console.debug('Status poll error:', err);
+      });
   }
 
-  function submitSelectionForm() {
-    if (selectedProblemIds.size === 0) return;
-    const ids = Array.from(selectedProblemIds);
+  function updateCatalogRowStatus(pk, info) {
+    const statusCell = document.getElementById('note-status-' + pk);
+    const actionCell = document.getElementById('note-action-' + pk);
+    if (!statusCell) return;
 
-    const form = document.getElementById('tasks-create-form');
-    if (form) {
-      form.querySelectorAll('input[name="problem_ids"]').forEach(el => el.remove());
-      ids.forEach(id => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'problem_ids';
-        input.value = id;
-        form.appendChild(input);
-      });
+    let statusHtml = '';
+    if (info.pipeline_status === 'running') {
+      statusHtml = `<span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200 dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-800 animate-pulse">
+        <svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        <span>Running</span>
+      </span>`;
+    } else if (info.pipeline_status === 'queued') {
+      statusHtml = `<span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-700 border border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
+        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Queued</span>
+      </span>`;
+    } else if (info.pipeline_status === 'needs_input') {
+      statusHtml = `<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 border border-amber-200 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800">
+        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Action Needed</span>
+      </span>`;
+    } else if (info.note_saved) {
+      const savedText = 'Note ' + 'Saved';
+      statusHtml = `<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-800/60">
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>${savedText}</span>
+      </span>`;
+    } else {
+      statusHtml = `<span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+        <span>No Note</span>
+      </span>`;
     }
+    statusCell.innerHTML = statusHtml;
 
-    if (window.htmx) {
-      if (typeof window.htmx.ajax === 'function') {
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
-        window.htmx.ajax('POST', "{% url 'ui:generate_settings_modal' %}", {
-          values: {
-            problem_ids: ids,
-            csrfmiddlewaretoken: csrfToken
-          },
-          target: '#modal-container',
-          swap: 'innerHTML'
-        });
-      } else if (form) {
-        window.htmx.trigger(form, 'submit');
+    if (actionCell) {
+      let actionHtml = '';
+      if (['running', 'queued', 'needs_input'].includes(info.pipeline_status)) {
+        actionHtml = `<a href="/tasks/?q=${encodeURIComponent(info.leetcode_id || info.slug)}" class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 shadow-xs transition-colors">
+          <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.48 12H2"/></svg>
+          <span>Workbench</span>
+        </a>`;
+        actionCell.innerHTML = actionHtml;
+      } else {
+        actionHtml = `<button type="button" hx-get="/tasks/modal/settings/?problem_ids=${pk}" hx-target="#modal-container" class="inline-flex items-center gap-1 rounded-md bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 cursor-pointer shadow-xs transition-colors">
+          <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+          <span>Generate</span>
+        </button>`;
+        actionCell.innerHTML = actionHtml;
+        htmx.process(actionCell);
       }
     }
   }
 
-  // Clear selections when tasks generation starts successfully from modal
-  document.body.addEventListener('htmx:afterRequest', function(evt) {
-    if (evt.detail.elt && evt.detail.elt.closest('#modal-container') && evt.detail.successful) {
-      selectedProblemIds.clear();
-      updateSelectionUI();
+  function startCatalogStatusPolling() {
+    if (catalogPollInterval) clearInterval(catalogPollInterval);
+    catalogPollInterval = setInterval(pollVisibleRowStatuses, 2500);
+  }
+
+  startCatalogStatusPolling();
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (catalogPollInterval) clearInterval(catalogPollInterval);
+    } else {
+      pollVisibleRowStatuses();
+      startCatalogStatusPolling();
     }
   });
 
-  // Restore checkbox state after HTMX loads a new page of problems
-  document.body.addEventListener('htmx:afterSwap', function(evt) {
-    if (evt.detail.target && evt.detail.target.id === 'problems-selection-table-container') {
-      document.querySelectorAll('.problem-checkbox').forEach(cb => {
-        cb.checked = selectedProblemIds.has(String(cb.value));
-      });
-      updateSelectionUI();
-    }
-  });
+  // Dropdown toggle handler
+  document.addEventListener('click', function(e) {
+    const trigger = e.target.closest('#difficulty-trigger-btn');
+    const dropdown = document.getElementById('difficulty-dropdown');
+    if (!dropdown) return;
+    const popover = dropdown.querySelector('[data-popover]');
+    if (!popover) return;
 
-  // Strip empty filter parameters so pushed URLs are clean
-  document.body.addEventListener('htmx:configRequest', function(evt) {
-    if (
-      evt.detail.elt &&
-      (evt.detail.elt.id === 'filter-form' ||
-        evt.detail.elt.closest('#filter-form') ||
-        evt.detail.elt.closest('#problems-selection-table-container'))
-    ) {
-      for (const key in evt.detail.parameters) {
-        if (evt.detail.parameters[key] === '') {
-          delete evt.detail.parameters[key];
-        }
-      }
-    }
-  });
-
-  document.addEventListener('DOMContentLoaded', function() {
-    updateSelectionUI();
-    if (window.basecoat && typeof window.basecoat.initAll === 'function') {
-      window.basecoat.initAll();
+    if (trigger) {
+      const isHidden = popover.getAttribute('aria-hidden') === 'true';
+      popover.setAttribute('aria-hidden', isHidden ? 'false' : 'true');
+    } else if (!dropdown.contains(e.target)) {
+      popover.setAttribute('aria-hidden', 'true');
     }
   });
 </script>

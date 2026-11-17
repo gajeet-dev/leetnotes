@@ -1,0 +1,131 @@
+<div
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+  role="dialog"
+  aria-modal="true"
+>
+  <div class="relative flex max-h-[92vh] w-full max-w-5xl flex-col rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+      <div class="flex items-center gap-2.5">
+        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300">
+          {% lucide "git-branch" class="h-5 w-5" %}
+        </div>
+        <div>
+          <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+            Submission Conflict: Newer Code Available
+          </h2>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">
+            {{ problem.leetcode_id }}. {{ problem.title }} ({{ problem.slug }})
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onclick="closeStageModal()"
+        class="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 cursor-pointer"
+        title="Close dialog"
+      >
+        {% lucide "x" class="h-5 w-5" %}
+      </button>
+    </div>
+
+    <!-- Description Notice -->
+    <div class="bg-amber-50/60 px-6 py-2.5 text-xs text-amber-800 border-b border-amber-200/60 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900/40 flex items-center gap-2">
+      {% lucide "info" class="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" %}
+      <span>
+        A newer accepted submission was detected on LeetCode. Compare both solutions below and choose which one to use for your study notes.
+      </span>
+    </div>
+
+    <!-- Side-by-Side Code Diff Body -->
+    <div class="flex-1 overflow-y-auto p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Left: Existing DB Submission -->
+        <div class="flex flex-col rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/50">
+          <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1 rounded bg-zinc-200 px-2 py-0.5 text-xs font-semibold text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 font-mono">
+                Existing Solution
+              </span>
+              <span class="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                {{ existing_submission.lang|default:"Code" }}
+              </span>
+            </div>
+            <span class="text-[11px] font-mono text-zinc-500">
+              {{ existing_submission.submission_date|date:"Y-m-d H:i"|default:"Saved in DB" }}
+            </span>
+          </div>
+
+          <div class="mt-3 flex-1">
+            <pre class="h-80 overflow-auto rounded-md bg-zinc-900 p-3 text-xs font-mono text-zinc-100 dark:bg-zinc-950"><code>{{ existing_submission.code }}</code></pre>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">
+            <form
+              hx-post="{% url 'ui:resolve_submission_choice' item.pk %}"
+              hx-target="#workbench-table-container"
+              hx-swap="outerHTML"
+            >
+              {% csrf_token %}
+              <input type="hidden" name="choice" value="keep" />
+              <button
+                type="submit"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-800 shadow-xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+              >
+                {% lucide "check" class="h-3.5 w-3.5" %}
+                <span>Keep Existing Submission</span>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Right: Newer LeetCode Submission -->
+        <div class="flex flex-col rounded-lg border border-blue-200 bg-blue-50/20 p-4 dark:border-blue-900/50 dark:bg-blue-950/20">
+          <div class="flex items-center justify-between pb-3 border-b border-blue-200 dark:border-blue-900/50">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 font-mono">
+                Latest LeetCode
+              </span>
+              <span class="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                {{ newer_submission.lang|default:"Code" }}
+              </span>
+            </div>
+            <span class="text-[11px] font-mono text-blue-600 dark:text-blue-400">
+              {{ newer_submission.submission_date|date:"Y-m-d H:i"|default:"Newer" }}
+            </span>
+          </div>
+
+          <div class="mt-3 flex-1">
+            {% if newer_submission.code %}
+              <pre class="h-80 overflow-auto rounded-md bg-zinc-900 p-3 text-xs font-mono text-zinc-100 dark:bg-zinc-950"><code>{{ newer_submission.code }}</code></pre>
+            {% else %}
+              <div class="flex h-80 flex-col items-center justify-center rounded-md bg-zinc-900 p-6 text-center text-zinc-400 dark:bg-zinc-950">
+                {% lucide "cloud-download" class="h-8 w-8 text-blue-400 opacity-60 mb-2" %}
+                <p class="text-xs font-medium">Newer submission ID: {{ newer_submission.submission_id }}</p>
+                <p class="text-[11px] text-zinc-500 mt-1">Full code will be retrieved automatically upon selecting this version.</p>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-blue-200 dark:border-blue-900/50 flex justify-end">
+            <form
+              hx-post="{% url 'ui:resolve_submission_choice' item.pk %}"
+              hx-target="#workbench-table-container"
+              hx-swap="outerHTML"
+            >
+              {% csrf_token %}
+              <input type="hidden" name="choice" value="use_latest" />
+              <button
+                type="submit"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 cursor-pointer transition-colors"
+              >
+                {% lucide "arrow-right" class="h-3.5 w-3.5" %}
+                <span>Use Latest Submission</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

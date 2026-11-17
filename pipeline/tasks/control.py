@@ -20,9 +20,12 @@ def start_pipeline(
     problems: Iterable[Problem],
     overrides: dict | None = None,
     wake: WakeWorker = ensure_worker_running,
+    allow_busy: bool = False,
 ) -> PipelineStart:
     """Start pipeline for problems and wake worker."""
-    return start_pipeline_items(problems, overrides=overrides, wake=wake)
+    return start_pipeline_items(
+        problems, overrides=overrides, wake=wake, allow_busy=allow_busy
+    )
 
 
 start_task = start_pipeline  # backward compatibility alias

@@ -8,6 +8,7 @@ from django.conf import settings
 from django.core.paginator import Paginator
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import (
     require_GET,
     require_http_methods,
@@ -19,18 +20,29 @@ from leetcode.exceptions import AuthError, LeetCodeError
 from pipeline.actions import (
     approve_all_reviews,
     approve_review,
+    delete_ai_response,
     reject_review,
+    resolve_submission_choice,
     retry_failed_item,
+    select_existing_prefill,
     submit_manual_reply,
+    switch_provider_and_generate,
 )
 from pipeline.models import PipelineItem
 from pipeline.stages.definitions import Stage
 from pipeline.tasks.control import (
     cancel as cancel_item,
+)
+from pipeline.tasks.control import (
     pause as pause_item,
+)
+from pipeline.tasks.control import (
     resume as resume_item,
+)
+from pipeline.tasks.control import (
     start_pipeline,
 )
+from prefill.models import AIResponse
 from prefill.providers.config import default_provider_name, provider_names
 from prefill.providers.discovery import get_agy_models
 from problems.models import Problem, SyncTask
@@ -67,6 +79,7 @@ from .helpers.settings import (
 from .helpers.tasks import (
     get_algorithms_solved_problems,
     get_modal_data_for_item_stage,
+    get_workbench_pipeline_items,
 )
 
 logger = structlog.get_logger(__name__)
@@ -1002,20 +1015,17 @@ def download_database_file_view(request):
     )
 
 
-# --- Notes Generation Workbench Views ---
+# --- Problem Selection Catalogue Views (/tasks/new/) ---
 
 
-def _render_workbench_table(request, extra_context=None):
-    search_query = (
-        request.GET.get("q", "").strip() or request.POST.get("q", "").strip()
-    )
+def _render_catalog_table(request, extra_context=None):
+    search_query = request.GET.get("q", "").strip() or request.POST.get("q", "").strip()
     difficulty = (
         request.GET.get("difficulty", "").strip()
         or request.POST.get("difficulty", "").strip()
     )
     status_filter = (
-        request.GET.get("status", "").strip()
-        or request.POST.get("status", "").strip()
+        request.GET.get("status", "").strip() or request.POST.get("status", "").strip()
     )
     page = request.GET.get("page", 1) or request.POST.get("page", 1)
     per_page = parse_per_page(request, default=100)
@@ -1043,10 +1053,10 @@ def _render_workbench_table(request, extra_context=None):
 
 
 @require_GET
-def tasks_workbench_view(request):
-    """Unified Notes Generation Workbench: select problems, monitor live pipelines, trigger actions."""
+def tasks_catalog_view(request):
+    """Problem Selection Catalogue: browse solved algorithms and select problems for notes generation."""
     if request.headers.get("HX-Request"):
-        return _render_workbench_table(request)
+        return _render_catalog_table(request)
 
     search_query = request.GET.get("q", "").strip()
     difficulty = request.GET.get("difficulty", "").strip()
@@ -1074,21 +1084,81 @@ def tasks_workbench_view(request):
     return render(request, "ui/tasks_new.html", context)
 
 
+# --- Notes Generation Workbench Views (/tasks/) ---
+
+
+def _render_workbench_table(request, extra_context=None):
+    search_query = request.GET.get("q", "").strip() or request.POST.get("q", "").strip()
+    status_filter = (
+        request.GET.get("status", "").strip() or request.POST.get("status", "").strip()
+    )
+    date_filter = (
+        request.GET.get("date", "").strip() or request.POST.get("date", "").strip()
+    )
+    page = request.GET.get("page", 1) or request.POST.get("page", 1)
+    per_page = parse_per_page(request, default=50)
+
+    data = get_workbench_pipeline_items(
+        search_query=search_query,
+        status_filter=status_filter,
+        date_filter=date_filter,
+        page=page,
+        per_page=per_page,
+    )
+
+    context = {
+        "active": "tasks",
+        "per_page": per_page,
+        **data,
+    }
+    if extra_context:
+        context.update(extra_context)
+    return render(request, "ui/partials/workbench_table.html", context)
+
+
+@require_GET
+def tasks_workbench_view(request):
+    """Notes Generation Workbench: monitor pipeline runs, resolve diffs, review notes."""
+    if request.headers.get("HX-Request"):
+        return _render_workbench_table(request)
+
+    search_query = request.GET.get("q", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+    date_filter = request.GET.get("date", "").strip()
+    page = request.GET.get("page", 1)
+    per_page = parse_per_page(request, default=50)
+
+    data = get_workbench_pipeline_items(
+        search_query=search_query,
+        status_filter=status_filter,
+        date_filter=date_filter,
+        page=page,
+        per_page=per_page,
+    )
+
+    context = {
+        "active": "tasks",
+        "per_page": per_page,
+        **data,
+    }
+    return render(request, "ui/tasks_workbench.html", context)
+
+
 # Compatibility aliases for routes
-tasks_new_view = tasks_workbench_view
+tasks_new_view = tasks_catalog_view
 tasks_list_view = tasks_workbench_view
 tasks_poll_view = tasks_workbench_view
 
 
 @require_http_methods(["GET", "POST"])
 def generate_settings_modal_view(request):
-    """Render the Settings Override modal before launching notes generation."""
+    """Render the Settings Override modal before launching or regenerating notes."""
     raw_ids = request.POST.getlist("problem_ids") or request.GET.getlist("problem_ids")
     problem_ids = []
     for raw in raw_ids:
         try:
             problem_ids.append(int(raw))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
 
     cfg = load_config()
@@ -1114,13 +1184,13 @@ def generate_settings_modal_view(request):
 
 @require_POST
 def tasks_create_view(request):
-    """Start pipeline generation for selected problems with modal settings overrides."""
+    """Start or reset pipeline generation for selected problems with modal settings overrides."""
     raw_ids = request.POST.getlist("problem_ids")
     problem_ids = []
     for raw in raw_ids:
         try:
             problem_ids.append(int(raw))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
 
     if problem_ids:
@@ -1141,16 +1211,118 @@ def tasks_create_view(request):
                 overrides["refetch"] = request.POST.get("refetch") == "true"
 
             try:
-                start_pipeline(problems, overrides=overrides)
+                start_pipeline(problems, overrides=overrides, allow_busy=True)
             except Exception as e:
                 logger.exception("start_pipeline_failed", error=str(e))
 
     if request.headers.get("HX-Request"):
+        current_url = request.headers.get("HX-Current-URL", "")
+        if "new" in current_url:
+            response = HttpResponse()
+            response["HX-Redirect"] = reverse("ui:tasks")
+            return response
         table_html = _render_workbench_table(request).content.decode("utf-8")
         oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
         return HttpResponse(table_html + oob_clear)
 
     return redirect("ui:tasks")
+
+
+tasks_regenerate_view = tasks_create_view
+
+
+@require_POST
+def resolve_submission_choice_view(request, item_id: int):
+    """Resolve submission conflict: keep existing DB code or update to latest LeetCode submission."""
+    choice = request.POST.get("choice", "keep").strip()
+    try:
+        resolve_submission_choice(item_id, choice)
+    except Exception as e:
+        logger.exception(
+            "resolve_submission_choice_failed", item_id=item_id, error=str(e)
+        )
+
+    table_html = _render_workbench_table(request).content.decode("utf-8")
+    oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
+    return HttpResponse(table_html + oob_clear)
+
+
+@require_POST
+def switch_provider_prefill_view(request, item_id: int):
+    """Switch AI provider and settings in-place for prefill stage and re-queue."""
+    provider = request.POST.get("provider", "claude").strip()
+    model = request.POST.get("model", "").strip()
+    effort = request.POST.get("effort", "").strip()
+
+    try:
+        switch_provider_and_generate(item_id, provider, model, effort)
+    except Exception as e:
+        logger.exception(
+            "switch_provider_prefill_failed", item_id=item_id, error=str(e)
+        )
+
+    table_html = _render_workbench_table(request).content.decode("utf-8")
+    oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
+    return HttpResponse(table_html + oob_clear)
+
+
+@require_POST
+def select_prefill_response_view(request, item_id: int, response_id: int):
+    """Select an existing AIResponse candidate and advance the pipeline."""
+    try:
+        select_existing_prefill(item_id, response_id)
+    except Exception as e:
+        logger.exception(
+            "select_prefill_response_failed", item_id=item_id, error=str(e)
+        )
+
+    table_html = _render_workbench_table(request).content.decode("utf-8")
+    oob_clear = '<div id="modal-container" hx-swap-oob="innerHTML"></div>'
+    return HttpResponse(table_html + oob_clear)
+
+
+@require_GET
+def preview_ai_response_view(request, item_id: int, response_id: int):
+    """Return rendered HTML markdown preview for a selected AIResponse candidate."""
+    try:
+        item = PipelineItem.objects.select_related("problem").get(pk=item_id)
+        resp = AIResponse.objects.get(pk=response_id)
+        from ui.helpers.tasks import render_ai_response_to_html
+
+        html = render_ai_response_to_html(item.problem, resp)
+    except Exception as e:
+        html = (
+            f"<div class='p-4 text-xs text-rose-500'>Error loading preview: {e}</div>"
+        )
+    return HttpResponse(html)
+
+
+@require_http_methods(["DELETE", "POST"])
+def delete_ai_response_view(request, item_id: int, response_id: int):
+    """Delete an AIResponse candidate and return the updated candidate cards partial."""
+    try:
+        item = PipelineItem.objects.select_related("problem").get(pk=item_id)
+        delete_ai_response(item_id, response_id)
+        responses = list(
+            AIResponse.objects.filter(problem=item.problem).order_by("-created_at")
+        )
+        selected_response = next((r for r in responses if r.is_active), None) or (
+            responses[0] if responses else None
+        )
+        return render(
+            request,
+            "ui/partials/modals/prefill_candidate_list.html",
+            {
+                "item": item,
+                "responses": responses,
+                "selected_response": selected_response,
+            },
+        )
+    except Exception as e:
+        logger.exception("delete_ai_response_failed", error=str(e))
+        return HttpResponse(
+            f"<div class='p-2 text-xs text-rose-500'>Error deleting candidate: {e}</div>"
+        )
 
 
 @require_GET
@@ -1163,8 +1335,10 @@ def stage_modal_content_view(request, item_id: int, stage: str):
 
     context = get_modal_data_for_item_stage(item, stage)
 
-    if stage == Stage.GENERATE_PREFILL:
-        tpl = "ui/partials/modals/modal_manual_prefill.html"
+    if stage == Stage.FETCH_SUBMISSION:
+        tpl = "ui/partials/modals/modal_stale_submission.html"
+    elif stage == Stage.GENERATE_PREFILL:
+        tpl = "ui/partials/modals/modal_prefill_studio.html"
     elif stage == Stage.REVIEW:
         tpl = "ui/partials/modals/modal_review.html"
     else:
@@ -1204,7 +1378,7 @@ def approve_review_view(request, item_id: int):
 
 @require_POST
 def reject_review_view(request, item_id: int):
-    """Reject a note waiting for review, queue regeneration, and close modal in-place."""
+    """Reject a note waiting for review, reset to prefill stage with manual tab, and close modal."""
     try:
         reject_review(item_id)
     except Exception as e:
@@ -1240,6 +1414,26 @@ def retry_item_view(request, item_id: int):
 
 
 @require_POST
+def pause_item_view(request, item_id: int):
+    """Pause an active pipeline item."""
+    try:
+        pause_item(item_id)
+    except Exception as e:
+        logger.exception("pause_item_failed", item_id=item_id, error=str(e))
+    return _render_workbench_table(request)
+
+
+@require_POST
+def resume_item_view(request, item_id: int):
+    """Resume a paused pipeline item."""
+    try:
+        resume_item(item_id)
+    except Exception as e:
+        logger.exception("resume_item_failed", item_id=item_id, error=str(e))
+    return _render_workbench_table(request)
+
+
+@require_POST
 def cancel_item_view(request, item_id: int):
     """Cancel an active pipeline item."""
     try:
@@ -1248,3 +1442,31 @@ def cancel_item_view(request, item_id: int):
         logger.exception("cancel_item_failed", item_id=item_id, error=str(e))
 
     return _render_workbench_table(request)
+
+
+@require_GET
+def tasks_status_batch_view(request):
+    """Return JSON status of problems for Catalogue polling (note saved, active pipeline status).
+
+    Avoids fetching LeetCode API or reloading the entire table.
+    """
+    problem_ids_param = request.GET.get("problem_ids", "").strip()
+    if not problem_ids_param:
+        return JsonResponse({"statuses": {}})
+
+    try:
+        problem_pks = [
+            int(pk_str.strip())
+            for pk_str in problem_ids_param.split(",")
+            if pk_str.strip().isdigit()
+        ]
+    except Exception:
+        return JsonResponse({"statuses": {}})
+
+    if not problem_pks:
+        return JsonResponse({"statuses": {}})
+
+    from ui.helpers.tasks import get_problems_batch_status
+
+    statuses = get_problems_batch_status(problem_pks)
+    return JsonResponse({"statuses": statuses})

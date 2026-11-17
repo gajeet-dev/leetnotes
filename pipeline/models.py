@@ -25,6 +25,7 @@ class PipelineItem(models.Model):
     class InputKind(models.TextChoices):
         MANUAL_PREFILL = "manual_prefill"  # paste a reply from a web chat
         REVIEW = "review"  # approve the AI note before it is saved
+        SUBMISSION_CHOICE = "submission_choice"  # choose between existing and newer submission
 
     problem = models.ForeignKey(
         Problem, on_delete=models.CASCADE, related_name="pipeline_items"
@@ -46,7 +47,7 @@ class PipelineItem(models.Model):
     finished_at = models.DateTimeField(null=True, blank=True)
 
     if TYPE_CHECKING:
-        stages: "RelatedManager[ItemStage]"
+        stages: RelatedManager[ItemStage]
 
     class Meta:
         ordering = ["position", "-created_at"]

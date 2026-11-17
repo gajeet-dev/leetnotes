@@ -1,0 +1,370 @@
+<div
+  id="workbench-table-container"
+  data-total-count="{{ total_count }}"
+  {% if has_active_items %}
+    hx-get="{% url 'ui:tasks' %}?page={{ page_obj.number }}&per_page={{ per_page|default:50 }}&q={{ search_query }}&status={{ status_filter }}&date={{ date_filter }}"
+    hx-trigger="every 1.5s"
+    hx-swap="outerHTML"
+  {% endif %}
+  class="flex flex-col bg-transparent"
+>
+  <!-- Pagination & Count Bar -->
+  <div class="flex flex-col items-center justify-between gap-3 px-1 py-2 sm:flex-row text-xs text-zinc-500 dark:text-zinc-400">
+    <div class="flex items-center gap-3">
+      <div>
+        Showing <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ display_start }}</span>
+        to <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ display_end }}</span>
+        of <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ total_count }}</span> pipeline problems
+      </div>
+      {% if has_active_items %}
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-semibold text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 animate-pulse">
+          {% lucide "loader-circle" class="h-3 w-3 animate-spin" %}
+          <span>Active Pipeline Running</span>
+        </span>
+      {% endif %}
+    </div>
+
+    <!-- Pagination Controls -->
+    <div class="flex items-center gap-2">
+      {% if page_obj.has_previous %}
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 shadow-xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
+          hx-get="{% url 'ui:tasks' %}?page={{ page_obj.previous_page_number }}&per_page={{ per_page|default:50 }}&q={{ search_query }}&status={{ status_filter }}&date={{ date_filter }}"
+          hx-include="#workbench-filter-form"
+          hx-target="#workbench-table-container"
+          hx-swap="outerHTML"
+          hx-push-url="true"
+        >
+          {% lucide "chevron-left" class="h-3.5 w-3.5" %}
+          Previous
+        </button>
+      {% endif %}
+
+      <span class="font-mono text-xs text-zinc-600 dark:text-zinc-400">
+        {{ page_obj.number }} / {{ page_obj.paginator.num_pages|default:1 }}
+      </span>
+
+      {% if page_obj.has_next %}
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 shadow-xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
+          hx-get="{% url 'ui:tasks' %}?page={{ page_obj.next_page_number }}&per_page={{ per_page|default:50 }}&q={{ search_query }}&status={{ status_filter }}&date={{ date_filter }}"
+          hx-include="#workbench-filter-form"
+          hx-target="#workbench-table-container"
+          hx-swap="outerHTML"
+          hx-push-url="true"
+        >
+          Next
+          {% lucide "chevron-right" class="h-3.5 w-3.5" %}
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Responsive Borderless Table Container -->
+  <div class="w-full overflow-x-auto border-t border-zinc-200/60 dark:border-zinc-800/60">
+    <table class="w-full text-left text-sm whitespace-nowrap border-collapse">
+      <thead class="border-b border-zinc-200/80 bg-zinc-50/60 text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/60 dark:text-zinc-400">
+        <tr>
+          <th scope="col" class="py-3 px-3 w-10 text-center whitespace-nowrap">
+            <input
+              type="checkbox"
+              id="workbench-select-all"
+              onchange="onWorkbenchSelectAllChange(this)"
+              class="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:ring-zinc-200 cursor-pointer"
+              title="Select all items on this page"
+            />
+          </th>
+          <th scope="col" class="py-3 px-3 min-w-[280px] whitespace-nowrap">Problem</th>
+          <th scope="col" class="py-3 px-2 w-20 text-center whitespace-nowrap">Difficulty</th>
+          <th scope="col" class="py-3 px-3 w-28 text-center whitespace-nowrap">Status</th>
+          <th scope="col" class="py-3 px-3 w-32 whitespace-nowrap">Run Date</th>
+          <th scope="col" class="py-3 px-1.5 w-12 text-center whitespace-nowrap" title="Stage 1: Fetch Problem">Fetch</th>
+          <th scope="col" class="py-3 px-1.5 w-12 text-center whitespace-nowrap" title="Stage 2: Images">Images</th>
+          <th scope="col" class="py-3 px-1.5 w-12 text-center whitespace-nowrap" title="Stage 3: Submission Code">Code</th>
+          <th scope="col" class="py-3 px-1.5 w-12 text-center whitespace-nowrap" title="Stage 4: AI Prefill Studio">Prefill</th>
+          <th scope="col" class="py-3 px-1.5 w-12 text-center whitespace-nowrap" title="Stage 5: Review Note">Review</th>
+          <th scope="col" class="py-3 px-1.5 w-12 text-center whitespace-nowrap" title="Stage 6: Save to Vault">Save</th>
+          <th scope="col" class="py-3 px-3 w-32 text-center whitespace-nowrap">Action</th>
+          <th scope="col" class="py-3 px-2 w-12 text-center whitespace-nowrap"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-200/40 dark:divide-zinc-800/40 font-normal">
+        {% if not items %}
+          <tr>
+            <td colspan="13" class="py-16 text-center text-zinc-500 dark:text-zinc-400">
+              <div class="flex flex-col items-center justify-center gap-2">
+                {% lucide "sparkles" class="h-8 w-8 text-zinc-400 opacity-50" %}
+                <p class="font-semibold text-zinc-700 dark:text-zinc-300">No pipeline items found.</p>
+                <p class="text-xs text-zinc-500">Add problems from the Catalogue to start generating notes.</p>
+                <a
+                  href="{% url 'ui:tasks_new' %}"
+                  class="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
+                >
+                  {% lucide "plus" class="h-3.5 w-3.5" %}
+                  <span>Select Problems from Catalogue</span>
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% endif %}
+
+        {% for item in items %}
+          <tr
+            class="workbench-row hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors group select-none"
+            data-item-pk="{{ item.pk }}"
+            data-problem-pk="{{ item.problem.pk }}"
+            data-status="{{ item.status }}"
+            data-title="{{ item.problem.leetcode_id|default:item.problem.pk }}. {{ item.problem.title|default:item.problem.slug }}"
+            oncontextmenu="openWorkbenchContextMenu(event, this); return false;"
+          >
+            <!-- Checkbox -->
+            <td class="py-3 px-3 text-center whitespace-nowrap">
+              <input
+                type="checkbox"
+                value="{{ item.problem.pk }}"
+                data-item-id="{{ item.pk }}"
+                onchange="onWorkbenchRowCheckboxChange(this)"
+                class="workbench-checkbox h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:ring-zinc-200 cursor-pointer"
+              />
+            </td>
+
+            <!-- Problem ID + Title (merged, slug hidden) -->
+            <td class="py-3 px-3 whitespace-nowrap">
+              <a
+                href="https://leetcode.com/problems/{{ item.problem.slug }}/"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="font-semibold text-zinc-900 hover:underline dark:text-zinc-100 inline-flex items-center gap-1.5"
+              >
+                <span>{{ item.problem.leetcode_id|default:item.problem.pk }}. {{ item.problem.title|default:item.problem.slug }}</span>
+                {% lucide "external-link" class="h-3 w-3 text-zinc-400 opacity-60" %}
+              </a>
+            </td>
+
+            <!-- Difficulty -->
+            <td class="py-3 px-2 text-center whitespace-nowrap">
+              {% if item.problem.difficulty == 'Easy' %}
+                <span class="rounded bg-emerald-100/80 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400">Easy</span>
+              {% elif item.problem.difficulty == 'Medium' %}
+                <span class="rounded bg-amber-100/80 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-400">Med</span>
+              {% elif item.problem.difficulty == 'Hard' %}
+                <span class="rounded bg-rose-100/80 px-2 py-0.5 text-xs font-semibold text-rose-800 dark:bg-rose-950/60 dark:text-rose-400">Hard</span>
+              {% endif %}
+            </td>
+
+            <!-- Status (Moved between Difficulty and Run Date, badge only) -->
+            <td class="py-3 px-3 text-center whitespace-nowrap">
+              {% if item.status == 'running' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 animate-pulse">
+                  {% lucide "loader-circle" class="h-3 w-3 animate-spin" %}
+                  <span>Running</span>
+                </span>
+              {% elif item.status == 'queued' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                  {% lucide "clock" class="h-3 w-3" %}
+                  <span>Queued</span>
+                </span>
+              {% elif item.status == 'needs_input' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                  {% lucide "clock" class="h-3 w-3" %}
+                  <span>Waiting</span>
+                </span>
+              {% elif item.status == 'completed' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
+                  {% lucide "check" class="h-3.5 w-3.5" %}
+                  <span>Completed</span>
+                </span>
+              {% elif item.status == 'failed' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                  {% lucide "circle-alert" class="h-3 w-3" %}
+                  <span>Failed</span>
+                </span>
+              {% elif item.status == 'paused' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+                  {% lucide "pause" class="h-3 w-3" %}
+                  <span>Paused</span>
+                </span>
+              {% elif item.status == 'cancelled' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                  <span>Cancelled</span>
+                </span>
+              {% else %}
+                <span class="text-xs text-zinc-400 font-mono">{{ item.status|title }}</span>
+              {% endif %}
+            </td>
+
+            <!-- Run Date -->
+            <td class="py-3 px-3 text-xs text-zinc-500 dark:text-zinc-400 font-mono whitespace-nowrap">
+              {{ item.updated_at|date:"M d · H:i" }}
+            </td>
+
+            <!-- 6 Individual Stages (Icons Only) -->
+            {% for st in item.stage_list %}
+              <td class="py-3 px-1.5 text-center align-middle whitespace-nowrap">
+                {% if st %}
+                  {% include "ui/partials/stage_chips.html" with item=item stage=st %}
+                {% else %}
+                  <span class="inline-flex h-6 w-6 items-center justify-center text-zinc-300 dark:text-zinc-700 opacity-30">
+                    {% lucide "circle" class="h-2 w-2 fill-current" %}
+                  </span>
+                {% endif %}
+              </td>
+            {% endfor %}
+
+            <!-- Dedicated Action Column -->
+            <td class="py-3 px-3 text-center whitespace-nowrap">
+              {% if item.status == 'needs_input' %}
+                {% if item.input_kind == 'review' %}
+                  <button
+                    type="button"
+                    hx-get="{% url 'ui:stage_modal' item.pk 'review' %}"
+                    hx-target="#modal-container"
+                    class="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-500 cursor-pointer shadow-xs transition-colors"
+                  >
+                    {% lucide "eye" class="h-3.5 w-3.5" %}
+                    <span>Review Note</span>
+                  </button>
+                {% elif item.input_kind == 'submission_choice' %}
+                  <button
+                    type="button"
+                    hx-get="{% url 'ui:stage_modal' item.pk 'fetch_submission' %}"
+                    hx-target="#modal-container"
+                    class="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-500 border border-amber-500/30 hover:bg-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400 cursor-pointer shadow-xs transition-colors"
+                  >
+                    {% lucide "git-branch" class="h-3.5 w-3.5" %}
+                    <span>Choose Code</span>
+                  </button>
+                {% else %}
+                  <button
+                    type="button"
+                    hx-get="{% url 'ui:stage_modal' item.pk 'generate_prefill' %}"
+                    hx-target="#modal-container"
+                    class="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-500 border border-amber-500/30 hover:bg-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400 cursor-pointer shadow-xs transition-colors"
+                  >
+                    {% lucide "sparkles" class="h-3.5 w-3.5" %}
+                    <span>Paste AI</span>
+                  </button>
+                {% endif %}
+              {% elif item.status == 'failed' %}
+                <button
+                  type="button"
+                  hx-post="{% url 'ui:retry_item' item.pk %}"
+                  hx-target="#workbench-table-container"
+                  hx-swap="outerHTML"
+                  class="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 border border-rose-200 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 cursor-pointer transition-colors shadow-2xs"
+                >
+                  {% lucide "rotate-cw" class="h-3.5 w-3.5" %}
+                  <span>Retry</span>
+                </button>
+              {% else %}
+                <span class="text-xs text-zinc-300 dark:text-zinc-700 font-mono">—</span>
+              {% endif %}
+            </td>
+
+            <!-- Options Column: 3-Dots Dropdown Menu -->
+            <td class="py-3 px-2 text-center whitespace-nowrap">
+              <div class="dropdown-menu relative inline-block">
+                <button
+                  type="button"
+                  class="row-menu-btn rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 cursor-pointer transition-colors"
+                  title="More actions"
+                  onclick="toggleRowDropdown(event, this)"
+                >
+                  {% lucide "ellipsis-vertical" class="h-4 w-4" %}
+                </button>
+                <div
+                  data-popover
+                  class="hidden absolute right-0 top-full mt-1 w-32 z-50 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900 text-xs font-medium text-left"
+                >
+                  {% if item.status in 'running,queued' %}
+                    <button
+                      type="button"
+                      hx-post="{% url 'ui:pause_item' item.pk %}"
+                      hx-target="#workbench-table-container"
+                      hx-swap="outerHTML"
+                      class="flex w-full items-center gap-2 px-3 py-1.5 text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
+                      onclick="closeAllRowDropdowns()"
+                    >
+                      {% lucide "pause" class="h-3.5 w-3.5" %}
+                      <span>Pause</span>
+                    </button>
+                    <button
+                      type="button"
+                      hx-post="{% url 'ui:cancel_item' item.pk %}"
+                      hx-target="#workbench-table-container"
+                      hx-swap="outerHTML"
+                      class="flex w-full items-center gap-2 px-3 py-1.5 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer"
+                      onclick="closeAllRowDropdowns()"
+                    >
+                      {% lucide "circle-stop" class="h-3.5 w-3.5" %}
+                      <span>Cancel</span>
+                    </button>
+                  {% elif item.status == 'paused' %}
+                    <button
+                      type="button"
+                      hx-post="{% url 'ui:resume_item' item.pk %}"
+                      hx-target="#workbench-table-container"
+                      hx-swap="outerHTML"
+                      class="flex w-full items-center gap-2 px-3 py-1.5 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40 cursor-pointer"
+                      onclick="closeAllRowDropdowns()"
+                    >
+                      {% lucide "play" class="h-3.5 w-3.5" %}
+                      <span>Resume</span>
+                    </button>
+                    <button
+                      type="button"
+                      hx-post="{% url 'ui:cancel_item' item.pk %}"
+                      hx-target="#workbench-table-container"
+                      hx-swap="outerHTML"
+                      class="flex w-full items-center gap-2 px-3 py-1.5 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer"
+                      onclick="closeAllRowDropdowns()"
+                    >
+                      {% lucide "circle-stop" class="h-3.5 w-3.5" %}
+                      <span>Cancel</span>
+                    </button>
+                  {% elif item.status == 'needs_input' %}
+                    <button
+                      type="button"
+                      hx-post="{% url 'ui:cancel_item' item.pk %}"
+                      hx-target="#workbench-table-container"
+                      hx-swap="outerHTML"
+                      class="flex w-full items-center gap-2 px-3 py-1.5 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer"
+                      onclick="closeAllRowDropdowns()"
+                    >
+                      {% lucide "circle-stop" class="h-3.5 w-3.5" %}
+                      <span>Cancel</span>
+                    </button>
+                  {% elif item.status == 'failed' %}
+                    <button
+                      type="button"
+                      hx-post="{% url 'ui:retry_item' item.pk %}"
+                      hx-target="#workbench-table-container"
+                      hx-swap="outerHTML"
+                      class="flex w-full items-center gap-2 px-3 py-1.5 text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
+                      onclick="closeAllRowDropdowns()"
+                    >
+                      {% lucide "rotate-cw" class="h-3.5 w-3.5" %}
+                      <span>Retry</span>
+                    </button>
+                  {% endif %}
+                  <button
+                    type="button"
+                    hx-get="{% url 'ui:generate_settings_modal' %}?problem_ids={{ item.problem.pk }}"
+                    hx-target="#modal-container"
+                    class="flex w-full items-center gap-2 px-3 py-1.5 text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
+                    onclick="closeAllRowDropdowns()"
+                  >
+                    {% lucide "rotate-cw" class="h-3.5 w-3.5" %}
+                    <span>Re-run</span>
+                  </button>
+                </div>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,415 @@
+{% extends "ui/base.html" %}
+{% block title %}Notes Generation Workbench · Leetnotes{% endblock %}
+
+{% block content %}
+<div class="w-full flex flex-col gap-6 pb-24">
+  <!-- Page Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Notes Generation Workbench</h1>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400">
+        Monitor pipeline execution in real-time, resolve submission diffs, studio AI prefills, and review notes.
+      </p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a
+        href="{% url 'ui:tasks_new' %}"
+        class="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors"
+      >
+        {% lucide "plus" class="h-4 w-4" %}
+        <span>Add Problems</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Overall Status KPI Cards Header -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+    <!-- Queued -->
+    <div class="rounded-xl border border-zinc-200/80 bg-white p-3.5 shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+      <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
+        <span class="text-xs font-medium">Queued</span>
+        {% lucide "clock" class="h-4 w-4 text-zinc-400" %}
+      </div>
+      <div class="mt-2 text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-100">
+        {{ kpi_counts.queued|default:0 }}
+      </div>
+    </div>
+
+    <!-- Running -->
+    <div class="rounded-xl border border-blue-200/70 bg-blue-50/30 p-3.5 shadow-xs dark:border-blue-900/50 dark:bg-blue-950/20">
+      <div class="flex items-center justify-between text-blue-700 dark:text-blue-400">
+        <span class="text-xs font-medium">Running</span>
+        {% if kpi_counts.running %}
+          {% lucide "loader-circle" class="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" %}
+        {% else %}
+          {% lucide "loader-circle" class="h-4 w-4 text-zinc-400" %}
+        {% endif %}
+      </div>
+      <div class="mt-2 text-2xl font-bold font-mono text-blue-700 dark:text-blue-300">
+        {{ kpi_counts.running|default:0 }}
+      </div>
+    </div>
+
+    <!-- Action Required -->
+    <div class="rounded-xl border border-amber-200/70 bg-amber-50/30 p-3.5 shadow-xs dark:border-amber-900/50 dark:bg-amber-950/20">
+      <div class="flex items-center justify-between text-amber-700 dark:text-amber-400">
+        <span class="text-xs font-medium">Action Required</span>
+        {% lucide "circle-alert" class="h-4 w-4 text-amber-500" %}
+      </div>
+      <div class="mt-2 text-2xl font-bold font-mono text-amber-700 dark:text-amber-300">
+        {{ kpi_counts.action_required|default:0 }}
+      </div>
+    </div>
+
+    <!-- Waiting Review -->
+    <div class="rounded-xl border border-indigo-200/70 bg-indigo-50/30 p-3.5 shadow-xs dark:border-indigo-900/50 dark:bg-indigo-950/20">
+      <div class="flex items-center justify-between text-indigo-700 dark:text-indigo-400">
+        <span class="text-xs font-medium">Waiting Review</span>
+        {% lucide "eye" class="h-4 w-4 text-indigo-500" %}
+      </div>
+      <div class="mt-2 text-2xl font-bold font-mono text-indigo-700 dark:text-indigo-300">
+        {{ kpi_counts.review_waiting|default:0 }}
+      </div>
+    </div>
+
+    <!-- Completed -->
+    <div class="rounded-xl border border-emerald-200/70 bg-emerald-50/30 p-3.5 shadow-xs dark:border-emerald-900/50 dark:bg-emerald-950/20">
+      <div class="flex items-center justify-between text-emerald-700 dark:text-emerald-400">
+        <span class="text-xs font-medium">Completed</span>
+        {% lucide "circle-check" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" %}
+      </div>
+      <div class="mt-2 text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-300">
+        {{ kpi_counts.completed|default:0 }}
+      </div>
+    </div>
+
+    <!-- Failed -->
+    <div class="rounded-xl border border-rose-200/70 bg-rose-50/30 p-3.5 shadow-xs dark:border-rose-900/50 dark:bg-rose-950/20">
+      <div class="flex items-center justify-between text-rose-700 dark:text-rose-400">
+        <span class="text-xs font-medium">Failed</span>
+        {% if kpi_counts.failed %}
+          {% lucide "circle-x" class="h-4 w-4 text-rose-600 dark:text-rose-400" %}
+        {% else %}
+          {% lucide "circle-x" class="h-4 w-4 text-zinc-400" %}
+        {% endif %}
+      </div>
+      <div class="mt-2 text-2xl font-bold font-mono text-rose-700 dark:text-rose-300">
+        {{ kpi_counts.failed|default:0 }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters & Actions Toolbar -->
+  <div class="flex flex-col gap-3 rounded-xl border border-zinc-200/80 bg-white p-3 shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+    <form
+      id="workbench-filter-form"
+      hx-get="{% url 'ui:tasks' %}"
+      hx-target="#workbench-table-container"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      hx-trigger="submit"
+      autocomplete="off"
+      class="flex flex-wrap items-center justify-between gap-3"
+    >
+      <input type="hidden" name="status" id="workbench-status-input" value="{{ status_filter }}" />
+      <input type="hidden" name="date" id="workbench-date-input" value="{{ date_filter }}" />
+
+      <!-- Left: Status Tabs -->
+      <div class="flex flex-wrap items-center gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800/80">
+        <button
+          type="button"
+          onclick="setWorkbenchStatusFilter('')"
+          class="rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer {% if not status_filter %}bg-white text-zinc-900 shadow-2xs font-semibold dark:bg-zinc-700 dark:text-zinc-100{% else %}text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200{% endif %}"
+        >
+          All ({{ kpi_counts.total|default:0 }})
+        </button>
+        <button
+          type="button"
+          onclick="setWorkbenchStatusFilter('active')"
+          class="rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer {% if status_filter == 'active' %}bg-white text-zinc-900 shadow-2xs font-semibold dark:bg-zinc-700 dark:text-zinc-100{% else %}text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200{% endif %}"
+        >
+          Active
+        </button>
+        <button
+          type="button"
+          onclick="setWorkbenchStatusFilter('needs_input')"
+          class="rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer {% if status_filter == 'needs_input' %}bg-white text-amber-700 shadow-2xs font-semibold dark:bg-zinc-700 dark:text-amber-300{% else %}text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200{% endif %}"
+        >
+          Action Required ({{ kpi_counts.action_required|default:0 }})
+        </button>
+        <button
+          type="button"
+          onclick="setWorkbenchStatusFilter('completed')"
+          class="rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer {% if status_filter == 'completed' %}bg-white text-emerald-700 shadow-2xs font-semibold dark:bg-zinc-700 dark:text-emerald-400{% else %}text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200{% endif %}"
+        >
+          Completed
+        </button>
+        <button
+          type="button"
+          onclick="setWorkbenchStatusFilter('failed')"
+          class="rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer {% if status_filter == 'failed' %}bg-white text-rose-700 shadow-2xs font-semibold dark:bg-zinc-700 dark:text-rose-400{% else %}text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200{% endif %}"
+        >
+          Failed
+        </button>
+      </div>
+
+      <!-- Right: Search & Date Filter -->
+      <div class="flex flex-wrap items-center gap-2 flex-1 justify-end min-w-[280px]">
+        <!-- Search Input -->
+        <div class="relative w-56">
+          <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-zinc-400">
+            {% lucide "search" class="h-3.5 w-3.5" %}
+          </div>
+          <input
+            type="search"
+            name="q"
+            value="{{ search_query }}"
+            placeholder="Search problems..."
+            class="h-8 w-full rounded-lg border border-zinc-300 bg-white pl-8 pr-2.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            hx-get="{% url 'ui:tasks' %}"
+            hx-target="#workbench-table-container"
+            hx-swap="outerHTML"
+            hx-include="#workbench-filter-form"
+            hx-push-url="true"
+            hx-trigger="input changed delay:300ms, search"
+          />
+        </div>
+
+        <!-- Date Filter Dropdown -->
+        <select
+          name="date"
+          onchange="setWorkbenchDateFilter(this.value)"
+          class="h-8 rounded-lg border border-zinc-300 bg-white px-2 text-xs font-medium text-zinc-700 focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 cursor-pointer shadow-2xs"
+        >
+          <option value="" {% if not date_filter %}selected{% endif %}>All Time</option>
+          <option value="today" {% if date_filter == 'today' %}selected{% endif %}>Today</option>
+          <option value="last_7_days" {% if date_filter == 'last_7_days' %}selected{% endif %}>Last 7 Days</option>
+          <option value="last_30_days" {% if date_filter == 'last_30_days' %}selected{% endif %}>Last 30 Days</option>
+          <option value="older" {% if date_filter == 'older' %}selected{% endif %}>Older</option>
+        </select>
+
+        <!-- Regenerate Selected Button -->
+        <button
+          type="button"
+          id="btn-workbench-regenerate"
+          onclick="openRegenerateModalForSelection()"
+          disabled
+          class="h-8 inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 text-xs font-semibold text-white shadow-xs hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 cursor-pointer transition-colors"
+          title="Select one or more problems using checkboxes to re-run or re-configure"
+        >
+          {% lucide "rotate-cw" class="h-3.5 w-3.5" %}
+          <span>Regenerate (<span id="workbench-selected-count">0</span>)</span>
+        </button>
+
+        {% if has_review_items %}
+          <button
+            type="button"
+            hx-post="{% url 'ui:approve_all_reviews' %}"
+            hx-target="#workbench-table-container"
+            hx-swap="outerHTML"
+            class="h-8 inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 cursor-pointer transition-colors"
+            title="Approve all AI notes currently waiting for your review"
+          >
+            {% lucide "check-check" class="h-3.5 w-3.5" %}
+            <span>Approve All ({{ kpi_counts.review_waiting }})</span>
+          </button>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- Workbench Borderless Table Container -->
+  {% include "ui/partials/workbench_table.html" %}
+</div>
+
+<!-- Floating Right-Click Context Menu -->
+<div
+  id="workbench-context-menu"
+  class="fixed z-50 hidden min-w-[150px] rounded-lg border border-zinc-200 bg-white py-1 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 text-xs font-medium text-left"
+>
+  <div id="context-menu-title" class="px-3 py-1.5 text-[11px] font-bold text-zinc-400 border-b border-zinc-100 dark:border-zinc-800 truncate max-w-[200px]"></div>
+  <div id="context-menu-actions" class="flex flex-col py-0.5"></div>
+</div>
+
+<!-- Workbench State & Selection Scripts -->
+<script>
+  let workbenchSelectedProblemIds = new Set();
+
+  function toggleRowDropdown(e, btn) {
+    e.stopPropagation();
+    const popover = btn.nextElementSibling;
+    if (!popover) return;
+    const isHidden = popover.classList.contains('hidden');
+    closeAllRowDropdowns();
+    closeWorkbenchContextMenu();
+    if (isHidden) {
+      popover.classList.remove('hidden');
+    }
+  }
+
+  function closeAllRowDropdowns() {
+    document.querySelectorAll('.dropdown-menu [data-popover]').forEach(p => p.classList.add('hidden'));
+  }
+
+  function openWorkbenchContextMenu(e, row) {
+    e.preventDefault();
+    closeAllRowDropdowns();
+
+    const menu = document.getElementById('workbench-context-menu');
+    const titleEl = document.getElementById('context-menu-title');
+    const actionsEl = document.getElementById('context-menu-actions');
+    if (!menu || !titleEl || !actionsEl) return;
+
+    const itemPk = row.dataset.itemPk;
+    const problemPk = row.dataset.problemPk;
+    const status = row.dataset.status;
+    const title = row.dataset.title || 'Problem Action';
+
+    titleEl.textContent = title;
+
+    let html = '';
+    if (['running', 'queued'].includes(status)) {
+      html += `
+        <button type="button" hx-post="/tasks/items/${itemPk}/pause/" hx-target="#workbench-table-container" hx-swap="outerHTML" class="flex w-full items-center gap-2 px-3 py-1.5 text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer" onclick="closeWorkbenchContextMenu()">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          <span>Pause</span>
+        </button>
+        <button type="button" hx-post="/tasks/items/${itemPk}/cancel/" hx-target="#workbench-table-container" hx-swap="outerHTML" class="flex w-full items-center gap-2 px-3 py-1.5 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer" onclick="closeWorkbenchContextMenu()">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/></svg>
+          <span>Cancel</span>
+        </button>
+      `;
+    } else if (status === 'paused') {
+      html += `
+        <button type="button" hx-post="/tasks/items/${itemPk}/resume/" hx-target="#workbench-table-container" hx-swap="outerHTML" class="flex w-full items-center gap-2 px-3 py-1.5 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40 cursor-pointer" onclick="closeWorkbenchContextMenu()">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+          <span>Resume</span>
+        </button>
+        <button type="button" hx-post="/tasks/items/${itemPk}/cancel/" hx-target="#workbench-table-container" hx-swap="outerHTML" class="flex w-full items-center gap-2 px-3 py-1.5 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer" onclick="closeWorkbenchContextMenu()">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/></svg>
+          <span>Cancel</span>
+        </button>
+      `;
+    } else if (status === 'needs_input') {
+      html += `
+        <button type="button" hx-post="/tasks/items/${itemPk}/cancel/" hx-target="#workbench-table-container" hx-swap="outerHTML" class="flex w-full items-center gap-2 px-3 py-1.5 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer" onclick="closeWorkbenchContextMenu()">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/></svg>
+          <span>Cancel</span>
+        </button>
+      `;
+    } else if (status === 'failed') {
+      html += `
+        <button type="button" hx-post="/tasks/items/${itemPk}/retry/" hx-target="#workbench-table-container" hx-swap="outerHTML" class="flex w-full items-center gap-2 px-3 py-1.5 text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer" onclick="closeWorkbenchContextMenu()">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+          <span>Retry</span>
+        </button>
+      `;
+    }
+
+    html += `
+      <button type="button" hx-get="/tasks/modal/settings/?problem_ids=${problemPk}" hx-target="#modal-container" class="flex w-full items-center gap-2 px-3 py-1.5 text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer" onclick="closeWorkbenchContextMenu()">
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+        <span>Re-run</span>
+      </button>
+    `;
+
+    actionsEl.innerHTML = html;
+    htmx.process(actionsEl);
+
+    const x = Math.min(e.clientX, window.innerWidth - 180);
+    const y = Math.min(e.clientY, window.innerHeight - 200);
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+    menu.classList.remove('hidden');
+  }
+
+  function closeWorkbenchContextMenu() {
+    const menu = document.getElementById('workbench-context-menu');
+    if (menu) menu.classList.add('hidden');
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#workbench-context-menu')) {
+      closeWorkbenchContextMenu();
+    }
+    if (!e.target.closest('.dropdown-menu')) {
+      closeAllRowDropdowns();
+    }
+  });
+
+  document.addEventListener('contextmenu', (e) => {
+    if (!e.target.closest('.workbench-row')) {
+      closeWorkbenchContextMenu();
+    }
+  });
+
+  function onWorkbenchRowCheckboxChange(cb) {
+    const id = parseInt(cb.value, 10);
+    if (cb.checked) {
+      workbenchSelectedProblemIds.add(id);
+    } else {
+      workbenchSelectedProblemIds.delete(id);
+    }
+    updateWorkbenchSelectionState();
+  }
+
+  function onWorkbenchSelectAllChange(headerCb) {
+    const boxes = document.querySelectorAll('.workbench-checkbox');
+    boxes.forEach(cb => {
+      cb.checked = headerCb.checked;
+      const id = parseInt(cb.value, 10);
+      if (headerCb.checked) {
+        workbenchSelectedProblemIds.add(id);
+      } else {
+        workbenchSelectedProblemIds.delete(id);
+      }
+    });
+    updateWorkbenchSelectionState();
+  }
+
+  function updateWorkbenchSelectionState() {
+    const count = workbenchSelectedProblemIds.size;
+    const btn = document.getElementById('btn-workbench-regenerate');
+    const label = document.getElementById('workbench-selected-count');
+    if (label) label.textContent = count;
+    if (btn) {
+      btn.disabled = count === 0;
+    }
+  }
+
+  function openRegenerateModalForSelection() {
+    const ids = Array.from(workbenchSelectedProblemIds);
+    if (!ids.length) return;
+    const params = new URLSearchParams();
+    ids.forEach(id => params.append('problem_ids', id));
+    htmx.ajax('GET', `{% url 'ui:generate_settings_modal' %}?${params.toString()}`, {
+      target: '#modal-container',
+      swap: 'innerHTML'
+    });
+  }
+
+  function setWorkbenchStatusFilter(status) {
+    document.getElementById('workbench-status-input').value = status;
+    const form = document.getElementById('workbench-filter-form');
+    htmx.trigger(form, 'submit');
+  }
+
+  function setWorkbenchDateFilter(val) {
+    document.getElementById('workbench-date-input').value = val;
+    const form = document.getElementById('workbench-filter-form');
+    htmx.trigger(form, 'submit');
+  }
+
+  document.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id === 'workbench-table-container') {
+      const boxes = document.querySelectorAll('.workbench-checkbox');
+      boxes.forEach(cb => {
+        if (workbenchSelectedProblemIds.has(parseInt(cb.value, 10))) {
+          cb.checked = true;
+        }
+      });
+      updateWorkbenchSelectionState();
+    }
+  });
+</script>
+{% endblock %}

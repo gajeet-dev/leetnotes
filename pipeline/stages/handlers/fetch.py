@@ -31,4 +31,38 @@ def fetch_images(
 def fetch_submission(
     item: TaskItem, settings: TaskSettings, deps: StageDeps
 ) -> StageOutcome:
+    problem = current_problem(item)
+    sub = getattr(problem, "submission", None)
+    if sub and sub.code:
+        if sub.is_stale:
+            return waiting(
+                TaskItem.InputKind.SUBMISSION_CHOICE,
+                "Newer submission available on LeetCode. Choose which solution to use.",
+            )
+        try:
+            client = deps.get_client()
+            for summary in client.iter_submissions(problem.slug):
+                if summary.status == "Accepted":
+                    if summary.id != sub.submission_id and (
+                        sub.submission_date is None
+                        or summary.timestamp > sub.submission_date
+                    ):
+                        sub.is_stale = True
+                        sub.newer_submission_id = summary.id
+                        sub.newer_submission_date = summary.timestamp
+                        sub.save(
+                            update_fields=[
+                                "is_stale",
+                                "newer_submission_id",
+                                "newer_submission_date",
+                            ]
+                        )
+                        return waiting(
+                            TaskItem.InputKind.SUBMISSION_CHOICE,
+                            "Newer submission available on LeetCode. Choose which solution to use.",
+                        )
+                    break
+        except Exception:
+            pass
+
     return fetch_part(item, deps, SyncTask.Part.SUBMISSIONS)
