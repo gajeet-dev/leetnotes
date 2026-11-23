@@ -202,6 +202,18 @@ wheels = [
 ]
 
 [[package]]
+name = "django-filter"
+version = "26.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/07/ee/c0f950fe24f3e0b69d054ad957f9229632b50bdc78e968f966d8b4efe16a/django_filter-26.2.tar.gz", hash = "sha256:fd5cc83995fbe9f5f07fb5dcda16fde0f04de1ecf8ef82628b6c0ec921b751af", size = 144828, upload-time = "2026-10-03T12:01:01.007Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4a/92/6b098caa5b980a9d13a8db4825b7670410fa572e9195e39648f7700f2a37/django_filter-26.2-py3-none-any.whl", hash = "sha256:df8f737841d6359df00b84dda9b5ab59067fe60292091f1bdae1e3e6281cedb0", size = 94077, upload-time = "2026-10-03T12:00:59.162Z" },
+]
+
+[[package]]
 name = "django-tailwind-cli"
 version = "4.8.1"
 source = { registry = "https://pypi.org/simple" }
@@ -266,6 +278,7 @@ dependencies = [
     { name = "bs4" },
     { name = "django" },
     { name = "django-environ" },
+    { name = "django-filter" },
     { name = "django-tailwind-cli" },
     { name = "jinja2" },
     { name = "lucide", extra = ["django"] },
@@ -290,6 +303,7 @@ requires-dist = [
     { name = "bs4", specifier = ">=0.0.2" },
     { name = "django", specifier = ">=6.1.2" },
     { name = "django-environ", specifier = ">=0.14.0" },
+    { name = "django-filter", specifier = ">=26.2" },
     { name = "django-tailwind-cli", specifier = ">=4.8.1" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "lucide", extras = ["django"], specifier = ">=1.1.4" },

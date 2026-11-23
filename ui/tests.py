@@ -2084,6 +2084,11 @@ class TasksViewsTests(TestCase):
         self.assertTemplateUsed(response, "ui/tasks_new.html")
         self.assertContains(response, "Problem Selection Catalogue")
 
+    def test_tasks_catalog_view_invalid_parameters(self):
+        url = reverse("ui:tasks_new")
+        response = self.client.get(url, {"difficulty": "InvalidDifficulty"})
+        self.assertEqual(response.status_code, 400)
+
     def test_tasks_poll_view_returns_table_partial(self):
         url = reverse("ui:tasks_poll")
         response = self.client.get(url, HTTP_HX_REQUEST="true")
@@ -2328,7 +2333,7 @@ class TasksViewsTests(TestCase):
                 from notes.hashing import file_hash
                 from notes.models import NoteRecord
 
-                rec = NoteRecord.objects.create(
+                NoteRecord.objects.create(
                     problem=self.p_algo_1,
                     kind=NoteRecord.Kind.SOLUTION,
                     output_dir=str(out_path),

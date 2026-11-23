@@ -1,7 +1,11 @@
 from django.db import models
 
+from .querysets import ProblemQuerySet
+
 
 class Problem(models.Model):
+    objects = ProblemQuerySet.as_manager()
+
     class Difficulty(models.TextChoices):
         EASY = "Easy"
         MEDIUM = "Medium"
@@ -92,9 +96,9 @@ class Submission(models.Model):
 
     def delete(self, *args, **kwargs):
         if hasattr(self, "problem") and self.problem is not None:
-            getattr(self.problem, "_state", None) and self.problem._state.fields_cache.pop(
-                "submission", None
-            )
+            getattr(
+                self.problem, "_state", None
+            ) and self.problem._state.fields_cache.pop("submission", None)
         return super().delete(*args, **kwargs)
 
     def __str__(self) -> str:
