@@ -129,19 +129,6 @@ def get_problems_batch_status(problem_pks: list[int]) -> dict[int, dict]:
     return results
 
 
-def fetch_live_recent_accepted_submissions(
-    client: LeetCodeClient | None = None,
-    limit: int = 20,
-) -> list[Any]:
-    """Fetch live recent accepted submissions from the LeetCode API (no caching)."""
-    try:
-        lc_client = client or get_client()
-        return lc_client.get_recent_accepted(limit=limit)
-    except Exception as exc:
-        logger.warning("live_recent_ac_fetch_failed", error=str(exc))
-        return []
-
-
 def get_workbench_pipeline_items(
     search_query: str = "",
     status_filter: str = "",

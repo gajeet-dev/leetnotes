@@ -82,9 +82,9 @@ def tasks_catalog_view(request, extra_context=None):
 
         db_problems_by_slug = {
             p.slug: p
-            for p in Problem.objects.filter(slug__in=ordered_recent_slugs)
-            .annotate(has_note=Exists(has_note_subquery))
-            .select_related("submission")
+            for p in Problem.objects.filter(
+                slug__in=ordered_recent_slugs
+            ).with_submissions()
         }
 
         # Filter strictly by category: only keep problems from the Algorithms category
