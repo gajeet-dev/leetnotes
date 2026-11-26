@@ -1,7 +1,4 @@
-import math
-
 import structlog
-from django.core.paginator import Paginator
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
@@ -12,22 +9,20 @@ from notes.state import NoteState, classify_note, dir_key
 from pipeline.models import PipelineItem
 from pipeline.tasks.eligibility import busy_problem_ids
 from problems.models import Problem
-from problems.services.submissions import (
-    fetch_recent_submissions_with_db_updates,
-)
 from ui.dto import ProblemCatalogDTO
 from userconfig import effective
 
-from ..helpers.paginator import CustomPage
 from ..helpers.tasks import (
     get_problems_batch_status,
+    paginate_recent_and_other_catalog,
+    paginate_search_catalog,
 )
 
 logger = structlog.get_logger(__name__)
 
 
 @require_GET
-def tasks_catalog_view(request, extra_context=None):
+def tasks_catalog_view(request):
     """Problem Selection Catalogue: browse solved algorithms and select problems for notes generation."""
     try:
         dto = ProblemCatalogDTO.model_validate(request.GET.dict())
@@ -42,127 +37,17 @@ def tasks_catalog_view(request, extra_context=None):
 
     qs = Problem.objects.solved().algorithms().with_submissions()
 
-    if search_query:
-        qs = qs.search(search_query)
-
     if difficulty:
         qs = qs.filter_difficulty(difficulty)
 
     if search_query:
-        # Search active: show matching in a single paginated list
-        recent_problems = []
-        recent_total = 0
-        paginator = Paginator(qs.order_by("leetcode_id"), per_page)
-        page_obj = paginator.get_page(page_num)
-        other_problems = list(page_obj.object_list)
-        other_total = paginator.count
-        total_count = other_total
-
-        if total_count == 0:
-            display_start = 0
-            display_end = 0
-        else:
-            display_start = page_obj.start_index()
-            display_end = page_obj.end_index()
+        page_data = paginate_search_catalog(qs, search_query, page_num, per_page)
     else:
-        # Fetch live recent accepted submissions from the LeetCode API without caching
-        recent_items = fetch_recent_submissions_with_db_updates()
-
-        seen_slugs = set()
-        ordered_recent_slugs = []
-        recent_timestamps = {}
-        for item in recent_items:
-            slug = item.slug
-            ts = item.timestamp
-            if slug and slug not in seen_slugs:
-                seen_slugs.add(slug)
-                ordered_recent_slugs.append(slug)
-                recent_timestamps[slug] = ts
-
-        db_problems_by_slug = {
-            p.slug: p
-            for p in Problem.objects.filter(
-                slug__in=ordered_recent_slugs
-            ).with_submissions()
-        }
-
-        # Filter strictly by category: only keep problems from the Algorithms category
-        recent_algo_problems = []
-        recent_algo_pks = set()
-        for slug in ordered_recent_slugs:
-            p = db_problems_by_slug.get(slug)
-            if p is None:
-                continue
-
-            if p.category != Problem.Category.ALGORITHMS:
-                continue
-
-            if not p.solved:
-                p.solved = True
-                p.save(update_fields=["solved", "updated_at"])
-
-            recent_algo_problems.append(p)
-            recent_algo_pks.add(p.pk)
-
-        # Apply difficulty filter if specified
-        recent_list = []
-        for p in recent_algo_problems:
-            if difficulty and p.difficulty.lower() != difficulty.lower():
-                continue
-            if recent_timestamps.get(p.slug):
-                p.submission_date = recent_timestamps[p.slug]
-            recent_list.append(p)
-
-        recent_total = len(recent_list)
-
-        # Other problems matching current filters
-        other_qs = qs.exclude(pk__in=recent_algo_pks).order_by("leetcode_id")
-        other_total = other_qs.count()
-        total_count = recent_total + other_total
-
-        page_1_other_count = min(max(0, per_page - recent_total), other_total)
-        remaining_other_count = other_total - page_1_other_count
-
-        if remaining_other_count > 0:
-            subsequent_pages = math.ceil(remaining_other_count / per_page)
-            num_pages = 1 + subsequent_pages
-        else:
-            num_pages = 1
-
-        page_num = max(1, min(page_num, num_pages))
-
-        if page_num == 1:
-            recent_problems = recent_list
-            if page_1_other_count > 0:
-                other_problems = list(other_qs[:page_1_other_count])
-            else:
-                other_problems = []
-
-            if total_count == 0:
-                display_start = 0
-                display_end = 0
-            else:
-                display_start = 1
-                display_end = len(recent_problems) + len(other_problems)
-        else:
-            recent_problems = []
-            start_offset = page_1_other_count + (page_num - 2) * per_page
-            end_offset = start_offset + per_page
-            other_problems = list(other_qs[start_offset:end_offset])
-
-            display_start = recent_total + start_offset + 1
-            display_end = min(total_count, display_start + len(other_problems) - 1)
-
-        page_obj = CustomPage(
-            object_list=other_problems
-            if page_num > 1
-            else (recent_problems + other_problems),
-            number=page_num,
-            num_pages=num_pages,
-            total_count=total_count,
+        page_data = paginate_recent_and_other_catalog(
+            qs, difficulty, page_num, per_page
         )
 
-    all_visible = recent_problems + other_problems
+    all_visible = page_data["recent_problems"] + page_data["other_problems"]
     busy_ids = busy_problem_ids(all_visible)
 
     # Output directory verification for NoteRecord
@@ -225,17 +110,10 @@ def tasks_catalog_view(request, extra_context=None):
         "status_filter": status_filter,
         "per_page": per_page,
         "per_page_presets": [25, 50, 100, 200],
-        "page_obj": page_obj,
-        "recent_problems": recent_problems,
-        "other_problems": other_problems,
-        "recent_total": recent_total,
-        "other_total": other_total,
-        "total_count": total_count,
-        "display_start": display_start,
-        "display_end": display_end,
         "busy_ids": busy_ids,
         "is_search": bool(search_query),
         "has_active_items": has_active_items,
+        **page_data,
     }
 
     template = (

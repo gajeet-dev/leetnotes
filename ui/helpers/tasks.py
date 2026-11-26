@@ -1,4 +1,5 @@
 import datetime
+import math
 from typing import Any
 
 import markdown
@@ -8,7 +9,6 @@ from django.db.models import Q
 from django.utils import timezone
 
 from leetcode.bootstrap import get_client
-from leetcode.client import LeetCodeClient
 from notes.models import NoteRecord
 from notes.state import NoteState, classify_note, dir_key
 from pipeline.actions import build_prompt_for
@@ -17,7 +17,10 @@ from pipeline.stages.definitions import STAGE_ORDER, Stage
 from prefill.models import AIResponse
 from prefill.providers.config import default_provider_name
 from problems.models import Problem
+from problems.services.submissions import fetch_recent_submissions_with_db_updates
 from userconfig import effective, load_config
+
+from .paginator import CustomPage
 
 logger = structlog.get_logger(__name__)
 
@@ -127,6 +130,128 @@ def get_problems_batch_status(problem_pks: list[int]) -> dict[int, dict]:
         }
 
     return results
+
+
+def paginate_search_catalog(
+    qs,
+    search_query: str,
+    page_num: int,
+    per_page: int,
+) -> dict[str, Any]:
+    """Filter solved algorithm problems by search query and return paginated catalog data."""
+    qs = qs.search(search_query)
+    paginator = Paginator(qs.order_by("leetcode_id"), per_page)
+    page_obj = paginator.get_page(page_num)
+    other_problems = list(page_obj.object_list)
+    total_count = paginator.count
+
+    return {
+        "page_obj": page_obj,
+        "recent_problems": [],
+        "other_problems": other_problems,
+        "recent_total": 0,
+        "other_total": total_count,
+        "total_count": total_count,
+        "display_start": page_obj.start_index() if total_count else 0,
+        "display_end": page_obj.end_index() if total_count else 0,
+    }
+
+
+def paginate_recent_and_other_catalog(
+    qs,
+    difficulty: str,
+    page_num: int,
+    per_page: int,
+) -> dict[str, Any]:
+    """Fetch live recent accepted submissions and paginate recent-first with remaining problems."""
+    try:
+        recent_items = fetch_recent_submissions_with_db_updates()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("live_recent_ac_fetch_failed", error=str(exc))
+        recent_items = []
+
+    seen_slugs = set()
+    ordered_recent_slugs = []
+    recent_timestamps = {}
+    for item in recent_items:
+        slug = item.slug
+        ts = item.timestamp
+        if slug and slug not in seen_slugs:
+            seen_slugs.add(slug)
+            ordered_recent_slugs.append(slug)
+            recent_timestamps[slug] = ts
+
+    db_problems_by_slug = {
+        p.slug: p
+        for p in Problem.objects.filter(
+            slug__in=ordered_recent_slugs
+        ).with_submissions()
+    }
+
+    # Filter strictly by category: only keep problems from the Algorithms category
+    recent_algo_pks = set()
+    recent_list = []
+    for slug in ordered_recent_slugs:
+        p = db_problems_by_slug.get(slug)
+        if p is None or p.category != Problem.Category.ALGORITHMS:
+            continue
+
+        recent_algo_pks.add(p.pk)
+        if difficulty and p.difficulty.lower() != difficulty.lower():
+            continue
+        if recent_timestamps.get(p.slug):
+            p.submission_date = recent_timestamps[p.slug]
+        recent_list.append(p)
+
+    recent_total = len(recent_list)
+
+    # Other problems matching current filters
+    other_qs = qs.exclude(pk__in=recent_algo_pks).order_by("leetcode_id")
+    other_total = other_qs.count()
+    total_count = recent_total + other_total
+
+    page_1_other_count = min(max(0, per_page - recent_total), other_total)
+    remaining_other_count = other_total - page_1_other_count
+    num_pages = (
+        1 + math.ceil(remaining_other_count / per_page)
+        if remaining_other_count > 0
+        else 1
+    )
+    page_num = max(1, min(page_num, num_pages))
+
+    if page_num == 1:
+        recent_problems = recent_list
+        other_problems = (
+            list(other_qs[:page_1_other_count]) if page_1_other_count > 0 else []
+        )
+        display_start = 1 if total_count else 0
+        display_end = len(recent_problems) + len(other_problems) if total_count else 0
+    else:
+        recent_problems = []
+        start_offset = page_1_other_count + (page_num - 2) * per_page
+        other_problems = list(other_qs[start_offset : start_offset + per_page])
+        display_start = recent_total + start_offset + 1
+        display_end = min(total_count, display_start + len(other_problems) - 1)
+
+    page_obj = CustomPage(
+        object_list=other_problems
+        if page_num > 1
+        else (recent_problems + other_problems),
+        number=page_num,
+        num_pages=num_pages,
+        total_count=total_count,
+    )
+
+    return {
+        "page_obj": page_obj,
+        "recent_problems": recent_problems,
+        "other_problems": other_problems,
+        "recent_total": recent_total,
+        "other_total": other_total,
+        "total_count": total_count,
+        "display_start": display_start,
+        "display_end": display_end,
+    }
 
 
 def get_workbench_pipeline_items(
