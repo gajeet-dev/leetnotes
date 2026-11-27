@@ -303,9 +303,18 @@
     document.getElementById('difficulty-selected-label').textContent = label;
     const dropdown = document.getElementById('difficulty-dropdown');
     if (dropdown) {
-      const popover = dropdown.querySelector('[data-popover]');
-      if (popover) popover.setAttribute('aria-hidden', 'true');
+      if (typeof dropdown.close === 'function') {
+        dropdown.close(false);
+      } else {
+        const trigger = dropdown.querySelector('#difficulty-trigger-btn');
+        const popover = dropdown.querySelector('[data-popover]');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        if (popover) popover.setAttribute('aria-hidden', 'true');
+      }
     }
+    const resetBtn = document.getElementById('btn-reset-filters');
+    const qVal = document.querySelector('input[name="q"]')?.value?.trim() || '';
+    if (resetBtn) resetBtn.disabled = !val && !qVal;
     const form = document.getElementById('filter-form');
     htmx.trigger(form, 'submit');
   }
@@ -315,6 +324,8 @@
     if (searchInput) searchInput.value = '';
     document.getElementById('difficulty-input').value = '';
     document.getElementById('difficulty-selected-label').textContent = 'All Difficulties';
+    const resetBtn = document.getElementById('btn-reset-filters');
+    if (resetBtn) resetBtn.disabled = true;
     const form = document.getElementById('filter-form');
     htmx.trigger(form, 'submit');
   }
@@ -426,22 +437,6 @@
   document.addEventListener('htmx:afterSwap', function(evt) {
     if (evt.detail.target && evt.detail.target.id === 'problems-selection-table-container') {
       pollVisibleRowStatuses();
-    }
-  });
-
-  // Dropdown toggle handler
-  document.addEventListener('click', function(e) {
-    const trigger = e.target.closest('#difficulty-trigger-btn');
-    const dropdown = document.getElementById('difficulty-dropdown');
-    if (!dropdown) return;
-    const popover = dropdown.querySelector('[data-popover]');
-    if (!popover) return;
-
-    if (trigger) {
-      const isHidden = popover.getAttribute('aria-hidden') === 'true';
-      popover.setAttribute('aria-hidden', isHidden ? 'false' : 'true');
-    } else if (!dropdown.contains(e.target)) {
-      popover.setAttribute('aria-hidden', 'true');
     }
   });
 </script>
