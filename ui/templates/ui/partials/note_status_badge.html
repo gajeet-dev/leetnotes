@@ -6,7 +6,7 @@
   {% elif status_dto.note_status == 'action_needed' %}
     {% lucide "circle-alert" class="h-3 w-3" %}
   {% elif status_dto.note_status == 'note_saved' %}
-    {% lucide "circle-check" class="h-3.5 w-3.5" %}
+    {% lucide "check" class="h-3.5 w-3.5" %}
   {% endif %}
   <span>{{ status_dto.label }}</span>
 </span>
