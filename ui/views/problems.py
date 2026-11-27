@@ -10,6 +10,7 @@ from problems.services.runner import start_background_sync
 from problems.services.sync import mark_for_refetch
 
 from ..helpers.problems import (
+    PER_PAGE_PRESETS,
     compute_facets,
     extract_selected_problem_ids,
     filter_problems,
@@ -17,6 +18,7 @@ from ..helpers.problems import (
     parse_per_page,
     parse_problem_filters,
 )
+from ..helpers.tasks import resolve_problems_note_status
 
 
 @require_GET
@@ -41,6 +43,12 @@ def problems_list(request):
     paginator = Paginator(qs, per_page)
     page_obj = paginator.get_page(page_number)
 
+    statuses_by_pk, _ = resolve_problems_note_status(
+        list(page_obj.object_list), include_pipeline=False
+    )
+    for problem in page_obj.object_list:
+        problem.note_status_dto = statuses_by_pk[problem.pk]
+
     active_filter_count = sum(bool(v) for k, v in filters.items() if k != "query")
     has_active_filters = bool(filters["query"]) or active_filter_count > 0
 
@@ -48,7 +56,7 @@ def problems_list(request):
         "active": "problems",
         "page_obj": page_obj,
         "per_page": per_page,
-        "per_page_presets": [25, 50, 100, 200],
+        "per_page_presets": list(PER_PAGE_PRESETS),
         "query": filters["query"],
         "difficulty": filters["difficulty"],
         "status": filters["status"],

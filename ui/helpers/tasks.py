@@ -1,5 +1,6 @@
 import datetime
 import math
+from collections.abc import Sequence
 from typing import Any
 
 import markdown
@@ -18,6 +19,7 @@ from prefill.models import AIResponse
 from prefill.providers.config import default_provider_name
 from problems.models import Problem
 from problems.services.submissions import fetch_recent_submissions_with_db_updates
+from ui.dto import NOTE_STATUS_SPECS, NoteStatus, ProblemNoteStatusDTO
 from userconfig import effective, load_config
 
 from .paginator import CustomPage
@@ -81,32 +83,43 @@ def render_ai_response_to_html(problem: Problem, resp: AIResponse | None) -> str
     return "<div class='p-4 text-center text-sm text-zinc-500 italic'>No AI response content available.</div>"
 
 
-def get_problems_batch_status(problem_pks: list[int]) -> dict[int, dict]:
-    """Efficient batch lookup of note saved status and pipeline item status."""
-    problems = list(Problem.objects.filter(pk__in=problem_pks))
+def resolve_problems_note_status(
+    problems: Sequence[Problem],
+    *,
+    include_pipeline: bool = True,
+) -> tuple[dict[int, ProblemNoteStatusDTO], dict[int, PipelineItem]]:
+    """Resolve canonical NoteStatus DTOs for a batch of problems.
+
+    When include_pipeline is True (Task Catalog), active pipeline statuses
+    (Running -> Queued -> Action Needed) override Note Saved so re-queued
+    problems always reflect their latest generation state.
+    When include_pipeline is False (Problems page), resolves strictly between
+    Note Saved and No Note.
+    """
+    problem_list = list(problems)
     output_folders = effective.output_dirs()
     target_output_dir = str(output_folders[0]) if output_folders else None
 
     note_records_by_problem: dict[int, list[NoteRecord]] = {}
-    if target_output_dir and problems:
+    if target_output_dir and problem_list:
         canonical_key = dir_key(target_output_dir)
         records = NoteRecord.objects.filter(
-            problem__in=problems,
+            problem__in=problem_list,
             output_dir=canonical_key,
         )
         for r in records:
             note_records_by_problem.setdefault(r.problem_id, []).append(r)
 
     latest_items: dict[int, PipelineItem] = {}
-    if problems:
-        for item in PipelineItem.objects.filter(problem__in=problems).order_by(
+    if include_pipeline and problem_list:
+        for item in PipelineItem.objects.filter(problem__in=problem_list).order_by(
             "-created_at"
         ):
             if item.problem_id not in latest_items:
                 latest_items[item.problem_id] = item
 
-    results = {}
-    for p in problems:
+    dtos_by_pk: dict[int, ProblemNoteStatusDTO] = {}
+    for p in problem_list:
         recs = note_records_by_problem.get(p.pk, [])
         note_saved = False
         for r in recs:
@@ -115,21 +128,45 @@ def get_problems_batch_status(problem_pks: list[int]) -> dict[int, dict]:
                 note_saved = True
                 break
 
-        item = latest_items.get(p.pk)
+        item = latest_items.get(p.pk) if include_pipeline else None
         pipeline_status = item.status if item else None
         input_kind = item.input_kind if item else ""
         item_id = item.pk if item else None
 
-        results[p.pk] = {
-            "slug": p.slug,
-            "leetcode_id": p.leetcode_id,
-            "note_saved": note_saved,
-            "pipeline_status": pipeline_status,
-            "pipeline_item_id": item_id,
-            "input_kind": input_kind,
-        }
+        if pipeline_status == PipelineItem.Status.RUNNING:
+            note_status = NoteStatus.RUNNING
+        elif pipeline_status == PipelineItem.Status.QUEUED:
+            note_status = NoteStatus.QUEUED
+        elif pipeline_status == PipelineItem.Status.NEEDS_INPUT:
+            note_status = NoteStatus.ACTION_NEEDED
+        elif note_saved:
+            note_status = NoteStatus.NOTE_SAVED
+        else:
+            note_status = NoteStatus.NO_NOTE
 
-    return results
+        spec = NOTE_STATUS_SPECS[note_status]
+        dtos_by_pk[p.pk] = ProblemNoteStatusDTO(
+            problem_id=p.pk,
+            slug=p.slug,
+            leetcode_id=p.leetcode_id,
+            note_status=note_status,
+            label=spec.label,
+            badge_class=spec.badge_class,
+            icon=spec.icon,
+            note_saved=note_saved,
+            pipeline_status=pipeline_status,
+            pipeline_item_id=item_id,
+            input_kind=input_kind,
+        )
+
+    return dtos_by_pk, latest_items
+
+
+def get_problems_batch_status(problem_pks: list[int]) -> dict[int, dict]:
+    """Efficient batch lookup of canonical note status and pipeline item status."""
+    problems = list(Problem.objects.filter(pk__in=problem_pks))
+    dtos_by_pk, _ = resolve_problems_note_status(problems, include_pipeline=True)
+    return {pk: dto.model_dump() for pk, dto in dtos_by_pk.items()}
 
 
 def paginate_search_catalog(

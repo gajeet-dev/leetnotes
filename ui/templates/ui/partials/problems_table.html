@@ -2,7 +2,7 @@
   id="problems-table-container"
   data-total-count="{{ total_count }}"
   data-page-count="{{ page_obj|length }}"
-  data-per-page="{{ per_page|default:25 }}"
+  data-per-page="{{ per_page|default:100 }}"
   class="flex flex-col rounded-xl border border-zinc-200/90 bg-white shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900"
 >
   <!-- Top Pagination Header (Always Visible!) -->
@@ -16,21 +16,9 @@
 
       <div class="hidden h-4 w-px bg-zinc-200 dark:bg-zinc-800 sm:block"></div>
 
-      <!-- Desired Number of Problems Per Page Option -->
+      <!-- Per Page Presets Option -->
       <div class="flex items-center gap-1.5">
-        <label for="per-page-input-top" class="font-medium text-zinc-700 dark:text-zinc-300">Per page:</label>
-        <input
-          type="number"
-          id="per-page-input-top"
-          value="{{ per_page|default:25 }}"
-          min="1"
-          max="1000"
-          step="1"
-          class="h-7 w-16 rounded-md border border-zinc-300 bg-white px-2 text-center font-mono text-xs font-semibold text-zinc-800 shadow-xs focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:focus:border-zinc-100"
-          onchange="onPerPageChange(this.value)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault(); onPerPageChange(this.value);}"
-          title="Enter number of problems to show per page and press Enter"
-        />
+        <span class="font-medium text-zinc-700 dark:text-zinc-300">Per page:</span>
         <div class="inline-flex rounded-md border border-zinc-200 dark:border-zinc-700 divide-x divide-zinc-200 dark:divide-zinc-700 overflow-hidden shadow-xs">
           {% for size in per_page_presets %}
           <button
@@ -50,7 +38,7 @@
       <button
         type="button"
         class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
-        hx-get="{% url 'ui:problems' %}?page={{ page_obj.previous_page_number }}&per_page={{ per_page|default:25 }}"
+        hx-get="{% url 'ui:problems' %}?page={{ page_obj.previous_page_number }}&per_page={{ per_page|default:100 }}"
         hx-include="#filter-form"
         hx-target="#problems-table-container"
         hx-swap="outerHTML"
@@ -74,7 +62,7 @@
       <button
         type="button"
         class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
-        hx-get="{% url 'ui:problems' %}?page={{ page_obj.next_page_number }}&per_page={{ per_page|default:25 }}"
+        hx-get="{% url 'ui:problems' %}?page={{ page_obj.next_page_number }}&per_page={{ per_page|default:100 }}"
         hx-include="#filter-form"
         hx-target="#problems-table-container"
         hx-swap="outerHTML"
@@ -219,23 +207,9 @@
             </span>
             {% endif %}
           </td>
-          <!-- Clear Notes Status: Saved on Disk vs AI Draft vs None -->
+          <!-- Notes Status: Note Saved vs No Note -->
           <td class="px-4 py-3">
-            {% if problem.has_note %}
-            <span class="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-400" title="Markdown note saved to disk">
-              {% lucide "file-text" class="h-3 w-3" %}
-              Saved on Disk
-            </span>
-            {% elif problem.has_draft %}
-            <span class="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:border-purple-800/60 dark:bg-purple-950/40 dark:text-purple-400" title="AI draft generated (waiting to save or review)">
-              {% lucide "sparkles" class="h-3 w-3" %}
-              AI Draft Ready
-            </span>
-            {% else %}
-            <span class="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-500">
-              None
-            </span>
-            {% endif %}
+            {% include "ui/partials/note_status_badge.html" with status_dto=problem.note_status_dto %}
           </td>
           <!-- Category as last column -->
           <td class="px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">
@@ -268,21 +242,9 @@
 
       <div class="hidden h-4 w-px bg-zinc-200 dark:bg-zinc-800 sm:block"></div>
 
-      <!-- Desired Number of Problems Per Page Option -->
+      <!-- Per Page Presets Option -->
       <div class="flex items-center gap-1.5">
-        <label for="per-page-input-bottom" class="font-medium text-zinc-700 dark:text-zinc-300">Per page:</label>
-        <input
-          type="number"
-          id="per-page-input-bottom"
-          value="{{ per_page|default:25 }}"
-          min="1"
-          max="1000"
-          step="1"
-          class="h-7 w-16 rounded-md border border-zinc-300 bg-white px-2 text-center font-mono text-xs font-semibold text-zinc-800 shadow-xs focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:focus:border-zinc-100"
-          onchange="onPerPageChange(this.value)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault(); onPerPageChange(this.value);}"
-          title="Enter number of problems to show per page and press Enter"
-        />
+        <span class="font-medium text-zinc-700 dark:text-zinc-300">Per page:</span>
         <div class="inline-flex rounded-md border border-zinc-200 dark:border-zinc-700 divide-x divide-zinc-200 dark:divide-zinc-700 overflow-hidden shadow-xs">
           {% for size in per_page_presets %}
           <button
@@ -302,7 +264,7 @@
       <button
         type="button"
         class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
-        hx-get="{% url 'ui:problems' %}?page={{ page_obj.previous_page_number }}&per_page={{ per_page|default:25 }}"
+        hx-get="{% url 'ui:problems' %}?page={{ page_obj.previous_page_number }}&per_page={{ per_page|default:100 }}"
         hx-include="#filter-form"
         hx-target="#problems-table-container"
         hx-swap="outerHTML"
@@ -326,7 +288,7 @@
       <button
         type="button"
         class="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
-        hx-get="{% url 'ui:problems' %}?page={{ page_obj.next_page_number }}&per_page={{ per_page|default:25 }}"
+        hx-get="{% url 'ui:problems' %}?page={{ page_obj.next_page_number }}&per_page={{ per_page|default:100 }}"
         hx-include="#filter-form"
         hx-target="#problems-table-container"
         hx-swap="outerHTML"

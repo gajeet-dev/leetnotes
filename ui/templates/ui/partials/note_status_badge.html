@@ -1,0 +1,12 @@
+<span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold {{ status_dto.badge_class }}">
+  {% if status_dto.note_status == 'running' %}
+    {% lucide "loader-circle" class="h-3 w-3 animate-spin" %}
+  {% elif status_dto.note_status == 'queued' %}
+    {% lucide "clock" class="h-3 w-3" %}
+  {% elif status_dto.note_status == 'action_needed' %}
+    {% lucide "circle-alert" class="h-3 w-3" %}
+  {% elif status_dto.note_status == 'note_saved' %}
+    {% lucide "circle-check" class="h-3.5 w-3.5" %}
+  {% endif %}
+  <span>{{ status_dto.label }}</span>
+</span>

@@ -72,7 +72,7 @@
         class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-xs font-semibold text-zinc-900 hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
         title="Remove Notes filter"
       >
-        <span>Notes: {% if notes_filter == 'has_note' %}Saved{% elif notes_filter == 'has_draft' %}Draft{% else %}None{% endif %}</span>
+        <span>Notes: {% if notes_filter == 'has_note' or notes_filter == 'note_saved' %}Note Saved{% else %}No Note{% endif %}</span>
         {% lucide "x" class="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" %}
       </button>
       {% endif %}
@@ -375,37 +375,22 @@
           </span>
         </button>
 
-        <!-- Saved on Disk -->
+        <!-- Note Saved -->
         <button
           type="button"
           onclick="setFacetFilter('notes', 'has_note')"
-          class="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors cursor-pointer {% if notes_filter == 'has_note' %}bg-blue-600 font-bold text-white dark:bg-blue-500 dark:text-zinc-950 shadow-sm{% else %}text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-50{% endif %}"
+          class="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors cursor-pointer {% if notes_filter == 'has_note' or notes_filter == 'note_saved' %}bg-emerald-600 font-bold text-white dark:bg-emerald-500 dark:text-zinc-950 shadow-sm{% else %}text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-50{% endif %}"
         >
           <span class="flex items-center gap-2">
-            <span class="h-2 w-2 rounded-full {% if notes_filter == 'has_note' %}bg-white dark:bg-zinc-950{% else %}bg-blue-500{% endif %}"></span>
-            <span class="font-medium">Saved on Disk</span>
+            <span class="h-2 w-2 rounded-full {% if notes_filter == 'has_note' or notes_filter == 'note_saved' %}bg-white dark:bg-zinc-950{% else %}bg-emerald-500{% endif %}"></span>
+            <span class="font-medium">Note Saved</span>
           </span>
-          <span class="rounded-md px-2 py-0.5 text-xs font-bold {% if notes_filter == 'has_note' %}bg-blue-700 text-white dark:bg-blue-400 dark:text-zinc-950{% else %}bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60{% endif %}">
+          <span class="rounded-md px-2 py-0.5 text-xs font-bold {% if notes_filter == 'has_note' or notes_filter == 'note_saved' %}bg-emerald-700 text-white dark:bg-emerald-400 dark:text-zinc-950{% else %}bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60{% endif %}">
             {{ facets.notes_saved }}
           </span>
         </button>
 
-        <!-- AI Draft Ready -->
-        <button
-          type="button"
-          onclick="setFacetFilter('notes', 'has_draft')"
-          class="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors cursor-pointer {% if notes_filter == 'has_draft' %}bg-purple-600 font-bold text-white dark:bg-purple-500 dark:text-zinc-950 shadow-sm{% else %}text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-50{% endif %}"
-        >
-          <span class="flex items-center gap-2">
-            <span class="h-2 w-2 rounded-full {% if notes_filter == 'has_draft' %}bg-white dark:bg-zinc-950{% else %}bg-purple-500{% endif %}"></span>
-            <span class="font-medium">AI Draft Ready</span>
-          </span>
-          <span class="rounded-md px-2 py-0.5 text-xs font-bold {% if notes_filter == 'has_draft' %}bg-purple-700 text-white dark:bg-purple-400 dark:text-zinc-950{% else %}bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60{% endif %}">
-            {{ facets.notes_draft }}
-          </span>
-        </button>
-
-        <!-- Needs Note -->
+        <!-- No Note -->
         <button
           type="button"
           onclick="setFacetFilter('notes', 'no_note')"
@@ -413,7 +398,7 @@
         >
           <span class="flex items-center gap-2">
             <span class="h-2 w-2 rounded-full {% if notes_filter == 'no_note' %}bg-white dark:bg-zinc-950{% else %}bg-zinc-400 dark:bg-zinc-500{% endif %}"></span>
-            <span class="font-medium">Needs Note</span>
+            <span class="font-medium">No Note</span>
           </span>
           <span class="rounded-md px-2 py-0.5 text-xs font-bold {% if notes_filter == 'no_note' %}bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-950{% else %}bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-700/60{% endif %}">
             {{ facets.notes_none }}

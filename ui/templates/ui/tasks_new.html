@@ -288,9 +288,11 @@
     });
   }
 
+  const ALLOWED_PER_PAGE = [25, 50, 100, 200, 250];
+
   function onPerPageChange(val) {
-    const parsed = parseInt(val, 10);
-    if (!parsed || parsed < 1) return;
+    let parsed = parseInt(val, 10);
+    if (!ALLOWED_PER_PAGE.includes(parsed)) parsed = 100;
     document.getElementById('filter-per-page').value = parsed;
     const form = document.getElementById('filter-form');
     htmx.trigger(form, 'submit');
@@ -366,39 +368,25 @@
       });
   }
 
+  const NOTE_STATUS_ICONS = {
+    running: '<svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>',
+    queued: '<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    action_needed: '<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+    note_saved: '<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+    no_note: ''
+  };
+
   function updateCatalogRowStatus(pk, info) {
     const statusCell = document.getElementById('note-status-' + pk);
     const actionCell = document.getElementById('note-action-' + pk);
     if (!statusCell) return;
 
-    let statusHtml = '';
-    if (info.pipeline_status === 'running') {
-      statusHtml = `<span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200 dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-800 animate-pulse">
-        <svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-        <span>Running</span>
-      </span>`;
-    } else if (info.pipeline_status === 'queued') {
-      statusHtml = `<span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-700 border border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
-        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span>Queued</span>
-      </span>`;
-    } else if (info.pipeline_status === 'needs_input') {
-      statusHtml = `<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 border border-amber-200 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800">
-        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span>Action Needed</span>
-      </span>`;
-    } else if (info.note_saved) {
-      const savedText = 'Note ' + 'Saved';
-      statusHtml = `<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-800/60">
-        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-        <span>${savedText}</span>
-      </span>`;
-    } else {
-      statusHtml = `<span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-        <span>No Note</span>
-      </span>`;
-    }
-    statusCell.innerHTML = statusHtml;
+    const statusKey = info.note_status || 'no_note';
+    const label = info.label || 'No Note';
+    const badgeClass = info.badge_class || 'bg-zinc-100 text-zinc-500 border-zinc-200/70 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700/60';
+    const iconSvg = NOTE_STATUS_ICONS[statusKey] || '';
+
+    statusCell.innerHTML = `<span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${badgeClass}">${iconSvg}<span>${label}</span></span>`;
 
     if (actionCell) {
       let actionHtml = '';

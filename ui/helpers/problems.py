@@ -3,8 +3,12 @@ import json
 from django.db.models import Count, Exists, OuterRef, Q
 
 from notes.models import NoteRecord
-from prefill.models import AIResponse
+from notes.state import dir_key
 from problems.models import Problem, SyncTask
+from userconfig import effective
+
+PER_PAGE_PRESETS: tuple[int, ...] = (25, 50, 100, 200, 250)
+DEFAULT_PER_PAGE: int = 100
 
 
 def parse_problem_filters(request) -> dict[str, str]:
@@ -25,38 +29,41 @@ def parse_problem_filters(request) -> dict[str, str]:
 
 
 def parse_per_page(
-    request, default: int = 25, min_val: int = 1, max_val: int = 1000
+    request,
+    default: int = DEFAULT_PER_PAGE,
+    allowed_values: tuple[int, ...] | list[int] = PER_PAGE_PRESETS,
 ) -> int:
-    """Extract and validate per_page pagination parameter from request.GET."""
+    """Extract and validate per_page pagination parameter from request.GET against presets."""
     raw = request.GET.get("per_page")
     if not raw:
         return default
     try:
         val = int(raw)
-        return max(min_val, min(val, max_val))
     except ValueError, TypeError:
         return default
+    return val if val in allowed_values else default
 
 
 def get_problem_base_queryset():
     """Return base queryset for problems annotated with note existence and sync counts."""
-    # Subquery: Check if a generated markdown note exists on disk for this problem (NoteRecord)
-    has_note_subquery = NoteRecord.objects.filter(problem_id=OuterRef("pk"))
+    output_folders = effective.output_dirs()
+    target_output_dir = str(output_folders[0]) if output_folders else None
 
-    # Subquery: Check if an active, validated AI draft response exists for this problem
-    has_draft_subquery = AIResponse.objects.filter(
-        problem_id=OuterRef("pk"), is_active=True, status=AIResponse.Status.VALID
-    )
+    if target_output_dir:
+        has_note_subquery = NoteRecord.objects.filter(
+            problem_id=OuterRef("pk"),
+            output_dir=dir_key(target_output_dir),
+        )
+    else:
+        has_note_subquery = NoteRecord.objects.none()
 
     # Base query: Fetch all problems and annotate each with summary flags and task counts:
-    # - has_note: boolean (True if NoteRecord exists for this problem)
-    # - has_draft: boolean (True if active valid AIResponse exists)
+    # - has_note: boolean (True if NoteRecord exists for this problem in active output_dir)
     # - total_sync_count: integer (total number of sync tasks: content, images, submissions)
     # - pending_sync_count: integer (count of sync tasks currently in 'pending' status)
     # - failed_sync_count: integer (count of sync tasks currently in 'failed' status)
     return Problem.objects.all().annotate(
         has_note=Exists(has_note_subquery),
-        has_draft=Exists(has_draft_subquery),
         total_sync_count=Count("sync_tasks"),
         pending_sync_count=Count(
             "sync_tasks", filter=Q(sync_tasks__status=SyncTask.Status.PENDING)
@@ -154,16 +161,13 @@ def filter_problems(
             qs = qs.filter(category=category)
 
     # Filter 7: Note generation status:
-    # - "has_note": Markdown note has been generated and saved on disk
-    # - "has_draft": Valid AI draft generated, but user has not written/saved final note yet
-    # - "no_note": Neither saved note nor draft exists
+    # - "has_note" / "note_saved": Markdown note has been generated and saved on disk
+    # - "no_note": No saved note exists
     if notes_filter and exclude_field != "notes":
-        if notes_filter == "has_note":
+        if notes_filter in ("has_note", "note_saved"):
             qs = qs.filter(has_note=True)
-        elif notes_filter == "has_draft":
-            qs = qs.filter(has_draft=True, has_note=False)
         elif notes_filter == "no_note":
-            qs = qs.filter(has_note=False, has_draft=False)
+            qs = qs.filter(has_note=False)
 
     return qs
 
@@ -263,9 +267,8 @@ def compute_facets(
 
     # 4. Notes facets:
     # Filter by all criteria EXCEPT notes, then count distinct problems for:
-    # - notes_saved: has_note=True (markdown note already generated and saved)
-    # - notes_draft: has_draft=True but has_note=False (AI draft generated, note not saved yet)
-    # - notes_none: has_note=False and has_draft=False (neither draft nor note exists)
+    # - notes_saved: has_note=True (markdown note saved)
+    # - notes_none: has_note=False (no saved note)
     notes_qs = filter_problems(
         base_qs,
         query=query,
@@ -278,12 +281,7 @@ def compute_facets(
         exclude_field="notes",
     )
     notes_saved = notes_qs.filter(has_note=True).values("id").distinct().count()
-    notes_draft = (
-        notes_qs.filter(has_draft=True, has_note=False).values("id").distinct().count()
-    )
-    notes_none = (
-        notes_qs.filter(has_note=False, has_draft=False).values("id").distinct().count()
-    )
+    notes_none = notes_qs.filter(has_note=False).values("id").distinct().count()
 
     # 5. Category facets:
     # Filter by all criteria EXCEPT category, then GROUP BY category string and COUNT distinct problem IDs
@@ -328,7 +326,7 @@ def compute_facets(
     total_difficulty = sum(diff_counts.values())
     total_status = sum(status_counts.values())
     total_sync = synced_count + pending_sync_count + failed_sync_count + none_sync_count
-    total_notes = notes_saved + notes_draft + notes_none
+    total_notes = notes_saved + notes_none
     total_category = sum(raw_cat_counts.values())
 
     return {
@@ -342,7 +340,6 @@ def compute_facets(
         "failed_sync_count": failed_sync_count,
         "none_sync_count": none_sync_count,
         "notes_saved": notes_saved,
-        "notes_draft": notes_draft,
         "notes_none": notes_none,
         "category_counts": category_counts,
         "paid_count": paid_count,

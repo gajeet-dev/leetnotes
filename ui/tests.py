@@ -528,8 +528,11 @@ class ProblemsUITests(TestCase):
                 self.assertEqual(notes_metrics["coverage_pct"], 50.0)
 
             # 4. User changes output directory to a different folder
-            with tempfile.TemporaryDirectory() as other_dir, patch(
-                "userconfig.effective.output_dirs", return_value=[Path(other_dir)]
+            with (
+                tempfile.TemporaryDirectory() as other_dir,
+                patch(
+                    "userconfig.effective.output_dirs", return_value=[Path(other_dir)]
+                ),
             ):
                 notes_metrics = get_notes_created_metrics()
                 self.assertEqual(notes_metrics["notes_created"], 0)
@@ -860,15 +863,27 @@ class ProblemsUITests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
-    def test_custom_per_page_pagination(self):
+    def test_preset_per_page_pagination(self):
         url = reverse("ui:problems")
-        response = self.client.get(url, {"per_page": "1"})
+
+        # Default per_page is 100 and presets are [25, 50, 100, 200, 250]
+        response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["per_page"], 1)
-        self.assertEqual(len(response.context["page_obj"]), 1)
-        self.assertContains(response, 'name="per_page"')
-        self.assertContains(response, 'id="per-page-input-top"')
-        self.assertContains(response, 'id="per-page-input-bottom"')
+        self.assertEqual(response.context["per_page"], 100)
+        self.assertEqual(response.context["per_page_presets"], [25, 50, 100, 200, 250])
+        self.assertNotContains(response, 'id="per-page-input-top"')
+        self.assertNotContains(response, 'id="per-page-input-bottom"')
+
+        # Valid preset (250) is accepted
+        response_250 = self.client.get(url, {"per_page": "250"})
+        self.assertEqual(response_250.status_code, 200)
+        self.assertEqual(response_250.context["per_page"], 250)
+
+        # Non-preset and invalid values fall back to 100
+        for bad_val in ("1", "300", "abc"):
+            resp_bad = self.client.get(url, {"per_page": bad_val})
+            self.assertEqual(resp_bad.status_code, 200)
+            self.assertEqual(resp_bad.context["per_page"], 100)
 
     def test_dual_pagination_top_and_bottom(self):
         url = reverse("ui:problems")
@@ -878,8 +893,9 @@ class ProblemsUITests(TestCase):
         # Both top and bottom pagination controls are present
         self.assertEqual(content.count("Previous"), 2)
         self.assertEqual(content.count("Next"), 2)
-        self.assertIn('id="per-page-input-top"', content)
-        self.assertIn('id="per-page-input-bottom"', content)
+        self.assertEqual(content.count("onPerPageChange('250')"), 2)
+        self.assertNotIn('id="per-page-input-top"', content)
+        self.assertNotIn('id="per-page-input-bottom"', content)
 
     def test_refetch_menu_markup(self):
         url = reverse("ui:problems")
@@ -945,6 +961,70 @@ class ProblemsUITests(TestCase):
 
         # On full page load, is_htmx is False so hx-swap-oob should NOT be rendered
         self.assertNotContains(response, 'hx-swap-oob="outerHTML"')
+
+    def test_problems_page_note_status_only_saved_or_no_note(self):
+        """Problems page uses consistent two-state wording (Note Saved / No Note) without AI Draft Ready or pipeline states."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = Path(tmpdir)
+            with patch("userconfig.effective.output_dirs", return_value=[out_path]):
+                url = reverse("ui:problems")
+                resp = self.client.get(url)
+                self.assertEqual(resp.status_code, 200)
+                content = resp.content.decode()
+                self.assertIn("No Note", content)
+                self.assertIn("Note Saved", content)  # in filter panel
+                self.assertNotIn("Saved on Disk", content)
+                self.assertNotIn("AI Draft Ready", content)
+                self.assertNotIn("Needs Note", content)
+
+                # Even with a valid AI draft and an active queued PipelineItem, Problems page still shows No Note
+                AIResponse.objects.create(
+                    problem=self.p_synced,
+                    raw_text="{}",
+                    prompt_version="v1",
+                    input_hash="h",
+                    status=AIResponse.Status.VALID,
+                    is_active=True,
+                )
+                PipelineItem.objects.create(
+                    problem=self.p_synced,
+                    status=PipelineItem.Status.QUEUED,
+                    stage=Stage.FETCH_PROBLEM,
+                )
+                resp_with_draft = self.client.get(url)
+                self.assertNotContains(resp_with_draft, "AI Draft Ready")
+                self.assertNotContains(resp_with_draft, "Queued")
+
+                # Creating an actual NoteRecord + disk file turns it into Note Saved
+                sol_file = (
+                    out_path
+                    / "Leetcode"
+                    / "solutions"
+                    / f"0001-{self.p_synced.slug}-solution.md"
+                )
+                sol_file.parent.mkdir(parents=True, exist_ok=True)
+                sol_file.write_text("# Solution")
+                from notes.hashing import file_hash
+                from notes.models import NoteRecord
+
+                NoteRecord.objects.create(
+                    problem=self.p_synced,
+                    kind=NoteRecord.Kind.SOLUTION,
+                    output_dir=str(out_path),
+                    relative_path=f"Leetcode/solutions/0001-{self.p_synced.slug}-solution.md",
+                    content_hash=file_hash(sol_file),
+                    written_at=timezone.now(),
+                )
+                resp_saved = self.client.get(url, {"notes": "has_note"})
+                self.assertEqual(
+                    [p.id for p in resp_saved.context["page_obj"]],
+                    [self.p_synced.id],
+                )
+                self.assertEqual(
+                    resp_saved.context["page_obj"][0].note_status_dto.label,
+                    "Note Saved",
+                )
+                self.assertContains(resp_saved, "Notes: Note Saved")
 
     def test_filter_paid(self):
         url = reverse("ui:problems")
@@ -1768,7 +1848,9 @@ class SettingsUITests(DataDirDBTestCase):
     def test_reinit_database_endpoint(self):
         # Fetch URL for reinitializing database
         url = reverse("ui:reinit_database")
-        with patch("ui.views.snapshots.reinit_database", return_value={"success": True}):
+        with patch(
+            "ui.views.snapshots.reinit_database", return_value={"success": True}
+        ):
             response = self.client.post(url, HTTP_HX_REQUEST="true")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response["HX-Refresh"], "true")
@@ -2083,6 +2165,20 @@ class TasksViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "ui/tasks_new.html")
         self.assertContains(response, "Problem Selection Catalogue")
+        self.assertEqual(response.context["per_page"], 100)
+        self.assertEqual(response.context["per_page_presets"], [25, 50, 100, 200, 250])
+        self.assertNotContains(response, 'id="per-page-input-top"')
+
+    def test_tasks_catalog_view_per_page_presets_and_fallback(self):
+        url = reverse("ui:tasks_new")
+        resp_250 = self.client.get(url, {"per_page": "250"})
+        self.assertEqual(resp_250.status_code, 200)
+        self.assertEqual(resp_250.context["per_page"], 250)
+
+        for bad_val in ("10", "300", "abc"):
+            resp_bad = self.client.get(url, {"per_page": bad_val})
+            self.assertEqual(resp_bad.status_code, 200)
+            self.assertEqual(resp_bad.context["per_page"], 100)
 
     def test_tasks_catalog_view_invalid_parameters(self):
         url = reverse("ui:tasks_new")
@@ -2351,6 +2447,74 @@ class TasksViewsTests(TestCase):
                 self.assertNotContains(resp, "Note Saved")
                 self.assertContains(resp, "No Note")
 
+    def test_catalog_active_pipeline_overrides_note_saved_status(self):
+        """When a problem already has Note Saved but is queued again, catalog displays Queued (latest active state)."""
+        from notes.hashing import file_hash
+        from notes.models import NoteRecord
+        from ui.dto import NoteStatus
+        from ui.helpers.tasks import resolve_problems_note_status
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = Path(tmpdir)
+            with patch("userconfig.effective.output_dirs", return_value=[out_path]):
+                sol_file = (
+                    out_path
+                    / "Leetcode"
+                    / "solutions"
+                    / f"0001-{self.p_algo_1.slug}-solution.md"
+                )
+                sol_file.parent.mkdir(parents=True, exist_ok=True)
+                sol_file.write_text("# My Solution Notes")
+                NoteRecord.objects.create(
+                    problem=self.p_algo_1,
+                    kind=NoteRecord.Kind.SOLUTION,
+                    output_dir=str(out_path),
+                    relative_path=f"Leetcode/solutions/0001-{self.p_algo_1.slug}-solution.md",
+                    content_hash=file_hash(sol_file),
+                    written_at=timezone.now(),
+                )
+
+                # Without active pipeline -> Note Saved
+                dtos, _ = resolve_problems_note_status(
+                    [self.p_algo_1], include_pipeline=True
+                )
+                self.assertEqual(
+                    dtos[self.p_algo_1.pk].note_status, NoteStatus.NOTE_SAVED
+                )
+
+                # Re-queued -> Queued overrides Note Saved
+                item = PipelineItem.objects.create(
+                    problem=self.p_algo_1,
+                    status=PipelineItem.Status.QUEUED,
+                    stage=Stage.FETCH_PROBLEM,
+                )
+                dtos_q, _ = resolve_problems_note_status(
+                    [self.p_algo_1], include_pipeline=True
+                )
+                self.assertEqual(
+                    dtos_q[self.p_algo_1.pk].note_status, NoteStatus.QUEUED
+                )
+                self.assertEqual(dtos_q[self.p_algo_1.pk].label, "Queued")
+
+                # Needs input -> Action Needed overrides Note Saved
+                item.status = PipelineItem.Status.NEEDS_INPUT
+                item.save()
+                dtos_a, _ = resolve_problems_note_status(
+                    [self.p_algo_1], include_pipeline=True
+                )
+                self.assertEqual(
+                    dtos_a[self.p_algo_1.pk].note_status, NoteStatus.ACTION_NEEDED
+                )
+                self.assertEqual(dtos_a[self.p_algo_1.pk].label, "Action Needed")
+
+                # Problems page mode (include_pipeline=False) still reports Note Saved
+                dtos_prob, _ = resolve_problems_note_status(
+                    [self.p_algo_1], include_pipeline=False
+                )
+                self.assertEqual(
+                    dtos_prob[self.p_algo_1.pk].note_status, NoteStatus.NOTE_SAVED
+                )
+
     def test_stale_submission_modal_and_resolution(self):
         """Stage 3 Stale Submission Conflict resolution modal and action."""
         Submission.objects.filter(problem=self.p_algo_1).delete()
@@ -2494,6 +2658,12 @@ class TasksViewsTests(TestCase):
         p1_info = data["statuses"][str(self.p_algo_1.pk)]
         self.assertEqual(p1_info["pipeline_status"], "running")
         self.assertEqual(p1_info["pipeline_item_id"], item.pk)
+        self.assertEqual(p1_info["note_status"], "running")
+        self.assertEqual(p1_info["label"], "Running")
+
+        p2_info = data["statuses"][str(self.p_algo_2.pk)]
+        self.assertEqual(p2_info["note_status"], "no_note")
+        self.assertEqual(p2_info["label"], "No Note")
 
     def test_pause_and_resume_pipeline_item(self):
         """User can pause and resume active pipeline items."""

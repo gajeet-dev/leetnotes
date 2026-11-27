@@ -25,7 +25,7 @@
     class="flex flex-wrap items-center gap-2.5 rounded-xl border border-zinc-200/90 bg-white p-2.5 shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900"
   >
     <!-- Hidden Inputs for Active Filters -->
-    <input type="hidden" name="per_page" id="filter-per-page" value="{{ per_page|default:25 }}" />
+    <input type="hidden" name="per_page" id="filter-per-page" value="{{ per_page|default:100 }}" />
     <input type="hidden" name="difficulty" value="{{ difficulty }}" />
     <input type="hidden" name="status" value="{{ status }}" />
     <input type="hidden" name="paid" value="{{ paid_filter }}" />
@@ -343,10 +343,11 @@
     resetPageSelections();
   }
 
+  const ALLOWED_PER_PAGE = [25, 50, 100, 200, 250];
+
   function onPerPageChange(val) {
     let num = parseInt(val, 10);
-    if (isNaN(num) || num < 1) num = 25;
-    if (num > 1000) num = 1000;
+    if (!ALLOWED_PER_PAGE.includes(num)) num = 100;
     const filterInput = document.getElementById('filter-per-page');
     if (filterInput) filterInput.value = num;
     resetPageSelections();
@@ -521,7 +522,7 @@
     if (form) {
       ['difficulty', 'status', 'paid', 'sync', 'notes', 'category', 'per_page'].forEach(name => {
         const inp = form.querySelector(`input[name="${name}"]`);
-        if (inp) inp.value = params.get(name) || (name === 'per_page' ? '25' : '');
+        if (inp) inp.value = params.get(name) || (name === 'per_page' ? '100' : '');
       });
       const qInput = form.querySelector('input[name="q"]');
       if (qInput) qInput.value = params.get('q') || '';

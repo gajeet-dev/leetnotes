@@ -1,4 +1,6 @@
 from .problems import (
+    DEFAULT_PER_PAGE,
+    PER_PAGE_PRESETS,
     compute_facets,
     extract_selected_problem_ids,
     filter_problems,
@@ -15,6 +17,8 @@ from .settings import (
 )
 
 __all__ = [
+    "DEFAULT_PER_PAGE",
+    "PER_PAGE_PRESETS",
     "auto_set_timezone",
     "compute_facets",
     "extract_selected_problem_ids",
